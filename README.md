@@ -3,9 +3,10 @@
 Visor 3D de ligandos (moléculas pequeñas) para Android, escrito en Kotlin.
 Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 
-> **Estado actual:** fase de preparación. El enunciado está analizado, las primeras
-> decisiones están tomadas y el siguiente paso es un *spike* (experimento corto) para
-> validar la librería 3D. Todavía no hay código de la aplicación.
+> **Estado actual:** *spike* 3D en curso (rama `spike/3d`). El proyecto Android vacío ya
+> arranca en el dispositivo y las versiones de Kotlin, Compose y SceneView están alineadas
+> y verificadas con Gradle. Falta dibujar la primera molécula de prueba. Todavía no hay
+> código de la aplicación final.
 
 ---
 
@@ -30,10 +31,11 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 |---|----------|--------|-----------------|
 | D1 | Plataforma: **Android nativo, Kotlin** | Cerrada | La biometría, el almacén de claves, el ciclo de vida y el menú de compartir son APIs nativas, y el 3D multiplataforma disponible es inmaduro para un proyecto donde un fallo equivale a suspender. |
 | D2 | Formato de datos: **`.cif`** de RCSB | Cerrada | Es el formato que pide el enunciado y escribir el parser es una parte central del aprendizaje. |
-| D3 | Interfaz: **Jetpack Compose** | Provisional | Muchos estados (login, carga, error, tema oscuro). Se confirma en el spike. |
-| D4 | Capa 3D: **SceneView (Filament)** | Provisional | Se valida en el spike. Plan B: `GLSurfaceView` con OpenGL ES. |
+| D3 | Interfaz: **Jetpack Compose** | Provisional | Muchos estados (login, carga, error, tema oscuro). Las versiones ya están alineadas; falta confirmar en el dispositivo (H1). |
+| D4 | Capa 3D: **SceneView 4.69.4 (Filament)** | Provisional | Dependencia resuelta; falta compilar y ver la escena en el spike. Plan B: `GLSurfaceView` con OpenGL ES. |
 | D5 | Cuentas de usuario: **almacenamiento local** con hash de contraseña | Provisional | Menos dependencias externas y más aprendizaje que Firebase. |
 | D6 | Idioma de README y `docs/`: **español de España** | Cerrada | Ambos miembros del equipo lo leen. |
+| D7 | Versiones fijadas del spike: SceneView 4.69.4, Kotlin 2.4.21, AGP 9.4.1, Compose BOM 2026.09.00, Java 21 | Provisional | SceneView publica a diario y exige Kotlin 2.4, Compose 1.12.1 y Java 21; se fija una versión concreta. Detalle en [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md). |
 
 ---
 
@@ -45,6 +47,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 |-----------|-----------|--------|
 | [`docs/01-tarea-y-punto-de-partida.md`](docs/01-tarea-y-punto-de-partida.md) | Problema, requisitos, no-objetivos, ambigüedades, criterios de éxito, riesgos y decisiones | Escrito |
 | [`docs/02-spike-3d.md`](docs/02-spike-3d.md) | Plan del spike: qué validamos, cómo, criterios de paso y teoría de 3D necesaria | Escrito |
+| [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md) | Teoría de Gradle, Maven Central y BOM; registro de los pasos 0 y 1; ADR-001 (borrador); paso 2 preparado | Escrito |
 | 03 · Formato CIF y parser | Estructura del fichero, casos límite, modelo de datos | Pendiente |
 | 04 · Arquitectura y decisiones (ADR) | Capas, módulos y registro de decisiones | Pendiente |
 | 05 · Autenticación y seguridad | Hash de contraseñas, Keystore, biometría, bloqueo al volver de segundo plano | Pendiente |
@@ -70,10 +73,23 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 
 ## Entorno de desarrollo
 
-*Pendiente de completar cuando se cree el proyecto Android* (versiones de Android Studio,
-SDK y Gradle, y configuración para el campus).
+Versiones del spike (detalle y motivos en [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md)):
 
-Prueba en dispositivo real: Samsung Galaxy A33 (con lector de huellas).
+| Pieza | Versión |
+|-------|---------|
+| Sistema de desarrollo | Debian 13 (en casa) |
+| Android Gradle Plugin | 9.4.1 |
+| Gradle (wrapper) | 9.6.0 |
+| Kotlin | 2.4.21 |
+| Compose BOM | 2026.09.00 (Compose 1.12.1) |
+| SceneView | 4.69.4 |
+| Java (objetivo) | 21 |
+| compileSdk / minSdk | 37 / 24 |
+| Android Studio | `<pendiente de anotar>` |
+| `adb` (platform-tools) | 37.0.1 |
+
+Prueba en dispositivo real: Samsung Galaxy A33 (con lector de huellas), conectado por USB.
+Versión de Android del dispositivo: `<pendiente de anotar>`.
 
 ---
 

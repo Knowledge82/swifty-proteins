@@ -1,5 +1,9 @@
 # 02 · Spike 3D: ¿aguanta SceneView nuestro proyecto?
 
+> **Estado (14/11/2026):** pasos 0 y 1 hechos; H1 pendiente de confirmar en el dispositivo.
+> La teoría de Gradle, Maven Central y BOM, el registro de lo hecho y el borrador del ADR-001
+> están en [`02a-spike-gradle-dependencias.md`](02a-spike-gradle-dependencias.md).
+
 ## Índice
 
 1. [Qué es un spike y por qué lo hacemos](#1-qué-es-un-spike-y-por-qué-lo-hacemos)
@@ -98,6 +102,11 @@ Cada paso tiene un punto de control. No se pasa al siguiente sin cumplirlo.
 - Leer el README y los ejemplos de SceneView de la **versión actual** antes de escribir nada.
 - Añadir la dependencia, sincronizar Gradle, compilar.
 - **Control:** compila. Si hay conflictos de versiones (Kotlin, Compose, AGP), anotarlos: es información valiosa.
+
+> **Resultado real:** la plantilla generada traía Kotlin 2.2.10, Java 11 y un Compose BOM antiguo, por
+> debajo de lo que exige SceneView 4.69.x (Kotlin 2.4, Java 21, Compose 1.12.1). Hubo que alinear las
+> tres cosas antes de poder usar la librería. Detalle, comandos y decisiones en
+> [`02a-spike-gradle-dependencias.md`](02a-spike-gradle-dependencias.md).
 
 ### Paso 2 · Una escena mínima
 
@@ -258,6 +267,12 @@ Girar el eje Y 90° alrededor de (0,0,−1) lo lleva a (1,0,0), que es justo `d`
 
 Si no se tratan, el síntoma es típico: la molécula parece correcta salvo un enlace que
 «apunta a cualquier parte». Por eso el paso 3 pide probar enlaces verticales.
+
+> **Nota tras leer la documentación de SceneView:** los nodos se giran con `rotation = Rotation(x, y, z)`,
+> es decir, **ángulos de Euler en grados**, mientras que el cálculo anterior da **eje y ángulo**.
+> Convertir de eje-ángulo a Euler es posible pero delicado (bloqueo de cardán, casos degenerados).
+> No hemos encontrado en la documentación si el nodo admite cuaternión o eje-ángulo directamente: es una
+> pregunta abierta del paso 3 y, según la respuesta, esta sección puede cambiar.
 
 ### 5.5 Selección de un átomo (rayo y esfera)
 
