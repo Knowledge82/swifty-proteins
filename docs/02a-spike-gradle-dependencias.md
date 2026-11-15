@@ -13,7 +13,7 @@ hace falta para entenderlo (Gradle, Maven Central, catálogo de versiones, BOM) 
 4. [Catálogo de versiones y BOM](#4-catálogo-de-versiones-y-bom)
 5. [Resolución de conflictos y lectura del árbol de dependencias](#5-resolución-de-conflictos-y-lectura-del-árbol-de-dependencias)
 6. [Anatomía del proyecto generado](#6-anatomía-del-proyecto-generado)
-7. [Decisiones y versiones (ADR-001, borrador)](#7-decisiones-y-versiones-adr-001-borrador)
+7. [Decisiones y versiones (ADR-001, aceptado con reservas)](#7-decisiones-y-versiones-adr-001-aceptado-con-reservas)
 8. [Registro de lo que hicimos](#8-registro-de-lo-que-hicimos)
 9. [Pasos 2 y 3: esfera, enlaces y cámara](#9-pasos-2-y-3-esfera-enlaces-y-cámara)
 10. [Riesgos y trampas](#10-riesgos-y-trampas)
@@ -248,10 +248,35 @@ Detalles de `app/build.gradle.kts`:
 
 ---
 
-## 7. Decisiones y versiones (ADR-001, borrador)
+## 7. Decisiones y versiones (ADR-001, aceptado con reservas)
 
-Este es el borrador de la plantilla de la sección 9 de [`02-spike-3d.md`](02-spike-3d.md).
-**No está cerrado**: faltan H2 a H6.
+**Estado: ACEPTADO CON RESERVAS (15/11/2026).**
+Plantilla de la sección 9 de [`02-spike-3d.md`](02-spike-3d.md).
+
+**Decisión:** el proyecto usa **Kotlin + Jetpack Compose + SceneView 4.69.4** (Filament). El plan B (`GLSurfaceView` con OpenGL ES) queda como alternativa
+si alguna reserva se convierte en fallo.
+
+### Resultado de las hipótesis
+
+| Hipótesis | Resultado | Evidencia y reservas |
+|-----------|-----------|----------------------|
+| H1 · Compila y arranca | **Pasa** | Galaxy A33; versiones alineadas y verificadas con `buildEnvironment` y `dependencies` |
+| H2 · Esferas, cilindros orientados y luces | **Pasa** | Esferas, enlaces sobre los ejes y en diagonal (7 enlaces, 4 ángulos de cámara), colores CPK, luces. Doc. 02a, 9.8 a 9.10 |
+| H3 · Girar, acercar, tocar | **Pasa en lo funcional** | El toque identifica el átomo y lo resalta; la zona sensible por defecto (AABB) es grande. Se aplicó la forma de colisión esférica (commit `a1427d7`); **no se registró una comparación cuantitativa** antes/después. Doc. 02b |
+| H4 · Captura a imagen | **No probada** | Pasa a ser la primera tarea del proyecto real (la alternativa habitual es copiar la superficie con `PixelCopy`; sin verificar) |
+| H5 · Ciclo de vida | **Pasa con reserva** | El usuario informó de que giro de pantalla, segundo plano y bloqueo no dieron fallos; en el registro solo hubo mensajes del sistema (`perf_hint`, `WindowManager`). **Pendiente de verificar el caso más duro: «No conservar actividades» (*Don't keep activities*), que recrea la Activity** |
+| H6 · Rendimiento (~200 átomos) | **No probada** | Pasa a ser tarea del proyecto real; si falla: menos segmentos por esfera, esferas impostoras o plan B |
+
+**Desviación respecto al criterio escrito.** El documento 02 dice «SÍ: H1, H2, H3 y H5 pasan, y H4 y H6 **no tienen un problema grave**».
+Aquí H4 y H6 **no se han probado** y H5 está incompleta, por decisión del equipo para no retrasar el proyecto. Se acepta con estas reservas y se
+**compromete su comprobación antes de dar por buena la vista 3D** (no antes de la defensa):
+
+1. **«No conservar actividades»** (H5): prueba obligatoria antes de cualquier demo. Es el caso que más se parece a que Android mate el proceso en segundo plano, y un fallo ahí es un fallo en la evaluación.
+2. **H4** (captura) antes de implementar el botón de compartir.
+3. **H6** (rendimiento) en cuanto se cargue un ligando real grande.
+
+**Qué fallo cambiaría la decisión:** un cierre inesperado al recrear la Activity o un rendimiento inservible con ligandos reales. En ese caso se evalúa el plan B
+(la capa 3D está pensada para que se pueda cambiar sin tocar el resto: recibe un modelo de datos y devuelve eventos de selección).
 
 | Pieza | Valor | Origen / motivo |
 |-------|-------|-----------------|
@@ -611,9 +636,9 @@ Se clonó el tag `v4.69.4` (commit `5bfe25d`) y se leyó. Esto sustituye a supos
    `.idea/inspectionProfiles/Project_Default.xml`, que sobra: se puede quitar con `git rm --cached`).
 2. Commit del `MoleculeScene.kt` actual (nodos anidados y 7 enlaces) en `spike/3d`.
 3. ~~H3, toque sobre un átomo~~: hecho con la detección integrada (zonas grandes); decisión D8 y alternativas en [`02b-spike-seleccion-atomos.md`](02b-spike-seleccion-atomos.md).
-4. **H5** (ciclo de vida: girar y pasar a segundo plano 10 veces) es lo único que falta para cerrar el spike. H4 (captura a `Bitmap`) y H6 (rendimiento con unos 200 átomos) pasan a ser las primeras tareas del proyecto real, con los mismos criterios (en el documento 02 no condenan la biblioteca).
+4. **Cerrado el spike con reservas (sección 7).** Pendientes, ya dentro del proyecto real: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 5. Registrar versión de Android Studio y versión de Android del A33 en el README.
-6. Cerrar el ADR-001 cuando se complete H5, archivar `spike/3d` con una etiqueta (sin fusionarla) y empezar el proyecto real en `main`.
+6. Archivar `spike/3d` con la etiqueta `spike-3d-final` (**sin fusionarla**: contiene una copia antigua de `README.md` y `docs/`) y crear el proyecto real en `main`.
 
 ### Hallazgos sobre el repositorio (15/11/2026, rama `spike/3d`)
 

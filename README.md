@@ -3,10 +3,10 @@
 Visor 3D de ligandos (moléculas pequeñas) para Android, escrito en Kotlin.
 Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 
-> **Estado actual:** *spike* 3D en curso (rama `spike/3d`). Las versiones de Kotlin, Compose y
-> SceneView están alineadas; ya se dibujan esferas y enlaces (cilindros) sobre los ejes y en diagonal,
-> con colores CPK y cámara inicial, y todo verificado en el dispositivo. El toque sobre un átomo funciona
-> (zonas sensibles grandes, ver D8). Faltan el ciclo de vida, la captura y el rendimiento. Todavía no hay código de la aplicación final.
+> **Estado actual:** *spike* 3D **cerrado con reservas** (ADR-001, ver
+> [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md), sección 7). Se dibujan esferas y enlaces
+> (también en diagonal) con colores CPK, la selección de átomos funciona, y todo está verificado en el dispositivo. Siguiente
+> paso: crear el proyecto real en `main`. Pendientes con compromiso: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
 
@@ -31,12 +31,12 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 |---|----------|--------|-----------------|
 | D1 | Plataforma: **Android nativo, Kotlin** | Cerrada | La biometría, el almacén de claves, el ciclo de vida y el menú de compartir son APIs nativas, y el 3D multiplataforma disponible es inmaduro para un proyecto donde un fallo equivale a suspender. |
 | D2 | Formato de datos: **`.cif`** de RCSB | Cerrada | Es el formato que pide el enunciado y escribir el parser es una parte central del aprendizaje. |
-| D3 | Interfaz: **Jetpack Compose** | Provisional | Muchos estados (login, carga, error, tema oscuro). Versiones alineadas y H1 confirmada en el dispositivo; se cierra al terminar el spike. |
-| D4 | Capa 3D: **SceneView 4.69.4 (Filament)** | Provisional | Compila y dibuja esferas y cilindros en el A33; la selección de átomos funciona con zonas grandes (D8); faltan ciclo de vida, captura y rendimiento. Plan B: `GLSurfaceView` con OpenGL ES. |
+| D3 | Interfaz: **Jetpack Compose** | Cerrada | Muchos estados (login, carga, error, tema oscuro). Versiones alineadas, H1 confirmada en el dispositivo y escena 3D integrada sin fricción con Compose. |
+| D4 | Capa 3D: **SceneView 4.69.4 (Filament)** | Aceptada con reservas | Compila y dibuja esferas y cilindros en el A33; la selección de átomos funciona con zonas grandes (D8); faltan ciclo de vida, captura y rendimiento. Plan B: `GLSurfaceView` con OpenGL ES. |
 | D5 | Cuentas de usuario: **almacenamiento local** con hash de contraseña | Provisional | Menos dependencias externas y más aprendizaje que Firebase. |
 | D6 | Idioma de README y `docs/`: **español de España** | Cerrada | Ambos miembros del equipo lo leen. |
 | D7 | Versiones fijadas del spike: SceneView 4.69.4, Kotlin 2.4.21, AGP 9.4.1, Compose BOM 2026.09.00, Java 21 | Provisional | SceneView publica a diario y exige Kotlin 2.4, Compose 1.12.1 y Java 21; se fija una versión concreta. Detalle en [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md). |
-| D8 | Selección de átomos: **detección integrada de SceneView (AABB)** con resaltado por estado | Provisional | Funciona y no añade código, pero las zonas son grandes. Mejora prevista y barata: `collisionShape = Sphere(radio)`. Se revisa con una molécula real. Detalle en [`docs/02b-spike-seleccion-atomos.md`](docs/02b-spike-seleccion-atomos.md). |
+| D8 | Selección de átomos: forma de colisión **esférica** (`collision.Sphere`) con resaltado por estado | Provisional | Sustituye a la caja (AABB) por defecto, cuyas zonas eran grandes. Aplicada en el spike; se mide con una molécula real. Detalle en [`docs/02b-spike-seleccion-atomos.md`](docs/02b-spike-seleccion-atomos.md). |
 
 ---
 

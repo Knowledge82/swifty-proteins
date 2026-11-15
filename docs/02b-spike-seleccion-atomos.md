@@ -1,7 +1,7 @@
 # 02b · Spike 3D: toque y selección de átomos (H3)
 
-> Estado: **H3 resuelta con una solución provisional** (detección integrada de SceneView, zonas grandes).
-> Mejora identificada y **no aplicada todavía**: forma de colisión esférica (sección 7).
+> Estado: **H3 resuelta**. La detección integrada tenía zonas grandes; se **aplicó la forma de colisión esférica** (alternativa A, sección 7.1),
+> con un interruptor para comparar. Falta medir con una molécula real.
 > Documento redactado el 15/11/2026. Lo verificado en el código fuente (tag `v4.69.4`) se distingue de lo verificado en el dispositivo.
 
 ## Índice
@@ -92,12 +92,15 @@ Primera versión descartada: mostrar el nombre en un `Text` superpuesto. Servía
 - El toque identifica el átomo y lo resalta en amarillo; el toque en el vacío deselecciona.
 - Con los cubos de depuración visibles, el usuario comprobó que **las zonas sensibles son grandes** y la selección resulta «tosca».
 
+**Aplicado después (commit `a1427d7`, 15/11/2026):** `collisionShape = Sphere(radio)` en `apply` de cada átomo, con la constante `SPHERE_COLLIDER`
+(`false` devuelve el comportamiento anterior). El usuario siguió adelante sin objeciones, pero **no se registró una comparación** de los casos de la tabla.
+
 **No registrado:** la tabla completa de 7 casos de la sección 8 no se rellenó con resultados, y la prueba con átomos solapados en una molécula real se aplaza (el spike solo tiene 8 átomos).
 Por tanto: **H3 cumplida en lo funcional; la precisión queda sin cuantificar.**
 
 ## 6. Decisión provisional (D8) y riesgos
 
-**D8 (provisional).** Mantener por ahora la detección integrada (AABB). Motivos: funciona, no añade código, y la precisión solo puede evaluarse bien con
+**D8 (provisional, actualizada).** Se partió de la detección integrada (AABB), que resultó grande, y se pasó a la forma esférica (alternativa A). Texto original de la decisión: mantener por ahora la detección integrada (AABB). Motivos: funciona, no añade código, y la precisión solo puede evaluarse bien con
 una molécula real y densa. Se revisa en cuanto se pueda cargar un ligando `.cif` completo.
 
 | Riesgo | Efecto | Mitigación |
@@ -124,7 +127,7 @@ SphereNode(
 
 - **Ventajas:** una línea por átomo; la intersección es la exacta rayo-esfera (sección 2); se sigue usando todo el sistema de SceneView
   (`isHittable`, orden por distancia, listener con el nodo).
-- **Inconvenientes / sin verificar:** no se ha ejecutado. Hay que comprobar que (1) compila con ese import (existen **dos clases `Sphere`**: la de colisión y la de geometría),
+- **Estado: aplicada en el spike (commit `a1427d7`); sin medir.** Puntos a comprobar con una molécula real: que (1) compila con ese import (existen **dos clases `Sphere`**: la de colisión y la de geometría),
   (2) asignarla dentro de `apply`, antes de que el nodo esté en la escena, surte efecto, y (3) la forma sigue al nodo cuando cambia su posición.
   Al asignarla, el colisionador **deja de seguir** los cambios de geometría del nodo: si el radio del átomo cambia, hay que actualizar la forma a mano.
 - **Coste:** mínimo. Es la primera opción cuando haga falta más precisión.
