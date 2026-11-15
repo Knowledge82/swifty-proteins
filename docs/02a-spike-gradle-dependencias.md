@@ -610,11 +610,10 @@ Se clonó el tag `v4.69.4` (commit `5bfe25d`) y se leyó. Esto sustituye a supos
 1. ~~Subir `MoleculeScene.kt` a `spike/3d`~~ (hecho el 15/11 con el commit de todo el grupo de ficheros sin versionar; incluyó también
    `.idea/inspectionProfiles/Project_Default.xml`, que sobra: se puede quitar con `git rm --cached`).
 2. Commit del `MoleculeScene.kt` actual (nodos anidados y 7 enlaces) en `spike/3d`.
-3. **H3, toque sobre un átomo** (9.11): probar `rememberOnGestureListener(onSingleTapConfirmed = { e, node -> … })` y medir la zona
-   sensible (AABB frente a esfera); decidir si hace falta selección propia por rayo-esfera.
-4. H5 (ciclo de vida: girar y pasar a segundo plano 10 veces), H4 (captura a `Bitmap`) y H6 (rendimiento con unos 200 átomos).
+3. ~~H3, toque sobre un átomo~~: hecho con la detección integrada (zonas grandes); decisión D8 y alternativas en [`02b-spike-seleccion-atomos.md`](02b-spike-seleccion-atomos.md).
+4. **H5** (ciclo de vida: girar y pasar a segundo plano 10 veces) es lo único que falta para cerrar el spike. H4 (captura a `Bitmap`) y H6 (rendimiento con unos 200 átomos) pasan a ser las primeras tareas del proyecto real, con los mismos criterios (en el documento 02 no condenan la biblioteca).
 5. Registrar versión de Android Studio y versión de Android del A33 en el README.
-6. Cerrar el ADR-001 cuando se completen H3 a H6, archivar `spike/3d` con una etiqueta (sin fusionarla) y empezar el proyecto real en `main`.
+6. Cerrar el ADR-001 cuando se complete H5, archivar `spike/3d` con una etiqueta (sin fusionarla) y empezar el proyecto real en `main`.
 
 ### Hallazgos sobre el repositorio (15/11/2026, rama `spike/3d`)
 
