@@ -49,8 +49,8 @@ fue un ejercicio de **alinear versiones** de cuatro piezas que se condicionan en
 | H1 | La app arranca en el A33 con todas las versiones nuevas | **Confirmado**: arranca («Hello Android!») y la escena de SceneView se dibuja |
 | 2 | Primera esfera en pantalla | Hecho: esfera gris que gira, con varias luces (ver sección 9.6) |
 
-Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 cumplida. H2 y H3 parcialmente (se ven esfera, luces
-y giro; faltan cilindro, zoom con pellizco y toque sobre el átomo). H4 a H6 sin probar.
+Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 cumplida. H2 y H3 parcialmente (esfera, luces,
+giro, zoom con pellizco y desplazamiento confirmados; faltan el cilindro y el toque sobre el átomo). H4 a H6 sin probar.
 
 ---
 
@@ -417,20 +417,50 @@ en el mismo paquete, así que no hace falta ningún import nuevo.
   no se resolvía. Los errores de compilación se leen **de arriba abajo**.
 - **Imports:** en Linux, el atajo **Alt+Enter no hizo nada**, pero al **hacer clic** en la sugerencia de Android Studio
   el import se aplicaba. Causa sin confirmar (puede interceptarlo el entorno de escritorio; se puede revisar en
-  *Settings, Keymap, «Show Context Actions»*). Paquetes exactos de los imports: `<pendiente de anotar>`.
+  *Settings, Keymap, «Show Context Actions»*). Imports reales: `io.github.sceneview.SceneView`, `io.github.sceneview.rememberEngine`,
+  `io.github.sceneview.rememberMaterialLoader` e `io.github.sceneview.rememberCameraManipulator` (los cuatro en el paquete raíz
+  `io.github.sceneview`). **`SphereNode` no necesita import**: se resuelve dentro de la lambda de `SceneView { … }`.
 - **Imagen obtenida:** esfera gris con varios reflejos (varias luces por defecto) que gira al arrastrar. Fondo negro.
 - **Facetas visibles en el contorno.** Una esfera 3D es siempre una malla de triángulos; con pocos segmentos el contorno
   se ve poligonal aunque el sombreado sea suave. `SphereNode` tiene los parámetros `stacks` y `slices`; la documentación
   sugiere 8/8 para «poca resolución» y 32/32 para «suave», y avisa de que cambiarlos **reconstruye la malla**.
   Coste aproximado: unos `stacks × slices × 2` triángulos por esfera (32 × 32 ≈ 2000). Con muchos átomos habrá que
   ajustar los segmentos al tamaño de la molécula (relacionado con H6 y con el bonus VII.4).
-- **Encuadre incorrecto:** la esfera (radio 0,5) llena todo el ancho de la pantalla y se recorta por los lados. La cámara
-  inicial por defecto está demasiado cerca; hay que fijar la inicial según la sección 5.3 de [`02-spike-3d.md`](02-spike-3d.md).
-- **Sin comprobar todavía:** zoom con pellizco, desplazamiento con dos dedos y toque sobre la esfera.
+- **Encuadre inicial: sin conclusión.** En la captura la esfera llena el ancho de la pantalla, pero el usuario ya había
+  hecho zoom, así que no se puede deducir cómo encuadra la cámara por defecto (una primera lectura apresurada decía lo
+  contrario y se descartó). Se comprobará arrancando la app sin tocar la pantalla; en cualquier caso, la cámara inicial se
+  fijará según la sección 5.3 de [`02-spike-3d.md`](02-spike-3d.md).
+- **Confirmado después:** giro con un dedo, zoom con pellizco y desplazamiento con dos dedos. **Sin comprobar todavía:**
+  toque sobre la esfera.
 
 **Alternativa a las esferas de malla:** los visores moleculares profesionales dibujan «esferas impostoras»: un cuadrado
 en el que el *fragment shader* calcula una esfera perfecta, con muy pocos triángulos. Exige escribir un material propio,
 así que es más natural en el plan B (OpenGL ES) que con SceneView; de momento no la necesitamos.
+
+### 9.7 Parámetros reales de `SphereNode` (leídos en el IDE con Ctrl+P)
+
+```
+radius: Float = Sphere.DEFAULT_RADIUS
+materialInstance: MaterialInstance? = null
+center: Position = Sphere.DEFAULT_CENTER
+stacks: Int = Sphere.DEFAULT_STACKS
+slices: Int = Sphere.DEFAULT_SLICES
+position: Position = Position(x = 0f)
+rotation: Rotation = Rotation(x = 0f)
+scale: Scale = Scale(1f)
+apply: SphereNode.() -> Unit = {}
+content: @Composable (NodeScope.() -> Unit)? = null
+```
+
+Conclusiones:
+
+- Coincide con la documentación. Los parámetros de transformación son `position`, `rotation` y `scale`.
+- **No hay parámetro de cuaternión.** El giro por parámetro es `rotation`, en ángulos de Euler (grados). Si el nodo admite
+  cuaternión o `lookAt`, habrá que buscarlo dentro del bloque `apply`: pendiente de comprobar en el IDE (Ctrl+Espacio dentro de `apply = { }`).
+- `content` permite **nodos hijos**, útil para agrupar un enlace bajo un nodo pivote.
+- Los giros sobre **un solo eje** (por ejemplo `Rotation(z = 90f)`) no dependen del orden de los ejes de Euler; los giros
+  en diagonal sí. Por eso el paso 3 empieza con enlaces alineados con un eje.
+- Se asume (sin comprobar) que `CylinderNode` comparte los parámetros de transformación de `SphereNode`.
 
 ---
 
@@ -466,8 +496,9 @@ así que es más natural en el plan B (OpenGL ES) que con SceneView; de momento 
 ## 12. Pendiente
 
 1. Confirmar el `git commit` y `git push` de la rama `spike/3d` (con `MoleculeScene.kt` y el cambio en `MainActivity.kt`).
-2. Anotar los **imports exactos** de `MoleculeScene.kt` (sección 9.6).
-3. Subir la resolución de la esfera (`stacks`/`slices`) y **fijar la cámara inicial** para que se vea entera.
+2. Anotar los imports de `Position`, `Rotation` y `CylinderNode` cuando aparezcan en el paso 3.
+3. Subir la resolución de la esfera (`stacks`/`slices`) y comprobar el encuadre inicial de la cámara (arrancar sin tocar
+   la pantalla); fijarla si hace falta.
 4. Pasos 3 y 4 del spike: dos átomos y un enlace (cilindro), colores y luces.
 5. Comprobar zoom con pellizco, desplazamiento y toque sobre un átomo.
 6. Registrar versión de Android Studio y versión de Android del A33 en el README.
