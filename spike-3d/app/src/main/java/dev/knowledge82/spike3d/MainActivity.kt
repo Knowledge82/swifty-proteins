@@ -20,8 +20,7 @@ class MainActivity : ComponentActivity() {
         setContent {
             Spike3dTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
+                    MoleculeScene(
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
