@@ -15,7 +15,7 @@ hace falta para entenderlo (Gradle, Maven Central, catálogo de versiones, BOM) 
 6. [Anatomía del proyecto generado](#6-anatomía-del-proyecto-generado)
 7. [Decisiones y versiones (ADR-001, borrador)](#7-decisiones-y-versiones-adr-001-borrador)
 8. [Registro de lo que hicimos](#8-registro-de-lo-que-hicimos)
-9. [Paso 2: primera esfera](#9-paso-2-primera-esfera)
+9. [Pasos 2 y 3: esfera, enlaces y cámara](#9-pasos-2-y-3-esfera-enlaces-y-cámara)
 10. [Riesgos y trampas](#10-riesgos-y-trampas)
 11. [Diagnóstico](#11-diagnóstico)
 12. [Pendiente](#12-pendiente)
@@ -48,9 +48,14 @@ fue un ejercicio de **alinear versiones** de cuatro piezas que se condicionan en
 | 1d | Alinear Compose con el BOM 2026.09.00 | Hecho y **verificado** con `dependencies` |
 | H1 | La app arranca en el A33 con todas las versiones nuevas | **Confirmado**: arranca («Hello Android!») y la escena de SceneView se dibuja |
 | 2 | Primera esfera en pantalla | Hecho: esfera gris que gira, con varias luces (ver sección 9.6) |
+| 3a | Dos átomos y un enlace (cilindro), colores CPK | Hecho (sección 9.8) |
+| 3b | «Trípode»: enlaces sobre los ejes X, Y y Z | Hecho, comprobado desde un solo punto de vista (sección 9.8) |
+| 3c | Cámara inicial con `orbitRadius` | Pendiente (firmas en 9.9) |
+| 3d | Enlace en diagonal | **Pendiente: la pregunta abierta de H2** |
 
-Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 cumplida. H2 y H3 parcialmente (esfera, luces,
-giro, zoom con pellizco y desplazamiento confirmados; faltan el cilindro y el toque sobre el átomo). H4 a H6 sin probar.
+Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 cumplida. H2 casi (esferas, cilindros sobre los tres ejes, colores y luces confirmados;
+falta el enlace en diagonal) y H3 parcialmente (giro, zoom con pellizco y desplazamiento confirmados; falta el toque sobre un átomo).
+H4 a H6 sin probar.
 
 ---
 
@@ -327,7 +332,7 @@ Se actualizó `composeBom` y la comprobación mostró `ui`, `foundation` y `runt
 
 ---
 
-## 9. Paso 2: primera esfera
+## 9. Pasos 2 y 3: esfera, enlaces y cámara
 
 **Estado: hecho.** El código, escrito a partir de la documentación de SceneView 4.65-4.69, compiló y se
 ejecutó en el A33 una vez añadidos los imports (resultado real en 9.6).
@@ -426,12 +431,12 @@ en el mismo paquete, así que no hace falta ningún import nuevo.
   sugiere 8/8 para «poca resolución» y 32/32 para «suave», y avisa de que cambiarlos **reconstruye la malla**.
   Coste aproximado: unos `stacks × slices × 2` triángulos por esfera (32 × 32 ≈ 2000). Con muchos átomos habrá que
   ajustar los segmentos al tamaño de la molécula (relacionado con H6 y con el bonus VII.4).
-- **Encuadre inicial: sin conclusión.** En la captura la esfera llena el ancho de la pantalla, pero el usuario ya había
-  hecho zoom, así que no se puede deducir cómo encuadra la cámara por defecto (una primera lectura apresurada decía lo
-  contrario y se descartó). Se comprobará arrancando la app sin tocar la pantalla; en cualquier caso, la cámara inicial se
-  fijará según la sección 5.3 de [`02-spike-3d.md`](02-spike-3d.md).
+- **Encuadre inicial (comprobado arrancando sin tocar la pantalla):** la cámara por defecto queda **centrada pero muy
+  cerca del origen**; la molécula de dos átomos no cabe a lo ancho hasta que se aleja con el pellizco. (La primera captura
+  de la esfera no permitía concluirlo porque ya se había hecho zoom; esa lectura apresurada se retiró y esta es la
+  comprobada.) La cámara inicial se fijará según la sección 5.3 de [`02-spike-3d.md`](02-spike-3d.md); ver 9.9.
 - **Confirmado después:** giro con un dedo, zoom con pellizco y desplazamiento con dos dedos. **Sin comprobar todavía:**
-  toque sobre la esfera.
+  toque sobre un átomo.
 
 **Alternativa a las esferas de malla:** los visores moleculares profesionales dibujan «esferas impostoras»: un cuadrado
 en el que el *fragment shader* calcula una esfera perfecta, con muy pocos triángulos. Exige escribir un material propio,
@@ -460,7 +465,51 @@ Conclusiones:
 - `content` permite **nodos hijos**, útil para agrupar un enlace bajo un nodo pivote.
 - Los giros sobre **un solo eje** (por ejemplo `Rotation(z = 90f)`) no dependen del orden de los ejes de Euler; los giros
   en diagonal sí. Por eso el paso 3 empieza con enlaces alineados con un eje.
-- Se asume (sin comprobar) que `CylinderNode` comparte los parámetros de transformación de `SphereNode`.
+- `CylinderNode` comparte los parámetros de transformación de `SphereNode` (`position`, `rotation`): **comprobado** en el paso 3.
+
+### 9.8 Paso 3: enlaces (cilindros) y colores CPK (15/11/2026)
+
+**3a. Dos átomos y un enlace.** Esferas con `radius = 0.4f, stacks = 32, slices = 32` en `x = ±0.75` (gris y rojo) y un
+`CylinderNode(radius = 0.12f, height = 1.5f, rotation = Rotation(z = 90f))` entre ambas. **Resultado: correcto.**
+
+- El eje por defecto del cilindro es **Y** (confirmado a la vista: sin giro queda vertical). Para tumbarlo sobre X basta
+  `Rotation(z = 90f)`.
+- Con 32/32 las facetas del contorno dejan de notarse.
+- Colores CPK correctos para C (gris) y O (rojo). Los enlaces son más finos que los átomos, como pide el modelo *ball-and-stick*.
+
+**3b. «Trípode»: 1 átomo central y 3 átomos rojos, uno por eje.** Esferas en `(0,0,0)`, `(1.5,0,0)`, `(0,1.5,0)` y `(0,0,1.5)`;
+cilindros de longitud 1,5 centrados en el punto medio de cada enlace (`0.75` sobre el eje): eje X con `Rotation(z = 90f)`,
+eje Y sin giro, eje Z con `Rotation(x = 90f)`. **Resultado: correcto** (foto del 15/11 a las 13:02: tres enlaces que parten del
+átomo central hacia cada átomo rojo).
+
+Qué demuestra y qué no:
+
+- **Demuestra:** posición y giro de cilindros sobre los tres ejes principales; que el centro del cilindro es su punto medio
+  (por eso se coloca en el medio del enlace); que la convención de ejes coincide con la de nuestro documento 02.
+- **No demuestra todavía:** enlaces **en diagonal**. Con giros de un solo eje el orden de Euler no importa; con un enlace
+  arbitrario sí, y es el caso real de cualquier ligando. Es **la** pregunta técnica abierta de H2.
+- Además, la foto es de **un solo punto de vista**: un enlace Z visto de frente puede parecer correcto aunque estuviera mal
+  orientado. Hay que girar la escena y comprobar que los tres enlaces siguen uniendo los átomos desde cualquier ángulo.
+
+### 9.9 Cámara inicial: firmas reales de `rememberCameraManipulator`
+
+Leídas en el IDE (Ctrl+P). Hay cuatro sobrecargas:
+
+```
+(orbitRadius: Float, targetPosition: Position? = null, inertia: Inertia = Inertia.Default, key: Any? = null, creator)
+(orbitRadius: Float, targetPosition: Position? = null, inertia: Inertia = Inertia.Default, creator)        // sin key
+(orbitHomePosition: Position? = null, targetPosition: Position? = null, inertia: Inertia = Inertia.Default, key: Any? = null, creator)
+(orbitHomePosition: Position? = null, targetPosition: Position? = null, inertia: Inertia = Inertia.Default, creator)  // sin key
+```
+
+- `orbitRadius` + `targetPosition` equivale a nuestra cámara orbital del documento 02: distancia al objetivo y punto que se mira.
+  Es la opción más directa: `rememberCameraManipulator(orbitRadius = d, targetPosition = Position(0f, 0f, 0f))`.
+- `orbitHomePosition` fija la posición exacta de partida de la cámara (útil si queremos un ángulo inicial distinto del frontal).
+- `key`: **inferencia, sin comprobar**: probablemente fuerza a recrear el manipulador cuando cambia (por ejemplo, al cargar otra
+  molécula con otro radio). Se comprobará leyendo la documentación (Ctrl+Q) o probándolo.
+- La distancia correcta depende del radio de la molécula y del campo de visión (documento 02, sección 5.3: `d = r / sin(FOV/2)`
+  con el FOV **menor**, que en vertical es el horizontal). Asumimos un FOV por defecto que **no hemos leído**; el 9,5 de la
+  primera prueba es un valor de partida a ajustar a ojo, no una fórmula verificada.
 
 ---
 
@@ -495,14 +544,25 @@ Conclusiones:
 
 ## 12. Pendiente
 
-1. Confirmar el `git commit` y `git push` de la rama `spike/3d` (con `MoleculeScene.kt` y el cambio en `MainActivity.kt`).
-2. Anotar los imports de `Position`, `Rotation` y `CylinderNode` cuando aparezcan en el paso 3.
-3. Subir la resolución de la esfera (`stacks`/`slices`) y comprobar el encuadre inicial de la cámara (arrancar sin tocar
-   la pantalla); fijarla si hace falta.
-4. Pasos 3 y 4 del spike: dos átomos y un enlace (cilindro), colores y luces.
-5. Comprobar zoom con pellizco, desplazamiento y toque sobre un átomo.
+1. **Subir `MoleculeScene.kt` a `spike/3d`.** Comprobado en GitHub (15/11, commit `331462d`): el fichero **no está** en la rama, pero
+   `MainActivity.kt` ya lo usa; quien clone la rama no podrá compilar. Hacer `git add` del fichero y `git push`.
+2. Fijar la cámara inicial con `rememberCameraManipulator(orbitRadius = …, targetPosition = …)` (9.9) y ajustar la distancia a ojo.
+3. **Enlace en diagonal** (H2): decidir entre convertir eje-ángulo a Euler o usar cuaternión/`lookAt` si el bloque `apply` los ofrece
+   (Ctrl+Espacio dentro de `apply = { }`). Comprobar el trípode **desde varios ángulos**.
+4. Toque sobre un átomo (H3): `onGestureListener` con `onSingleTapConfirmed(event, node)` o selección propia por rayo-esfera.
+5. H5 (ciclo de vida: girar y pasar a segundo plano 10 veces), H4 (captura a `Bitmap`) y H6 (rendimiento con unos 200 átomos).
 6. Registrar versión de Android Studio y versión de Android del A33 en el README.
-7. Cerrar el ADR-001 cuando se completen H2 a H6.
+7. Cerrar el ADR-001 cuando se completen H2 a H6, archivar `spike/3d` con una etiqueta (sin fusionarla) y empezar el proyecto real en `main`.
+
+### Hallazgos sobre el repositorio (15/11/2026, rama `spike/3d`)
+
+- **Higiene correcta:** no hay `build/`, `.gradle/` ni `local.properties` versionados; el `.gitignore` es el estándar de Android Studio.
+- `spike-3d/.idea/*` **sí** está versionado (valor por defecto de la plantilla). Para el proyecto real conviene revisar qué ficheros de
+  `.idea/` aportan algo al equipo (suelen sobrar casi todos y generan conflictos entre dos desarrolladores).
+- `spike-3d/gradle/gradle-daemon-jvm.properties` está versionado: lo genera `updateDaemonJvm` y fija `toolchainVersion=25` con
+  descargas vía *foojay* para cada sistema. Es relevante para el campus: sin permisos de administrador, Gradle descargará su propio
+  JDK. Conviene decidir si el proyecto real lo conserva (JDK 25 para el demonio y Java 21 como objetivo de compilación son dos cosas
+  distintas, y es fácil confundirlas).
 
 ---
 
@@ -518,7 +578,10 @@ Conclusiones:
 - Que la sincronización pase y que el código compile y arranque en el móvil son **tres pruebas distintas**.
 - Los errores de compilación se leen **de arriba abajo**: los últimos suelen ser consecuencia de los primeros.
 - Una esfera 3D es una malla de triángulos: la suavidad se compra con más segmentos (`stacks`/`slices`) y cuesta memoria.
-- La cámara inicial por defecto **no encuadra** nuestra escena: hay que fijarla nosotros.
+- La cámara inicial por defecto **no encuadra** nuestra escena (arranca centrada pero muy cerca): hay que fijarla nosotros con `orbitRadius`.
+- El cilindro de SceneView tiene el eje **Y** por defecto; sus giros se dan en grados de Euler y solo los giros de un eje son inequívocos.
+- Un spike se da por cerrado por **criterios escritos de antemano**, no por sensación: lo que queda abierto son los casos que pueden hundir el proyecto (diagonal, toque, ciclo de vida).
+- Antes de decir «está en el repositorio», **se mira el repositorio**.
 
 ---
 
