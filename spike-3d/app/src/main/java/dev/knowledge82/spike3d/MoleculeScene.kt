@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import io.github.sceneview.SceneView
+import io.github.sceneview.collision.Sphere
 import io.github.sceneview.math.Position
 import io.github.sceneview.math.Rotation
 import io.github.sceneview.math.Size
@@ -55,6 +56,10 @@ private const val ATOM_PREFIX = "atom "
 // Debug only: draws a translucent green cube around every atom, about the size of the box
 // SceneView uses to decide what a tap hits. Set to false (or delete the cubes) when done.
 private const val DEBUG_HITBOX = false
+
+// true: each atom is picked with an exact sphere (collision.Sphere) instead of the default cube.
+// Flip to false to compare with the old behaviour.
+private const val SPHERE_COLLIDER = true
 private const val ATOM_RADIUS = 0.4f
 
 @Composable
@@ -104,7 +109,10 @@ fun MoleculeScene(modifier: Modifier = Modifier) {
         SphereNode(
             radius = ATOM_RADIUS, stacks = 32, slices = 32,
             materialInstance = if (selected == 0) highlight else gray,
-            apply = { this.name = "${ATOM_PREFIX}0" },
+            apply = {
+                this.name = "${ATOM_PREFIX}0"
+                if (SPHERE_COLLIDER) this.collisionShape = Sphere(ATOM_RADIUS)
+            },
         )
         if (DEBUG_HITBOX) {
             CubeNode(
@@ -123,7 +131,10 @@ fun MoleculeScene(modifier: Modifier = Modifier) {
                 radius = ATOM_RADIUS, stacks = 32, slices = 32,
                 materialInstance = if (selected == id) highlight else red,
                 position = tip,
-                apply = { this.name = "$ATOM_PREFIX$id" },
+                apply = {
+                    this.name = "$ATOM_PREFIX$id"
+                    if (SPHERE_COLLIDER) this.collisionShape = Sphere(ATOM_RADIUS)
+                },
             )
             if (DEBUG_HITBOX) {
                 CubeNode(
