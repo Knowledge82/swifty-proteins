@@ -50,11 +50,10 @@ fue un ejercicio de **alinear versiones** de cuatro piezas que se condicionan en
 | 2 | Primera esfera en pantalla | Hecho: esfera gris que gira, con varias luces (ver sección 9.6) |
 | 3a | Dos átomos y un enlace (cilindro), colores CPK | Hecho (sección 9.8) |
 | 3b | «Trípode»: enlaces sobre los ejes X, Y y Z | Hecho, comprobado desde un solo punto de vista (sección 9.8) |
-| 3c | Cámara inicial con `orbitRadius` | Pendiente (firmas en 9.9) |
-| 3d | Enlace en diagonal | **Pendiente: la pregunta abierta de H2** |
+| 3c | Cámara inicial con `orbitRadius = 9.5f` | Hecho: la molécula de prueba queda centrada y cabe en pantalla (capturas del 15/11, 14:28 a 14:31); valor ajustado a ojo |
+| 3d | Enlaces en diagonal | **Hecho** con nodos anidados (sección 9.10); verificado en 4 capturas desde ángulos distintos |
 
-Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 cumplida. H2 casi (esferas, cilindros sobre los tres ejes, colores y luces confirmados;
-falta el enlace en diagonal) y H3 parcialmente (giro, zoom con pellizco y desplazamiento confirmados; falta el toque sobre un átomo).
+Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 cumplida. H2 **cumplida** (esferas, cilindros sobre ejes y en diagonal, colores y luces) y H3 parcialmente (giro, zoom con pellizco y desplazamiento confirmados; falta el toque sobre un átomo).
 H4 a H6 sin probar.
 
 ---
@@ -511,6 +510,70 @@ Leídas en el IDE (Ctrl+P). Hay cuatro sobrecargas:
   con el FOV **menor**, que en vertical es el horizontal). Asumimos un FOV por defecto que **no hemos leído**; el 9,5 de la
   primera prueba es un valor de partida a ajustar a ojo, no una fórmula verificada.
 
+### 9.10 Enlaces en diagonal: lo que falló, por qué y la solución (15/11/2026)
+
+**Intento A (falló): cuaternión en `apply`.** Se calculó con una función propia (arco más corto: `normalizar(Y × d, 1 + Y·d)`,
+verificada en Python con 100 000 direcciones) y se asignó dentro de `apply = { quaternion = q }`. Resultado: los cilindros
+diagonales quedaron **verticales y flotando** en el punto medio del enlace, con la longitud correcta. Diagnóstico por la imagen:
+posición y longitud bien, **giro no aplicado**.
+
+**Causa (confirmada leyendo el código fuente del tag `v4.69.4`, no la documentación).** En `SceneScope.kt`, el composable
+`CylinderNode` (y `Node` igual) hace:
+
+```kotlin
+val node = remember(engine) { CylinderNodeImpl(...).apply(apply) }   // 1) apply: UNA vez, al crear
+...
+DisposableEffect(node, rotation.x, rotation.y, rotation.z) { node.rotation = rotation }  // 2) después, el parámetro
+```
+
+El parámetro `rotation` tiene valor por defecto `Rotation(0f)` y se escribe **después** de `apply`, así que lo borra. Lo mismo
+ocurriría con `lookTowards(...)` dentro de `apply` (intento C, descartado sin probar). Regla: **en SceneView 4.69.4 lo que se
+pone en `apply` se pisa con los parámetros `position`, `rotation` y `scale`**; la orientación debe viajar por parámetros.
+
+**Solución (B, verificada): dos nodos anidados con giros de un solo eje.**
+
+- Un `Node` pivote en el punto medio del enlace gira `spin` grados alrededor de Y.
+- Dentro, el `CylinderNode` (centrado en el pivote) se inclina `tilt` grados alrededor de Z.
+- `tilt = acos(dy/len)` y `spin = atan2(dz, -dx)` (coordenadas esféricas de la dirección del enlace).
+- Como el mundo es `padre × hijo`, el orden de los giros lo fija la anidación y no hay ambigüedad de Euler.
+- Casos límite sin división por cero: dirección `±Y` da `tilt` 0 o 180 y cualquier `spin`.
+- Verificación numérica en Python (100 000 direcciones, error 1e-14, asumiendo giros dextrógiros) y **visual en el A33**:
+  7 enlaces (3 sobre los ejes, 4 diagonales incluido `(0,-1.5,0)`), ninguno flotando desde 4 ángulos. Un signo equivocado
+  habría dejado el cilindro de `(1,1,0)` cruzado por su punto medio, sin llegar al átomo; no se observó.
+
+**Longitud.** `height` es la **altura total** (`Cylinder.kt`: «Total height», se reparte `height/2` a cada lado del centro). Con la
+longitud igual a la distancia entre centros y el pivote en el punto medio, los extremos caen exactamente en los centros de los
+átomos. La parte visible es `longitud − 2·radio del átomo`.
+
+### 9.11 Lo que dice el código fuente de SceneView 4.69.4 (verificado)
+
+Se clonó el tag `v4.69.4` (commit `5bfe25d`) y se leyó. Esto sustituye a suposiciones anteriores:
+
+- **Ángulos de `rotation`:** grados, **orden ZYX**; el getter es `quaternion.toEulerAngles()` y el setter `Quaternion.fromEuler(value)`.
+- **`position` y `rotation` de un nodo son locales** respecto a su padre (hay `worldPosition`/`worldRotation` aparte). La documentación
+  de los composables dice «World-space», lo cual **induce a error** dentro de un `Node { }`.
+- **`Node(position, rotation, scale, isVisible, isEditable, apply, content)`** es un miembro de `SceneScope`; su `content` recibe un
+  `NodeScope` (donde también están `SphereNode`, `CylinderNode`…). No necesita import.
+- **`Node.quaternion`** existe y es asignable; **`lookAt`** (a un nodo o a una posición mundial) y **`lookTowards(dirección)`** existen
+  y orientan el eje «adelante». Ambos tienen `smooth` (por defecto `isSmoothTransformEnabled`) y **no son útiles dentro de `apply`**
+  por lo explicado en 9.10.
+- **Gestos:** `SceneView(onGestureListener = rememberOnGestureListener(onSingleTapConfirmed = { e, node -> … }))`; `node` es el nodo
+  impactado o `null`. También existe `SceneView(onTouchEvent = { e, hitResult -> … })` con prioridad absoluta.
+- **Detección de toques (riesgo para H3):** `collisionSystem.hitTest(event)` usa la forma de colisión del nodo, y para los nodos
+  renderizables se **deriva de la caja envolvente alineada con los ejes (AABB)**, no de la esfera. Con esferas de radio `r`, la
+  zona sensible es un **cubo de lado `2r`**: tocar cerca de una esquina del cubo, fuera de la esfera visible, también «acierta», y
+  con átomos solapados en pantalla puede elegirse el átomo equivocado. Hay que **medirlo en el dispositivo** antes de decidir si
+  basta o si hace falta una selección propia por rayo-esfera (documento 02).
+- **Ciclo de vida:** el `DisposableEffect` de `NodeLifecycle` hace `attach`/`detach` y `node.destroy()` al salir de la composición.
+
+### 9.12 Lecciones del proceso
+
+- El autocompletado dentro de los **paréntesis de una llamada** muestra funciones globales, no miembros del nodo; los miembros se buscan
+  con **Ctrl+clic** en un miembro conocido (abre la clase) y **Alt+7** (*Structure*), no con Ctrl+F12 (interceptado en su Linux).
+- Cuando una API cambia a diario, **se lee el código del tag exacto** (`git clone --depth 1 --branch vX.Y.Z`), no la documentación.
+  Un repositorio público se puede clonar aunque `WebFetch` o `gh` estén restringidos.
+- Un parche que «parece aplicarse» puede estar siendo pisado: comprobar el **orden** en que la librería aplica `apply` y parámetros.
+
 ---
 
 ## 10. Riesgos y trampas
@@ -544,15 +607,14 @@ Leídas en el IDE (Ctrl+P). Hay cuatro sobrecargas:
 
 ## 12. Pendiente
 
-1. **Subir `MoleculeScene.kt` a `spike/3d`.** Comprobado en GitHub (15/11, commit `331462d`): el fichero **no está** en la rama, pero
-   `MainActivity.kt` ya lo usa; quien clone la rama no podrá compilar. Hacer `git add` del fichero y `git push`.
-2. Fijar la cámara inicial con `rememberCameraManipulator(orbitRadius = …, targetPosition = …)` (9.9) y ajustar la distancia a ojo.
-3. **Enlace en diagonal** (H2): decidir entre convertir eje-ángulo a Euler o usar cuaternión/`lookAt` si el bloque `apply` los ofrece
-   (Ctrl+Espacio dentro de `apply = { }`). Comprobar el trípode **desde varios ángulos**.
-4. Toque sobre un átomo (H3): `onGestureListener` con `onSingleTapConfirmed(event, node)` o selección propia por rayo-esfera.
-5. H5 (ciclo de vida: girar y pasar a segundo plano 10 veces), H4 (captura a `Bitmap`) y H6 (rendimiento con unos 200 átomos).
-6. Registrar versión de Android Studio y versión de Android del A33 en el README.
-7. Cerrar el ADR-001 cuando se completen H2 a H6, archivar `spike/3d` con una etiqueta (sin fusionarla) y empezar el proyecto real en `main`.
+1. ~~Subir `MoleculeScene.kt` a `spike/3d`~~ (hecho el 15/11 con el commit de todo el grupo de ficheros sin versionar; incluyó también
+   `.idea/inspectionProfiles/Project_Default.xml`, que sobra: se puede quitar con `git rm --cached`).
+2. Commit del `MoleculeScene.kt` actual (nodos anidados y 7 enlaces) en `spike/3d`.
+3. **H3, toque sobre un átomo** (9.11): probar `rememberOnGestureListener(onSingleTapConfirmed = { e, node -> … })` y medir la zona
+   sensible (AABB frente a esfera); decidir si hace falta selección propia por rayo-esfera.
+4. H5 (ciclo de vida: girar y pasar a segundo plano 10 veces), H4 (captura a `Bitmap`) y H6 (rendimiento con unos 200 átomos).
+5. Registrar versión de Android Studio y versión de Android del A33 en el README.
+6. Cerrar el ADR-001 cuando se completen H3 a H6, archivar `spike/3d` con una etiqueta (sin fusionarla) y empezar el proyecto real en `main`.
 
 ### Hallazgos sobre el repositorio (15/11/2026, rama `spike/3d`)
 
@@ -582,6 +644,8 @@ Leídas en el IDE (Ctrl+P). Hay cuatro sobrecargas:
 - El cilindro de SceneView tiene el eje **Y** por defecto; sus giros se dan en grados de Euler y solo los giros de un eje son inequívocos.
 - Un spike se da por cerrado por **criterios escritos de antemano**, no por sensación: lo que queda abierto son los casos que pueden hundir el proyecto (diagonal, toque, ciclo de vida).
 - Antes de decir «está en el repositorio», **se mira el repositorio**.
+- En SceneView 4.69.4 **`apply` se ejecuta una vez y los parámetros `position`/`rotation`/`scale` se escriben después**: la orientación debe ir por parámetros (nodos anidados), no en `apply`.
+- `height` de `CylinderNode` es la longitud total; los giros de `rotation` son Euler ZYX en grados y son **locales** al padre.
 
 ---
 
