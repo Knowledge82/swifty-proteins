@@ -21,7 +21,7 @@ class MainActivity : ComponentActivity() {
             Spike3dTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     MoleculeScene(
-                        modifier = Modifier.padding(innerPadding)
+                        modifier = Modifier.padding(innerPadding),
                     )
                 }
             }
