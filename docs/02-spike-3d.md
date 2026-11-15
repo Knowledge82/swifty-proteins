@@ -1,6 +1,6 @@
 # 02 · Spike 3D: ¿aguanta SceneView nuestro proyecto?
 
-> **Estado (14/11/2026):** pasos 0 y 1 hechos; H1 pendiente de confirmar en el dispositivo.
+> **Estado (15/11/2026):** pasos 0 a 2 hechos; H1 cumplida y una esfera de prueba se dibuja en el A33.
 > La teoría de Gradle, Maven Central y BOM, el registro de lo hecho y el borrador del ADR-001
 > están en [`02a-spike-gradle-dependencias.md`](02a-spike-gradle-dependencias.md).
 

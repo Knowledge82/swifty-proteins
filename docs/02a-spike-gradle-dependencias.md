@@ -15,7 +15,7 @@ hace falta para entenderlo (Gradle, Maven Central, catálogo de versiones, BOM) 
 6. [Anatomía del proyecto generado](#6-anatomía-del-proyecto-generado)
 7. [Decisiones y versiones (ADR-001, borrador)](#7-decisiones-y-versiones-adr-001-borrador)
 8. [Registro de lo que hicimos](#8-registro-de-lo-que-hicimos)
-9. [Paso 2 preparado: primera esfera (sin verificar)](#9-paso-2-preparado-primera-esfera-sin-verificar)
+9. [Paso 2: primera esfera](#9-paso-2-primera-esfera)
 10. [Riesgos y trampas](#10-riesgos-y-trampas)
 11. [Diagnóstico](#11-diagnóstico)
 12. [Pendiente](#12-pendiente)
@@ -43,13 +43,14 @@ fue un ejercicio de **alinear versiones** de cuatro piezas que se condicionan en
 |------|-----|--------|
 | 0 | Proyecto vacío de Compose ejecutado en el Galaxy A33 | Hecho: se ve «Hello Android!» |
 | 1a | Inspección de los ficheros que genera Android Studio | Hecho |
-| 1b | Añadir SceneView y subir el objetivo de Java a 21 | Hecho (la prueba definitiva es compilar código que use SceneView, en el paso 2) |
+| 1b | Añadir SceneView y subir el objetivo de Java a 21 | Hecho y confirmado al compilar el paso 2 |
 | 1c | Subir Kotlin a 2.4.21 | Hecho y **verificado** con `buildEnvironment` |
 | 1d | Alinear Compose con el BOM 2026.09.00 | Hecho y **verificado** con `dependencies` |
-| H1 | La app arranca en el A33 con todas las versiones nuevas | **Pendiente de confirmar** en el dispositivo |
-| 2 | Primera esfera en pantalla | Preparado, sin ejecutar |
+| H1 | La app arranca en el A33 con todas las versiones nuevas | **Confirmado**: arranca («Hello Android!») y la escena de SceneView se dibuja |
+| 2 | Primera esfera en pantalla | Hecho: esfera gris que gira, con varias luces (ver sección 9.6) |
 
-Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 está en curso; H2 a H6 siguen sin probar.
+Hipótesis de [`02-spike-3d.md`](02-spike-3d.md): H1 cumplida. H2 y H3 parcialmente (se ven esfera, luces
+y giro; faltan cilindro, zoom con pellizco y toque sobre el átomo). H4 a H6 sin probar.
 
 ---
 
@@ -246,7 +247,7 @@ Detalles de `app/build.gradle.kts`:
 ## 7. Decisiones y versiones (ADR-001, borrador)
 
 Este es el borrador de la plantilla de la sección 9 de [`02-spike-3d.md`](02-spike-3d.md).
-**No está cerrado**: falta H1 en el dispositivo y H2 a H6.
+**No está cerrado**: faltan H2 a H6.
 
 | Pieza | Valor | Origen / motivo |
 |-------|-------|-----------------|
@@ -279,8 +280,8 @@ concreta** y solo la cambiamos de forma consciente, anotándolo aquí.
 | SceneView necesita AGP 9.4+, Kotlin 2.4, JVM 21, compileSdk 37 | README de SceneView (una sola fuente) | Parcialmente confirmado: Maven Central muestra `kotlin-stdlib` 2.4.21 y Compose 1.12.1 como dependencias |
 | El Kotlin del proyecto es 2.4.21 | `buildEnvironment` | Confirmado |
 | Compose queda alineado en 1.12.1 | `dependencies` | Confirmado |
-| Las clases de SceneView compilan con nuestro Kotlin | — | **Sin probar** (se verá en el paso 2) |
-| La app arranca en el A33 con estas versiones | — | **Sin probar** (H1) |
+| Las clases de SceneView compilan con nuestro Kotlin | Compilación del paso 2 | Confirmado |
+| La app arranca en el A33 con estas versiones | Ejecución en el dispositivo | Confirmado (H1) |
 
 ---
 
@@ -326,10 +327,10 @@ Se actualizó `composeBom` y la comprobación mostró `ui`, `foundation` y `runt
 
 ---
 
-## 9. Paso 2 preparado: primera esfera (sin verificar)
+## 9. Paso 2: primera esfera
 
-**Estado: código escrito a partir de la documentación de SceneView 4.65-4.69; no se ha compilado.**
-Es normal que el primer intento dé errores: forma parte del spike.
+**Estado: hecho.** El código, escrito a partir de la documentación de SceneView 4.65-4.69, compiló y se
+ejecutó en el A33 una vez añadidos los imports (resultado real en 9.6).
 
 ### 9.1 Fichero nuevo `MoleculeScene.kt`
 
@@ -406,6 +407,31 @@ en el mismo paquete, así que no hace falta ningún import nuevo.
 - **Giros en grados de Euler:** `rotation = Rotation(x, y, z)`. Nuestro cálculo para orientar cilindros (documento 02, sección 5.4)
   produce **eje y ángulo**; habrá que ver si el nodo admite eje-ángulo o cuaternión, o convertirlo.
 
+### 9.6 Resultado real (15/11/2026)
+
+- **Compiló y se ejecutó en el A33.** Los nombres y parámetros usados (`SceneView(modifier, engine, cameraManipulator) { … }`,
+  `SphereNode(radius, materialInstance)`, `rememberEngine`, `rememberMaterialLoader`, `rememberCameraManipulator`,
+  `createColorInstance`) **coincidían con la documentación**; solo faltaban los imports.
+- **Los seis errores iniciales eran en realidad uno solo más una cascada:** cinco `Unresolved reference` de nombres
+  de SceneView y un `Cannot infer type for type parameter 'T'`, que era consecuencia de que `rememberMaterialLoader`
+  no se resolvía. Los errores de compilación se leen **de arriba abajo**.
+- **Imports:** en Linux, el atajo **Alt+Enter no hizo nada**, pero al **hacer clic** en la sugerencia de Android Studio
+  el import se aplicaba. Causa sin confirmar (puede interceptarlo el entorno de escritorio; se puede revisar en
+  *Settings, Keymap, «Show Context Actions»*). Paquetes exactos de los imports: `<pendiente de anotar>`.
+- **Imagen obtenida:** esfera gris con varios reflejos (varias luces por defecto) que gira al arrastrar. Fondo negro.
+- **Facetas visibles en el contorno.** Una esfera 3D es siempre una malla de triángulos; con pocos segmentos el contorno
+  se ve poligonal aunque el sombreado sea suave. `SphereNode` tiene los parámetros `stacks` y `slices`; la documentación
+  sugiere 8/8 para «poca resolución» y 32/32 para «suave», y avisa de que cambiarlos **reconstruye la malla**.
+  Coste aproximado: unos `stacks × slices × 2` triángulos por esfera (32 × 32 ≈ 2000). Con muchos átomos habrá que
+  ajustar los segmentos al tamaño de la molécula (relacionado con H6 y con el bonus VII.4).
+- **Encuadre incorrecto:** la esfera (radio 0,5) llena todo el ancho de la pantalla y se recorta por los lados. La cámara
+  inicial por defecto está demasiado cerca; hay que fijar la inicial según la sección 5.3 de [`02-spike-3d.md`](02-spike-3d.md).
+- **Sin comprobar todavía:** zoom con pellizco, desplazamiento con dos dedos y toque sobre la esfera.
+
+**Alternativa a las esferas de malla:** los visores moleculares profesionales dibujan «esferas impostoras»: un cuadrado
+en el que el *fragment shader* calcula una esfera perfecta, con muy pocos triángulos. Exige escribir un material propio,
+así que es más natural en el plan B (OpenGL ES) que con SceneView; de momento no la necesitamos.
+
 ---
 
 ## 10. Riesgos y trampas
@@ -432,17 +458,20 @@ en el mismo paquete, así que no hace falta ningún import nuevo.
 | `invalid source release: 21` | *Gradle JDK* a 21 en los ajustes de Android Studio |
 | Error «incompatible version of Kotlin» al compilar | `buildEnvironment`: ¿está Kotlin en 2.4.x? |
 | Pantalla negra al arrancar la escena | Cámara dentro del objeto, falta de luz, nodos sin añadir a la escena (ver `02-spike-3d.md`, sección 8) |
+| Alt+Enter no hace nada en Linux | Puede interceptarlo el entorno de escritorio; usar el clic en la sugerencia de Android Studio, o revisar el atajo en Keymap |
 | Quieres ver las firmas de una API en el IDE | **Ctrl+P** dentro de los paréntesis (parámetros), **Ctrl+Q** sobre el nombre (documentación), **Ctrl+clic** (código fuente), **Alt+Enter** (imports) |
 
 ---
 
 ## 12. Pendiente
 
-1. Confirmar **H1**: ejecutar en el A33 con las versiones nuevas y comprobar que sigue viéndose «Hello Android!».
-2. Confirmar el `git commit` y `git push` de la rama `spike/3d`.
-3. Hacer el paso 2 (primera esfera) y anotar qué cambió respecto a la documentación.
-4. Registrar versión de Android Studio y versión de Android del A33 en el README.
-5. Cerrar el ADR-001 cuando se completen H1 a H6.
+1. Confirmar el `git commit` y `git push` de la rama `spike/3d` (con `MoleculeScene.kt` y el cambio en `MainActivity.kt`).
+2. Anotar los **imports exactos** de `MoleculeScene.kt` (sección 9.6).
+3. Subir la resolución de la esfera (`stacks`/`slices`) y **fijar la cámara inicial** para que se vea entera.
+4. Pasos 3 y 4 del spike: dos átomos y un enlace (cilindro), colores y luces.
+5. Comprobar zoom con pellizco, desplazamiento y toque sobre un átomo.
+6. Registrar versión de Android Studio y versión de Android del A33 en el README.
+7. Cerrar el ADR-001 cuando se completen H2 a H6.
 
 ---
 
@@ -456,6 +485,9 @@ en el mismo paquete, así que no hace falta ningún import nuevo.
 - Las versiones se **verifican con comandos** (`buildEnvironment`, `dependencies`), no se dan por buenas.
 - SceneView cambia muy deprisa: **versión fija** y firmas de la API leídas en el IDE.
 - Que la sincronización pase y que el código compile y arranque en el móvil son **tres pruebas distintas**.
+- Los errores de compilación se leen **de arriba abajo**: los últimos suelen ser consecuencia de los primeros.
+- Una esfera 3D es una malla de triángulos: la suavidad se compra con más segmentos (`stacks`/`slices`) y cuesta memoria.
+- La cámara inicial por defecto **no encuadra** nuestra escena: hay que fijarla nosotros.
 
 ---
 
