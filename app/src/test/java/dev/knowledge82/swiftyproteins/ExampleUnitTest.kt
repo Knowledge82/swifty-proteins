@@ -1,4 +1,4 @@
-package dev.knowledge82.spike3d
+package dev.knowledge82.swiftyproteins
 
 import org.junit.Test
 

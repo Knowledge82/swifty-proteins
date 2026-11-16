@@ -1,4 +1,4 @@
-package dev.knowledge82.spike3d.ui.theme
+package dev.knowledge82.swiftyproteins.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

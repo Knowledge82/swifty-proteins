@@ -22,5 +22,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "spike3d"
+rootProject.name = "swiftyproteins"
 include(":app")

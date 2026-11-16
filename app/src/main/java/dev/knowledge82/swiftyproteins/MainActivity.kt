@@ -1,4 +1,4 @@
-package dev.knowledge82.spike3d
+package dev.knowledge82.swiftyproteins
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -11,14 +11,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import dev.knowledge82.spike3d.ui.theme.Spike3dTheme
+import dev.knowledge82.swiftyproteins.ui.theme.SwiftyProteinsTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            Spike3dTheme {
+            SwiftyProteinsTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     MoleculeScene(
                         modifier = Modifier.padding(innerPadding),
@@ -40,7 +40,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    Spike3dTheme {
+    SwiftyProteinsTheme {
         Greeting("Android")
     }
 }

@@ -1,4 +1,4 @@
-package dev.knowledge82.spike3d
+package dev.knowledge82.swiftyproteins
 
 import android.util.Log
 import androidx.compose.foundation.layout.fillMaxSize
@@ -101,7 +101,7 @@ fun MoleculeScene(modifier: Modifier = Modifier) {
                 // Node names look like "atom 3" or "bond 2". Anything else (a bond, empty
                 // space, a node without a name) gives null and clears the selection.
                 selected = node?.name?.removePrefix(ATOM_PREFIX)?.toIntOrNull()
-                Log.d("Spike3D", "tap -> ${node?.name} -> selected=$selected")
+                Log.d("SwiftyProteins", "tap -> ${node?.name} -> selected=$selected")
             },
         ),
     ) {

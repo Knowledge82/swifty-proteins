@@ -4,13 +4,13 @@ plugins {
 }
 
 android {
-    namespace = "dev.knowledge82.spike3d"
+    namespace = "dev.knowledge82.swiftyproteins"
     compileSdk {
         version = release(37)
     }
 
     defaultConfig {
-        applicationId = "dev.knowledge82.spike3d"
+        applicationId = "dev.knowledge82.swiftyproteins"
         minSdk = 24
         targetSdk = 37
         versionCode = 1
