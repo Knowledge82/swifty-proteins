@@ -6,7 +6,7 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > **Estado actual:** *spike* 3D **cerrado con reservas** (ADR-001, ver
 > [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md), sección 7). El proyecto Android ya vive en la raíz
 > de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** formato CIF y parser
-> ([`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), borrador contrastado con un ligando real, a la espera del corpus completo).
+> ([`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), borrador contrastado con un ligando real y con los 1243 ligandos en copia binaria; primer código: tokenizador).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -39,6 +39,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D7 | Versiones fijadas del spike: SceneView 4.69.4, Kotlin 2.4.21, AGP 9.4.1, Compose BOM 2026.09.00, Java 21 | Provisional | SceneView publica a diario y exige Kotlin 2.4, Compose 1.12.1 y Java 21; se fija una versión concreta. Detalle en [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md). |
 | D8 | Selección de átomos: forma de colisión **esférica** (`collision.Sphere`) con resaltado por estado | Provisional | Sustituye a la caja (AABB) por defecto, cuyas zonas eran grandes. Aplicada en el spike; se mide con una molécula real. Detalle en [`docs/02b-spike-seleccion-atomos.md`](docs/02b-spike-seleccion-atomos.md). |
 | D9 | Parser de CIF **escrito a mano**, en Kotlin puro (sin `android.*`), en tres capas, con resultado éxito/fallo y sin excepciones por la entrada | Provisional | Es el objetivo de aprendizaje (D2) y permite probarlo en JVM. Las políticas abiertas (coordenadas, datos defectuosos) se cierran con el corpus real. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md). |
+| D10 | Coordenadas: se elige **un juego entero por ligando** (ideales si están completas; si no, modelo) y siempre se centra en el centroide | Decidida con datos | De 1243 ligandos, 1225 tienen ideales completas y los otros 17 modelo completa; ninguno falla. Los dos juegos están en sistemas de referencia distintos, así que no se mezclan. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), 7.1. |
 
 ---
 
@@ -66,7 +67,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/02-spike-3d.md`](docs/02-spike-3d.md) | Plan del spike: qué validamos, cómo, criterios de paso y teoría de 3D necesaria | Escrito |
 | [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md) | Teoría de Gradle, Maven Central y BOM; registro de los pasos 0 a 3; ADR-001 (borrador) | Escrito |
 | [`docs/02b-spike-seleccion-atomos.md`](docs/02b-spike-seleccion-atomos.md) | Teoría del picking por rayo, cómo lo hace SceneView, implementación, resultado y alternativas de mayor precisión | Escrito |
-| [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) | Sintaxis CIF, estructura de un ligando, modelo de datos, diseño del parser en tres capas, errores y casos límite | **Borrador** (contrastado con 1 ligando real; falta el corpus completo) |
+| [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) | Sintaxis CIF, estructura de un ligando, modelo de datos, diseño del parser en tres capas, errores y casos límite | **Borrador** (contrastado con un ligando real y con el corpus completo en copia binaria) |
 | 04 · Arquitectura y decisiones (ADR) | Capas, módulos y registro de decisiones | Pendiente |
 | 05 · Autenticación y seguridad | Hash de contraseñas, Keystore, biometría, bloqueo al volver de segundo plano | Pendiente |
 | 06 · Lista, búsqueda y red | Carga asíncrona, errores, estados de la interfaz | Pendiente |
@@ -79,12 +80,13 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 
 ## Cómo trabajamos
 
-- **El código lo escribe el equipo.** La documentación y las explicaciones sirven para
-  entender cada línea antes de escribirla. Este es un proyecto de aprendizaje, no de producción.
+- **El código lo escribe el asistente de IA y lo explica línea a línea.** Un autor lo incorpora al repositorio **solo cuando lo ha
+  entendido**; si no, se vuelve a explicar desde otro ángulo. Este es un proyecto de aprendizaje y en la defensa hay que poder
+  explicar cada línea.
 - **Un documento por etapa**, en `docs/`, enlazado desde este README y actualizado al
   cerrar cada etapa.
 - **Los experimentos viven en ramas** (por ejemplo `spike/3d`) y no se fusionan en `main`.
-- **La documentación se ha redactado con ayuda de un asistente de IA.** Los autores revisan
+- **El código y la documentación se han elaborado con ayuda de un asistente de IA.** Los autores revisan
   y entienden su contenido.
 
 ---

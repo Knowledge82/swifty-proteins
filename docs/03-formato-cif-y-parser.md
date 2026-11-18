@@ -1,8 +1,9 @@
 # 03 · Formato CIF y parser
 
-> Estado: **BORRADOR, ya contrastado con un fichero real** (ligando `001`, descargado el 18/11/2026 desde RCSB; sección 3.4).
-> Un solo fichero confirma la estructura general, pero **no cubre** los casos raros (iones, ligandos sin enlaces, `?`). Lo que sigue
-> sin verificar está marcado y se cierra con el corpus completo (sección 10).
+> Estado: **BORRADOR, contrastado con un fichero real y con todo el corpus** (sección 3.4 y 3.5). Un fichero de texto real (`001`,
+> descargado de RCSB el 18/11/2026) confirma la estructura; las estadísticas de los 1243 ligandos salen de una copia **binaria** del
+> diccionario de componentes (sección 3.5), que **no conserva el formato de texto**: lo que depende de cómo se escribe el texto
+> (p. ej. un ion en forma de pares) sigue sin verificar y está marcado.
 > Documento redactado el 16/11/2026 y actualizado el 18/11/2026.
 
 ## Índice
@@ -177,7 +178,7 @@ El 18/11/2026 se obtuvo el fichero real del ligando `001` (el primero de `ligand
 | Hecho | Valor | Consecuencia para el parser |
 |-------|-------|------------------------------|
 | Átomos / enlaces | 87 átomos (45 pesados + 42 H), 90 enlaces | Coincide con la fórmula del propio fichero (`C35 H42 F2 N2 O6`) y con la cuenta de anillos (90 − 87 + 1 = 4) |
-| Columnas de `_chem_comp_atom` | **17**, incluyendo `alt_atom_id`, `pdbx_align`, `pdbx_component_atom_id`, `pdbx_component_comp_id` | Confirma «buscar por nombre»: la tabla oficial de 16 columnas **no** coincide con el fichero real |
+| Columnas de `_chem_comp_atom` | **18**: las 16 de la tabla de wwPDB **más** `pdbx_component_atom_id` y `pdbx_component_comp_id` | Confirma «buscar por nombre»: la tabla oficial **no** coincide con el fichero real. (Un test del tokenizador lo comprueba: 87 filas × 18 valores; en una primera redacción de este documento se escribió 17 por un error de cuenta, que el propio test detectó.) |
 | Coordenadas | Existen las dos familias, **sin `?`** | Una muestra; no prueba nada sobre otros ligandos |
 | Nombre del ligando | Campo de texto `;` **multilínea** que empieza en la línea siguiente a la etiqueta (`_chem_comp.name`) | El tokenizador debe soportar campos `;` (caso 2 de la sección 9): **confirmado como real**, no teórico |
 | Categorías de una fila | `_chem_comp` y `_pdbx_chem_comp_synonyms` vienen **en forma de pares** | Confirma que la forma de pares existe; para `_chem_comp_atom` en un ion **sigue sin verificar** |
@@ -196,10 +197,9 @@ El 18/11/2026 se obtuvo el fichero real del ligando `001` (el primero de `ligand
 | `model_Cartn_*` | (28,99; 13,81; 24,98) | 9,16 | 1,102–1,561 | 1,102–1,116 | 1,216–1,426 |
 | `pdbx_model_Cartn_*_ideal` | (−0,08; −0,04; 0,26) | 8,65 | 1,080–1,532 | 1,080–1,091 | 1,209–1,390 |
 
-- Las **ideales** están centradas casi en el origen. Las de **modelo** están desplazadas unos 30 Å respecto al origen (vienen del
-  sistema de coordenadas de la estructura cristalina de origen). Con las de modelo **hay que centrar la molécula** antes de
-  dibujarla, o la cámara orbitaría alrededor de un punto vacío. Con las ideales el centrado es casi gratuito, pero conviene hacerlo
-  siempre (la regla debe valer para ambas familias).
+- En `001` las **ideales** están centradas casi en el origen y las de **modelo** a unos 30 Å (vienen del sistema de coordenadas de la
+  estructura cristalina de origen). **Esto no se cumple en general:** en el corpus completo hay ligandos con las coordenadas
+  ideales a más de 200 Å del origen (`OMO`: 226 Å; sección 3.5). Por tanto **siempre se centra en el centroide**, sea cual sea el juego.
 - Las longitudes de enlace de ambas son químicamente razonables (C–H ≈ 1,1 Å, C=O ≈ 1,2 Å).
 - Este análisis es de **un solo ligando**; la política se confirma con el corpus.
 
@@ -215,6 +215,51 @@ El 18/11/2026 se obtuvo el fichero real del ligando `001` (el primero de `ligand
 Consecuencias: (1) la lista contiene unas 40 entradas de uno o dos caracteres, en su mayoría iones o moléculas de muy pocos átomos,
 así que **los casos «ion» y «sin enlaces» se van a ejercitar de verdad** (no es una hipótesis de laboratorio); (2) hay ids como
 `UNK`, `UNL` y `UNX` cuyo contenido **no hemos visto** y hay que mirar con cuidado (sección 10); (3) el id es siempre **texto**.
+
+### 3.5 Corpus completo: los 1243 ligandos de `ligands.txt`
+
+**De dónde salen los datos.** Desde el entorno donde se redacta este documento no se puede llegar a RCSB, wwPDB ni PDBe. Sí se
+puede descargar de PyPI el paquete `biotite` 2.0.0, que incluye una copia **binaria** (BinaryCIF) de todo el Diccionario de
+Componentes Químicos (51 436 componentes, 2,46 millones de átomos). Se **validó contra el fichero real**: para `001` da 87 átomos,
+90 enlaces y **las mismas coordenadas** que el `.cif` de RCSB.
+
+**Límite importante:** es una copia binaria, no el texto. Sirve para saber **qué contienen** los ligandos; no sirve para saber **cómo
+se escriben** en el fichero de texto (por ejemplo, si un ion usa pares o bucle). Esas preguntas siguen abiertas y están marcadas.
+
+Resultados sobre los 1243 ids de `ligands.txt`:
+
+| Medida | Resultado |
+|--------|-----------|
+| Ids presentes | **1242 de 1243. Falta `UNL`** (en esta copia no existe; qué responde el servidor de RCSB para `UNL.cif` no se ha podido comprobar; lo esperable es un 404) |
+| Átomos por ligando | mín. 1, mediana 35, p95 104, **máx. 256** (`CDL`; después `BV4` 249, `15P` 244) |
+| Enlaces por ligando | mín. 0, mediana 36, p95 105, máx. 256 |
+| Distribución por nº de átomos | 1: 39 · 2: 8 · 3–5: 29 · 6–20: 194 · 21–60: 715 · 61–150: 243 · >150: 14 |
+| Ligandos de **un solo átomo y sin enlaces** | **39** (`AU`, `BA`, `CL`, `ZN`, `NA`...); coinciden exactamente con los de «sin enlaces» |
+| Símbolos de elemento | **Siempre en mayúsculas**: `CL` 138, `FE` 18, `BR` 45, `MO`, `CU`... Ninguno en minúsculas. Hay un elemento `X` (el ligando `UNX`) |
+| Orden de enlace (`value_order`) | Solo `SING` (48 437), `DOUB` (6 061) y `TRIP` (29). **Ninguno `AROM`** |
+| Nombres de átomo duplicados dentro de un ligando | **0** |
+| Enlaces que apuntan a un átomo inexistente | **0** |
+| Átomos sin ningún juego de coordenadas | **0** |
+| Dos átomos a menos de 0,4 Å (geometría degenerada) | **0** |
+| Nombres de átomo que necesitan comillas | **155 ligandos, 2324 átomos, todos por una comilla simple** (`C1'`, `O5'`...). Ninguno con espacio, comilla doble ni carácter especial. Alfabeto de los nombres: letras mayúsculas, dígitos y `'` |
+| Longitud de los nombres de átomo | 1 a 4 caracteres |
+| Radio de la molécula (ideales) | hasta **41 Å** (`15P`), `PEU` 37 Å, `CDL` 31 Å |
+| Distancia del centroide ideal al origen | hasta **226 Å** (`OMO`), `MO7` 102 Å, `ALF` 102 Å |
+
+**Completitud de coordenadas, por ligando:**
+
+| Situación | Ligandos | Ejemplos |
+|-----------|----------|----------|
+| Ideales completas **y** modelo completas | 1177 | `001`, `031`... |
+| Ideales completas, modelo **incompleta** (`?` en algún átomo) | 48 | `011`, `15P`, `418`... (en `15P` falta **todo** el modelo) |
+| Ideales **incompletas**, modelo completa | 17 | `2HP`, `A8N`, `BCR`, `CBE`, `DHI`, `EAA`, `F19`, `FCO`...: en 10 de ellos faltan **todas** las ideales; en 7, solo algunas |
+| Ninguna de las dos completa | **0** | — |
+
+Consecuencias, que se recogen en las secciones 7 y 9:
+- **Siempre existe un juego completo**, pero **no siempre es el mismo**: hay que elegir **por ligando**, no por átomo (7.1).
+- **Los iones y las moléculas diminutas no son un caso raro de laboratorio**: son el 3 % de la lista.
+- **La molécula más grande tiene 256 átomos y 256 enlaces**. Con un nodo de pivote y un cilindro por enlace (diseño del spike) serían
+  unos **768 nodos** en escena, no los ~200 que se supusieron para la hipótesis H6.
 
 ---
 
@@ -366,23 +411,30 @@ tokenización llegaran 29 valores, `29 % 10 = 9 ≠ 0` y el lector declara **fil
 
 Son elecciones con varias respuestas razonables. Se cierran **con los datos reales**, no antes.
 
-### 7.1 ¿Qué coordenadas usar?
+### 7.1 ¿Qué coordenadas usar? (decidida con datos: D10)
 
-| Opción | Pros | Contras |
-|--------|------|---------|
-| **A. Ideales primero, modelo como reserva** | Calculadas para todos los átomos (lo esperado) y geometría limpia | *Pendiente de confirmar*: no sabemos si algún fichero trae `?` |
-| B. Modelo primero, ideales como reserva | Es la geometría observada en un cristal | Puede traer `?` en algunos ligandos; forma «real» pero con ruido |
-| C. Solo una y error si falta | Simple | Fallos evitables |
+Hay dos juegos por átomo: **ideales** (`pdbx_model_Cartn_*_ideal`) y de **modelo** (`model_Cartn_*`). El corpus completo (3.5) dice:
 
-**Dato nuevo (ligando `001`, sección 3.4):** las ideales están centradas en el origen y las de modelo a unos 30 Å de él, así que
-la opción B obliga a centrar sí o sí; con A el centrado es casi gratuito. Las dos familias dan enlaces químicamente razonables.
-Es un solo ligando, pero **refuerza A**.
+| Situación | Ligandos |
+|-----------|----------|
+| Ideales completas | 1225 |
+| Ideales incompletas, modelo completa | 17 |
+| Ninguna completa | **0** |
 
-Propuesta provisional: **A**, con la reserva en B y error solo si un átomo no tiene ningún juego válido. **Regla común: siempre se
-centra en el centroide**, venga de donde venga. El script de la sección 10
-cuenta cuántos ficheros caen en cada caso; con ese número se confirma o se cambia.
+**Regla:** se elige **un juego entero por ligando**: ideales si **todos** los átomos las tienen; si no, modelo si **todos** las
+tienen; si ninguno está completo, `Fallo`. Con los datos actuales ese fallo no ocurre nunca; se deja como red de seguridad.
+
+**Por qué por ligando y no por átomo** (la opción «ideales primero y, átomo a átomo, modelo como reserva» queda **descartada**): los
+dos juegos están en **sistemas de referencia distintos** (en `001`, a unos 30 Å uno de otro). Mezclarlos dentro de una molécula
+colocaría unos átomos en un sitio y otros a decenas de ångström, y las longitudes de enlace serían absurdas. Los 7 ligandos con ideales
+incompletas son justo el caso que rompería esa mezcla.
+
+**Regla común:** siempre se **centra en el centroide**, y se calcula el radio para ajustar la cámara (la distancia del centroide al
+origen llega a 226 Å y el radio a 41 Å).
 
 ### 7.2 ¿Qué hacemos con datos defectuosos?
+
+*Con los datos actuales (3.5) no hay ni enlaces rotos, ni nombres duplicados, ni átomos sin coordenadas. La política sigue siendo necesaria como defensa ante un fichero corrupto o un cambio futuro del formato, pero **no se espera que se dispare** con el corpus.*
 
 | Caso | Opción estricta | Opción tolerante |
 |------|-----------------|------------------|
@@ -418,8 +470,10 @@ Resultado del parser = Éxito(Molecule, avisos) | Fallo(motivo)
 
 Reglas:
 
-1. **El parser no lanza excepciones por culpa de la entrada.** Devuelve `Fallo(motivo)`. Una entrada hostil o aleatoria jamás debe
-   cerrar la app.
+1. **El parser no lanza excepciones por culpa de la entrada hacia fuera.** Su punto de entrada público devuelve `Fallo(motivo)`. Una
+   entrada hostil o aleatoria jamás debe cerrar la app. *Internamente* las capas pueden lanzar `CifFormatException` (lleva un
+   `CifFailure` tipado) y la puerta de entrada la captura y la convierte en valor. Alternativa descartada: devolver `Result` en
+   cada capa; es más puro, pero obliga a comprobar el resultado tras cada token y llena el código de ramas.
 2. Aun así, la **frontera** (el sitio que llama al parser) envuelve la llamada y convierte cualquier excepción inesperada en `Fallo`.
    *Cuidado*: en corrutinas no se debe tragar `CancellationException`, hay que relanzarla (documento 06).
 3. Los **motivos** son valores de un tipo cerrado (`sealed`), no cadenas: `CuerpoVacío`, `NoEsCif` (por ejemplo, una página HTML con
@@ -445,21 +499,22 @@ Los otros tres errores (sin red, 404, tiempo agotado) son de la capa de red y se
 
 | # | Caso | Qué pasa si no se trata | Tratamiento |
 |---|------|--------------------------|-------------|
-| 1 | Nombre con comilla (`"O5'"`) | Fila desplazada, todos los enlaces siguientes mal | Tokenizador con regla de comillas (2.1) |
+| 1 | Nombre con comilla (`"O5'"`) | Fila desplazada, todos los enlaces siguientes mal | Tokenizador con regla de comillas (2.1). **Afecta a 155 de 1243 ligandos (12 %)** |
 | 2 | Campo de texto multilínea (`;`) | Una línea suelta se interpreta como valores | Reconocer `;` solo en columna uno |
-| 3 | Un solo átomo (ion) en forma de pares | «No hay bucle de átomos» → falso error | Tabla de una fila (5.2) |
-| 4 | Sin categoría de enlaces | Excepción por tabla ausente | Lista vacía de enlaces |
+| 3 | Un solo átomo (ion) en forma de pares *(la forma exacta de escribirlo: sin verificar)* | «No hay bucle de átomos» → falso error | Tabla de una fila (5.2). **39 ligandos son de un solo átomo** |
+| 4 | Sin categoría de enlaces *(si el fichero omite la categoría o la deja vacía: sin verificar)* | Excepción por tabla ausente | Lista vacía de enlaces. **39 ligandos sin enlaces** |
 | 5 | Orden de columnas distinto | Coordenadas leídas de otra columna | Buscar por nombre |
-| 6 | `CL`, `FE` en mayúsculas | Elemento no encontrado en la tabla CPK | Normalizar: primera mayúscula, resto minúsculas |
+| 6 | `CL`, `FE` en mayúsculas | Elemento no encontrado en la tabla CPK | Normalizar: primera mayúscula, resto minúsculas. **Confirmado: todos los símbolos de dos letras vienen en mayúsculas** |
 | 7 | Elemento desconocido o ausente | Excepción en `map[element]!!` | Color por defecto, sin `!!` |
-| 8 | `?` o `.` en coordenadas | `NumberFormatException` | `toFloatOrNull()` y política 7.2 |
+| 8 | `?` o `.` en coordenadas | `NumberFormatException` | `toFloatOrNull()` y elección de juego por ligando (7.1). **65 ligandos tienen `?` en alguno de los dos juegos** |
 | 9 | `NaN`/`Infinity` en un `Float` válido | Geometría rota en Filament | Exigir `isFinite()` |
 | 10 | Enlace a un átomo inexistente | `IndexOutOfBounds` o `null` | Resolver con mapa; política 7.2 |
 | 11 | `\r\n` y BOM | Valores con `\r` pegado, no coinciden con nada | `\r` es espacio; descartar BOM |
 | 12 | Cuerpo HTML con estado 200 | Parser «tiene éxito» con cero átomos | Detectar y `Fallo(NoEsCif)`; exigir ≥ 1 átomo |
 | 13 | Molécula descentrada o muy grande | Cámara apuntando al vacío | Centrar en el centroide y escalar según el radio (documento 07) |
 | 14 | `Float` vs texto con coma decimal | Entrada con `,` en lugar de `.` | `toFloatOrNull()` no usa la configuración regional; si falla → política 7.2 |
-| 15 | Muchos átomos | Lentitud en 3D | Medir (H6); el parser no es el cuello de botella |
+| 15 | Muchos átomos | Lentitud en 3D | Máximo real: **256 átomos y 256 enlaces** (`CDL`). Medir con él (H6); el parser no es el cuello de botella |
+| 16 | `UNL` está en la lista pero no en el diccionario | Fallo al tocarlo en la evaluación | Es el caso «404»; debe mostrar su aviso y quitar el indicador de carga |
 
 ---
 
@@ -474,6 +529,10 @@ Los otros tres errores (sin red, 404, tiempo agotado) son de la capa de red y se
   resultado siempre es `Éxito` o `Fallo`.
 - **Corpus completo**: ejecutar el parser contra **todos** los ligandos de `ligands.txt` (descargados una vez). Criterio de
   aceptación: cero excepciones, y cada fallo explicado y revisado.
+- **Verificación cruzada con una fuente independiente**: con la copia binaria del diccionario (3.5) se generan ficheros de texto de
+  los 1243 ligandos y se comprueba que el parser de Kotlin devuelve **los mismos átomos, enlaces y coordenadas** que la copia binaria.
+  Ojo: esos ficheros los serializa nuestro propio script, así que **comprueban la extracción de datos, no la fidelidad de la grafía
+  de RCSB**; para esto último se necesitan ficheros descargados de RCSB (`001` ya lo es).
 
 Casos mínimos del test del extractor:
 
@@ -487,7 +546,11 @@ Casos mínimos del test del extractor:
 | Enlace a átomo inexistente | Enlace descartado + aviso (política 7.2) |
 | Cuerpo HTML | `Fallo(NoEsCif)` |
 | Cadena vacía | `Fallo(CuerpoVacío)` |
-| `?` en las coordenadas ideales con modelo válido | Se usa el modelo (política 7.1) |
+| Ideales con `?` en **algún** átomo y modelo completa | Se usa el modelo **entero**; nunca se mezclan juegos (política 7.1) |
+| Modelo con `?` y ideales completas (caso `15P`) | Se usan las ideales |
+| Ninguno de los dos juegos completo | `Fallo` (no ocurre en el corpus actual) |
+| Ion de un átomo (`CL`) | 1 átomo, 0 enlaces, elemento `Cl` |
+| Nombre `C1'` con comilla simple | El átomo se llama `C1'` y los enlaces lo encuentran |
 
 ### 10.2 Cómo conseguir los datos reales
 
@@ -541,13 +604,14 @@ sueltos de tamaño pequeño el riesgo es mínimo, y se añade a `fixtures/README
 | Afirmación | Estado | Fuente |
 |------------|--------|--------|
 | Reglas léxicas de CIF 1.1 (comentarios, comillas, campos `;`, palabras reservadas, mayúsculas) | Verificado | Especificación de la IUCr |
-| Lista de columnas de `_chem_comp_atom` (16 en la tabla de wwPDB) | Verificado; **el fichero real trae 17** | Tabla de wwPDB + ligando `001` |
+| Lista de columnas de `_chem_comp_atom` (16 en la tabla de wwPDB) | Verificado; **el fichero real trae 18** | Tabla de wwPDB + ligando `001` |
 | Valores permitidos de `value_order` | Verificado (en `001` solo `SING`/`DOUB`) | wwPDB + ligando `001` |
 | ATP de PDBe: 47 átomos (31 pesados + 16 H), 49 enlaces, con columnas y categorías extra | Verificado (fichero de PDBe, no de RCSB) | Página de PDBe |
 | Estructura real de un `.cif` de RCSB: `_chem_comp`, `_chem_comp_atom`, `_chem_comp_bond`, descriptores, identificadores, auditoría | **Verificado en 1 ligando** (`001`: 87 átomos, 90 enlaces, ambas familias de coordenadas sin `?`) | Fichero real |
 | Campo de texto `;` multilínea (nombre del ligando) | **Verificado, aparece en el 1.er ligando** | Fichero real |
 | Categorías de una fila en forma de pares (`_chem_comp`, `_pdbx_chem_comp_synonyms`) | Verificado | Fichero real |
-| Coordenadas ideales centradas en el origen; las de modelo desplazadas ~30 Å | Verificado en 1 ligando | Fichero real, cálculo propio |
+| En `001` las ideales están en el origen y las de modelo a ~30 Å; **en general no** (ideales hasta 226 Å del origen) | Verificado | Fichero real + corpus |
+| Estadísticas de los 1243 ligandos (3.5) | Verificado **sobre una copia binaria** del diccionario, validada contra `001` | `biotite` 2.0.0 (PyPI), cálculo propio |
 | `ligands.txt`: 1243 ids únicos, ordenados, solo `[A-Z0-9]`; 42 solo con dígitos; 39 de 1–2 caracteres | Verificado | Fichero adjunto |
 | `ligands_temp.txt` = primeras 235 líneas de `ligands.txt` | Verificado (`diff`); su propósito, **no** | Fichero adjunto |
 | URL `files.rcsb.org/ligands/view/{ID}.cif` y `/download/{ID}.cif` | Verificado en la página de descargas de RCSB | RCSB |
@@ -555,15 +619,13 @@ sueltos de tamaño pequeño el riesgo es mínimo, y se añade a `fixtures/README
 | `?` = desconocido y `.` = no aplicable | Conocimiento general, **sin leer la página de la IUCr** | — |
 | `_chem_comp_atom` de un ion de un átomo en forma de pares clave-valor | **No verificado** | Inferencia del formato |
 | Ligandos sin categoría `_chem_comp_bond` | **No verificado** | Inferencia |
-| Símbolos de elemento de dos letras en mayúsculas (`CL`) | **No verificado** (en `001` solo hay de una letra) | Memoria |
-| `?` en coordenadas en algún ligando | **No verificado** | Memoria |
-| Nombres de átomo con comillas (`"O5'"`) | **No verificado en datos reales** | Memoria / ATP de PDBe |
-| Tamaño máximo de un ligando y del fichero | **No verificado** (el mayor visto: 87 átomos) | Pendiente del corpus |
-| Contenido de `UNK`, `UNL`, `UNX` y de ids de 1–2 caracteres | **No visto** | Pendiente del corpus |
+| Nombres con comilla simple en 155 ligandos; en texto van entre comillas dobles | Contenido verificado en el corpus; **la grafía en texto, no** (se asume `"O5'"`) | Corpus binario |
+| Tamaño máximo de un ligando: 256 átomos; tamaño máximo del **fichero** en bytes | Átomos verificado; **bytes no** | Corpus binario |
+| `UNK` 16 átomos; `UNX` 1 átomo de elemento `X`; `UNL` **no está** en el diccionario | Verificado en el corpus; respuesta real del servidor para `UNL`: **no** | Corpus binario |
 | Cómo nombra y empaqueta los ficheros el «lote» de RCSB | **No verificado** | — |
 | Existencia de librerías Java para CIF | **No verificado** | Memoria |
 
-Los puntos «No verificado» se cierran con el corpus real completo (sección 10.2): **1 de 1243 ligandos** es poca muestra.
+Lo que sigue «No verificado» depende del **texto** de los ficheros (formato de iones, categorías ausentes, respuesta del servidor) y se cierra con una descarga real de la lista (sección 10.2).
 
 ---
 
