@@ -1,10 +1,9 @@
 # 03 · Formato CIF y parser
 
-> Estado: **BORRADOR**. La sintaxis y las categorías de la sección 2 y 3 están contrastadas con la especificación y con páginas de
-> referencia (ver sección 12). **No hemos podido abrir ningún fichero real de RCSB** desde el entorno donde se redacta este documento
-> (la red de ese entorno bloquea `files.rcsb.org`), así que todo lo que dependa de los datos reales está marcado como **pendiente de
-> verificar** y se cerrará con el corpus de `ligands.txt` (sección 10).
-> Documento redactado el 16/11/2026.
+> Estado: **BORRADOR, ya contrastado con un fichero real** (ligando `001`, descargado el 18/11/2026 desde RCSB; sección 3.4).
+> Un solo fichero confirma la estructura general, pero **no cubre** los casos raros (iones, ligandos sin enlaces, `?`). Lo que sigue
+> sin verificar está marcado y se cierra con el corpus completo (sección 10).
+> Documento redactado el 16/11/2026 y actualizado el 18/11/2026.
 
 ## Índice
 
@@ -165,10 +164,57 @@ no existe, se trata como error controlado.
 ### 3.3 Cosas que el fichero no garantiza
 
 - Un ligando puede no tener **ninguna** fila de `_chem_comp_bond` (por ejemplo, un ion de un solo átomo): sin categoría de enlaces
-  no es un error, es una molécula con cero enlaces.
+  no es un error, es una molécula con cero enlaces. *(Inferencia; `ligands.txt` trae unos 40 ids de 1–2 caracteres que lo ejercitarán.)*
 - Los símbolos de elemento llegan **en mayúsculas** (`CL`, `FE`), mientras que la tabla CPK se escribe habitualmente `Cl`, `Fe`.
   Hay que normalizar. *(Pendiente de confirmar en datos reales.)*
 - Puede haber `?` en lugar de coordenadas en alguna de las dos familias. *(Pendiente de confirmar.)*
+
+### 3.4 Verificado con un fichero real: ligando `001`
+
+El 18/11/2026 se obtuvo el fichero real del ligando `001` (el primero de `ligands.txt`). Lo medido con el analizador de referencia
+(`cif_stats.py`) y con un cálculo geométrico sobre el fichero:
+
+| Hecho | Valor | Consecuencia para el parser |
+|-------|-------|------------------------------|
+| Átomos / enlaces | 87 átomos (45 pesados + 42 H), 90 enlaces | Coincide con la fórmula del propio fichero (`C35 H42 F2 N2 O6`) y con la cuenta de anillos (90 − 87 + 1 = 4) |
+| Columnas de `_chem_comp_atom` | **17**, incluyendo `alt_atom_id`, `pdbx_align`, `pdbx_component_atom_id`, `pdbx_component_comp_id` | Confirma «buscar por nombre»: la tabla oficial de 16 columnas **no** coincide con el fichero real |
+| Coordenadas | Existen las dos familias, **sin `?`** | Una muestra; no prueba nada sobre otros ligandos |
+| Nombre del ligando | Campo de texto `;` **multilínea** que empieza en la línea siguiente a la etiqueta (`_chem_comp.name`) | El tokenizador debe soportar campos `;` (caso 2 de la sección 9): **confirmado como real**, no teórico |
+| Categorías de una fila | `_chem_comp` y `_pdbx_chem_comp_synonyms` vienen **en forma de pares** | Confirma que la forma de pares existe; para `_chem_comp_atom` en un ion **sigue sin verificar** |
+| Otras categorías | `_pdbx_chem_comp_descriptor`, `_pdbx_chem_comp_identifier`, `_pdbx_chem_comp_audit` con valores entre comillas dobles que contienen espacios, paréntesis, corchetes y `@` | Se ignoran, pero **el tokenizador tiene que atravesarlas sin romperse** |
+| Líneas `#   #` | Comentarios con texto tras el `#` | Comentario hasta fin de línea: correcto |
+| Identificador | `001`: solo dígitos | **Nunca convertir un id a número** (42 de los 1243 ids son solo dígitos) |
+| Símbolos de elemento | `C`, `H`, `O`, `N`, `F` (una letra, mayúscula) | No contradice la normalización; los de dos letras (`CL`) **siguen sin verificar** |
+| `value_order` | Solo `SING` y `DOUB`, en mayúsculas | El aromático va aparte, en `pdbx_aromatic_flag` (`Y`), con forma de Kekulé: **no apareció `arom`** en `value_order` |
+| Nombres de átomo | Únicos, sin comillas (`C01`, `H021`) | Con una muestra no se puede afirmar que no se repitan en otros ligandos |
+| Fin de línea | `\n` (el fichero adjunto no tiene `\r`) | No prueba nada sobre otros orígenes |
+
+**Hallazgo clave para la política 7.1: los dos juegos de coordenadas no están en el mismo sistema de referencia.**
+
+| Juego | Centroide (Å) | Radio máx. desde el centroide | Longitud de enlace mín.–máx. | Enlaces C–H | Dobles |
+|-------|---------------|-------------------------------|------------------------------|-------------|--------|
+| `model_Cartn_*` | (28,99; 13,81; 24,98) | 9,16 | 1,102–1,561 | 1,102–1,116 | 1,216–1,426 |
+| `pdbx_model_Cartn_*_ideal` | (−0,08; −0,04; 0,26) | 8,65 | 1,080–1,532 | 1,080–1,091 | 1,209–1,390 |
+
+- Las **ideales** están centradas casi en el origen. Las de **modelo** están desplazadas unos 30 Å respecto al origen (vienen del
+  sistema de coordenadas de la estructura cristalina de origen). Con las de modelo **hay que centrar la molécula** antes de
+  dibujarla, o la cámara orbitaría alrededor de un punto vacío. Con las ideales el centrado es casi gratuito, pero conviene hacerlo
+  siempre (la regla debe valer para ambas familias).
+- Las longitudes de enlace de ambas son químicamente razonables (C–H ≈ 1,1 Å, C=O ≈ 1,2 Å).
+- Este análisis es de **un solo ligando**; la política se confirma con el corpus.
+
+#### Sobre `ligands.txt` y `ligands_temp.txt`
+
+| Hecho | Valor |
+|-------|-------|
+| Ligandos en `ligands.txt` | **1243**, sin repetidos, ordenados alfabéticamente (orden de bytes), un id por línea, solo `[A-Z0-9]`, sin `\r` |
+| Longitud de los ids | 3 ids de 1 carácter (`F`, `K`, `O`), 36 de 2 (`CL`, `NA`, `ZN`, `FE`, `OH`, `NO`...) y 1204 de 3 |
+| Ids solo con dígitos | 42 (`001`, `011`, `140`, `200`...) |
+| `ligands_temp.txt` | Son **exactamente las primeras 235 líneas** de `ligands.txt` (comprobado con `diff`). Parece una lista recortada; **no sabemos para qué se creó**. No hace falta en el proyecto. |
+
+Consecuencias: (1) la lista contiene unas 40 entradas de uno o dos caracteres, en su mayoría iones o moléculas de muy pocos átomos,
+así que **los casos «ion» y «sin enlaces» se van a ejercitar de verdad** (no es una hipótesis de laboratorio); (2) hay ids como
+`UNK`, `UNL` y `UNX` cuyo contenido **no hemos visto** y hay que mirar con cuidado (sección 10); (3) el id es siempre **texto**.
 
 ---
 
@@ -328,7 +374,12 @@ Son elecciones con varias respuestas razonables. Se cierran **con los datos real
 | B. Modelo primero, ideales como reserva | Es la geometría observada en un cristal | Puede traer `?` en algunos ligandos; forma «real» pero con ruido |
 | C. Solo una y error si falta | Simple | Fallos evitables |
 
-Propuesta provisional: **A**, con la reserva en B y error solo si un átomo no tiene ningún juego válido. El script de la sección 10
+**Dato nuevo (ligando `001`, sección 3.4):** las ideales están centradas en el origen y las de modelo a unos 30 Å de él, así que
+la opción B obliga a centrar sí o sí; con A el centrado es casi gratuito. Las dos familias dan enlaces químicamente razonables.
+Es un solo ligando, pero **refuerza A**.
+
+Propuesta provisional: **A**, con la reserva en B y error solo si un átomo no tiene ningún juego válido. **Regla común: siempre se
+centra en el centroide**, venga de donde venga. El script de la sección 10
 cuenta cuántos ficheros caen en cada caso; con ese número se confirma o se cambia.
 
 ### 7.2 ¿Qué hacemos con datos defectuosos?
@@ -440,6 +491,10 @@ Casos mínimos del test del extractor:
 
 ### 10.2 Cómo conseguir los datos reales
 
+Hay dos caminos. El **lote** de la página de descargas de ligandos de RCSB (`rcsb.org/downloads/ligands`, «Generate File Batches
+for Download»), que es el que usó Valera para obtener `001`; **no hemos verificado** cómo nombra los ficheros ni cuántos devuelve por
+lote. Y el **script** por ficheros individuales. Las URL `https://files.rcsb.org/ligands/view/{ID}.cif` y
+`https://files.rcsb.org/ligands/download/{ID}.cif` figuran en la página oficial de descargas HTTP de RCSB (comprobado el 18/11/2026).
 Desde la máquina de desarrollo (el entorno donde se escribe este documento no puede llegar a RCSB):
 
 ```bash
@@ -462,8 +517,10 @@ sección 7 con datos y se eligen los ficheros de prueba. Además sirve de **segu
 
 Ligandos propuestos como *fixtures* (por diversidad; ver también la salida del script): `ATP` (nucleótido con `O5'` y muchos H), un
 ion (`NA`, `CL` o `ZN`), `HEM`, `FAD`/`NAD` (grandes), `SF4` (clúster hierro-azufre), un identificador que empieza por dígito, y el
-ligando con más átomos del corpus. **Antes de añadirlos al repositorio hay que comprobar la licencia de los datos de wwPDB** (nuestra
-información es que son de dominio público, CC0, pero no lo hemos verificado en este documento).
+ligando con más átomos del corpus. **Licencia:** la página de políticas de RCSB indica que los ficheros de datos del archivo PDB y los datos de sus API se publican bajo
+**CC0 1.0**; no hemos visto una mención explícita al Diccionario de Componentes Químicos (de donde salen los `.cif` de ligandos), y
+la página del CCD de wwPDB no declara licencia. Es muy probable que valga lo mismo, pero **es una inferencia**; con fixtures
+sueltos de tamaño pequeño el riesgo es mínimo, y se añade a `fixtures/README` el origen y la fecha de descarga.
 
 ---
 
@@ -473,7 +530,7 @@ información es que son de dominio público, CC0, pero no lo hemos verificado en
 |-------------|------------------------|
 | **`split` por espacios o expresiones regulares** sobre las líneas | Rompe con comillas y campos multilínea; es el origen típico de los fallos del documento 01 |
 | **Librería de terceros** para CIF/mmCIF (existen implementaciones en Java, p. ej. de RCSB o BioJava; *no verificado desde aquí*) | Dependencias pesadas en Android, tamaño de la app, y el enunciado centra el aprendizaje en escribir el parser (D2) |
-| **Otro formato** de RCSB (SDF, JSON de la API) | El enunciado fija `.cif`; además cambiar de formato mueve el problema, no lo elimina *(existencia de esas rutas no verificada)* |
+| **Otro formato** de RCSB (p. ej. `{ID}_ideal.sdf`; la ruta figura en la página de descargas de RCSB) | El enunciado fija `.cif`; además cambiar de formato mueve el problema, no lo elimina |
 | **Parser por streaming** (línea a línea, sin cargar todo) | Los ficheros de ligandos son pequeños (decenas de KB, *a confirmar con el corpus*) y las comillas/campos multilínea complican el estado; con tope de tamaño la versión en memoria es más simple |
 | **Parser de «solo lo que necesito»** (buscar las líneas que empiezan por el id del ligando) | Frágil: depende del orden y del formato exacto; falla con la forma de pares y los nombres entre comillas |
 
@@ -484,20 +541,29 @@ información es que son de dominio público, CC0, pero no lo hemos verificado en
 | Afirmación | Estado | Fuente |
 |------------|--------|--------|
 | Reglas léxicas de CIF 1.1 (comentarios, comillas, campos `;`, palabras reservadas, mayúsculas) | Verificado | Especificación de la IUCr |
-| Lista de columnas de `_chem_comp_atom` | Verificado | Tabla de wwPDB |
-| Valores permitidos de `value_order` | Verificado | Diccionario/descripción de wwPDB |
+| Lista de columnas de `_chem_comp_atom` (16 en la tabla de wwPDB) | Verificado; **el fichero real trae 17** | Tabla de wwPDB + ligando `001` |
+| Valores permitidos de `value_order` | Verificado (en `001` solo `SING`/`DOUB`) | wwPDB + ligando `001` |
 | ATP de PDBe: 47 átomos (31 pesados + 16 H), 49 enlaces, con columnas y categorías extra | Verificado (fichero de PDBe, no de RCSB) | Página de PDBe |
+| Estructura real de un `.cif` de RCSB: `_chem_comp`, `_chem_comp_atom`, `_chem_comp_bond`, descriptores, identificadores, auditoría | **Verificado en 1 ligando** (`001`: 87 átomos, 90 enlaces, ambas familias de coordenadas sin `?`) | Fichero real |
+| Campo de texto `;` multilínea (nombre del ligando) | **Verificado, aparece en el 1.er ligando** | Fichero real |
+| Categorías de una fila en forma de pares (`_chem_comp`, `_pdbx_chem_comp_synonyms`) | Verificado | Fichero real |
+| Coordenadas ideales centradas en el origen; las de modelo desplazadas ~30 Å | Verificado en 1 ligando | Fichero real, cálculo propio |
+| `ligands.txt`: 1243 ids únicos, ordenados, solo `[A-Z0-9]`; 42 solo con dígitos; 39 de 1–2 caracteres | Verificado | Fichero adjunto |
+| `ligands_temp.txt` = primeras 235 líneas de `ligands.txt` | Verificado (`diff`); su propósito, **no** | Fichero adjunto |
+| URL `files.rcsb.org/ligands/view/{ID}.cif` y `/download/{ID}.cif` | Verificado en la página de descargas de RCSB | RCSB |
+| Datos de archivo PDB y API de RCSB bajo CC0 1.0 | Verificado; **que cubra los `.cif` del CCD, no** | Políticas de RCSB |
 | `?` = desconocido y `.` = no aplicable | Conocimiento general, **sin leer la página de la IUCr** | — |
-| Ion de un átomo escrito en forma de pares clave-valor | **No verificado** | Inferencia del formato |
+| `_chem_comp_atom` de un ion de un átomo en forma de pares clave-valor | **No verificado** | Inferencia del formato |
 | Ligandos sin categoría `_chem_comp_bond` | **No verificado** | Inferencia |
-| Símbolos de elemento en mayúsculas (`CL`) | **No verificado** | Memoria |
-| `?` en coordenadas de modelo o ideales | **No verificado** | Memoria |
-| Tamaño máximo de un ligando | **No verificado** | Pendiente del corpus |
-| Licencia CC0 de los datos de wwPDB | **No verificado** | Memoria |
-| Existencia de rutas SDF/JSON y de librerías Java para CIF | **No verificado** | Memoria |
-| Ningún fichero real de RCSB leído | Hecho | La red del entorno bloquea `files.rcsb.org` |
+| Símbolos de elemento de dos letras en mayúsculas (`CL`) | **No verificado** (en `001` solo hay de una letra) | Memoria |
+| `?` en coordenadas en algún ligando | **No verificado** | Memoria |
+| Nombres de átomo con comillas (`"O5'"`) | **No verificado en datos reales** | Memoria / ATP de PDBe |
+| Tamaño máximo de un ligando y del fichero | **No verificado** (el mayor visto: 87 átomos) | Pendiente del corpus |
+| Contenido de `UNK`, `UNL`, `UNX` y de ids de 1–2 caracteres | **No visto** | Pendiente del corpus |
+| Cómo nombra y empaqueta los ficheros el «lote» de RCSB | **No verificado** | — |
+| Existencia de librerías Java para CIF | **No verificado** | Memoria |
 
-Los puntos «No verificado» se cierran con el corpus real (sección 10.2).
+Los puntos «No verificado» se cierran con el corpus real completo (sección 10.2): **1 de 1243 ligandos** es poca muestra.
 
 ---
 
