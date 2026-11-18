@@ -359,6 +359,18 @@ el extractor ve una única abstracción: `Tabla { columnas, filas }`, vengan de 
 
 Solo se procesa el **primer** bloque `data_`; si aparece otro, se ignora el resto.
 
+**Implementación (`CifTableReader.kt`, `CifTable.kt`)**, con las decisiones que el pseudocódigo no recoge:
+
+- Es **estricta**: un valor suelto sin etiqueta (`StrayValue`), una etiqueta sin valor (`MissingValue`), un `loop_` sin columnas o
+  con filas incompletas son **fallo**, no se «arreglan». Un fichero así es corrupto y se avisa.
+- El fichero **debe empezar por `data_`**; si no (texto vacío, HTML), `NoDataBlock`.
+- Los nombres de columna se guardan **en minúsculas** (CIF no distingue mayúsculas) y se buscan con `indexOf(nombre)`.
+- Las tablas de pares sueltos se añaden **después** de las de `loop_`; el orden entre tablas no importa porque se buscan por columna
+  (`CifBlock.tableWith("_chem_comp_atom.atom_id")`).
+- Un `loop_` con columnas y cero valores es una tabla **vacía**, no un fallo (la capa 3 decidirá si «cero átomos» es error).
+- Comprobado contra el `.cif` real `001` (7 tablas) y contra el analizador de referencia en Python: mismas tablas, mismas filas,
+  mismas celdas.
+
 ### 5.3 Capa 3: extractor de molécula
 
 ```
@@ -476,9 +488,11 @@ Reglas:
    cada capa; es más puro, pero obliga a comprobar el resultado tras cada token y llena el código de ramas.
 2. Aun así, la **frontera** (el sitio que llama al parser) envuelve la llamada y convierte cualquier excepción inesperada en `Fallo`.
    *Cuidado*: en corrutinas no se debe tragar `CancellationException`, hay que relanzarla (documento 06).
-3. Los **motivos** son valores de un tipo cerrado (`sealed`), no cadenas: `CuerpoVacío`, `NoEsCif` (por ejemplo, una página HTML con
-   estado 200), `SinÁtomos`, `ColumnaObligatoriaAusente(nombre)`, `FilaTruncada`, `CampoSinCerrar`, `CoordenadaInválida`, `DemasiadoGrande`.
-   Todos se muestran al usuario como «fichero corrupto» con un texto útil; el motivo concreto va al registro.
+3. Los **motivos** son valores de un tipo cerrado (`sealed interface CifFailure`), no cadenas. Hoy existen: `UnterminatedQuote`,
+   `UnterminatedTextField` (capa 1); `NoDataBlock` (cuerpo vacío, página HTML, texto que no es CIF), `LoopWithoutColumns`,
+   `TruncatedRow`, `MissingValue`, `StrayValue` (capa 2). Se añadirán los de la capa 3 (`NoAtoms`, columna obligatoria ausente,
+   coordenada inválida, demasiado grande). Todos se muestran al usuario como «fichero corrupto» con un texto útil; el motivo
+   concreto, con su línea, va al registro.
 4. **Tope de tamaño** antes de tokenizar (por ejemplo, descartar cuerpos de varios MB): protege la memoria frente a respuestas
    inesperadas.
 5. El indicador de carga se oculta **siempre** (`finally`): es un requisito del enunciado y se verifica en la capa de red/UI.
