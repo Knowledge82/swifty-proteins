@@ -7,9 +7,11 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md), sección 7). El proyecto Android ya vive en la raíz
 > de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** carga de ligandos. El parser de CIF está **completo** (88 pruebas, verificado
 > contra los 1242 ligandos presentes en el diccionario) y la **capa de red** (descarga, errores, tiempos, cancelación y conversión a molécula) está **escrita y probada en la JVM** (42 pruebas más; sin probar en dispositivo ni contra RCSB real).
-> Faltan el `ViewModel`, las pantallas de error, la lista con búsqueda y el permiso `INTERNET` en el manifiesto. Documentos:
+> También están escritos y probados en la JVM el **catálogo con búsqueda** (`ligands.txt`, sin distinguir mayúsculas) y el **cargador** que gobierna el estado de carga (`Idle / Loading / Loaded / Failed`, con la garantía de que el indicador siempre desaparece).
+> Falta todo el pegamento con Android (leer los *assets*, `ViewModel`, pantallas, navegación, dependencias nuevas) y el permiso `INTERNET` en el manifiesto. Documentos:
 > [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (parser),
-> [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red).
+> [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red),
+> [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) (lista, búsqueda y estado de carga).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -49,6 +51,8 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D14 | Cliente HTTP: `java.net.HttpURLConnection`, **sin dependencias nuevas**, detrás de la interfaz `HttpFetcher` | Decidida | Hace lo que necesitamos (un `GET` de un fichero pequeño), viene con Android y la JVM, y se prueba sin emulador. OkHttp es la alternativa si la prueba real descubre problemas; solo habría que cambiar una clase. Detalle en [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md), 10 y 11. |
 | D15 | Red: tres relojes (10 s conexión, 10 s lectura, 30 s total), tamaño máximo 2 000 000 bytes y comprobación de `Content-Length` | Decidida; valores **estimados**, no medidos | Un servidor lento o mentiroso no puede dejar el indicador de carga girando ni llenar la memoria. Sin `Content-Length` el parser deja pasar el 10,4 % de los cortes posibles del `001` (medido). Detalle en el documento 06, secciones 4 y 5. |
 | D16 | Los errores de carga son **valores** (`FetchResult`, `LigandLoadResult`, `LoadError`) en dos niveles, con una red de seguridad `catch (Exception)` en el repositorio | Decidida | Un cierre inesperado suspende; con tipos cerrados el compilador obliga a tratar todos los casos. Detalle en el documento 06, sección 6. |
+| D17 | Búsqueda: el texto **contenido** en el id, sin distinguir mayúsculas, con los ids que **empiezan** por el texto primero | Decidida | Con ids de 3 letras «contiene» es más útil que solo «empieza por», y el prefijo primero pone arriba lo más probable. 57 µs en la JVM de análisis (sin medir en el A33). Detalle en [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md), 4, 5 y 15. |
+| D18 | Las reglas de la carga viven en `LigandLoader` (Kotlin + corrutinas) y el estado es una `sealed interface` (`LoadState`); el `ViewModel` será una envoltura mínima | Decidida | Se prueba en la JVM sin Android; el indicador no puede coexistir con un error. Detalle en el documento 06b, 6, 7 y 9. |
 
 ---
 
@@ -83,7 +87,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | 05 · Autenticación y seguridad | Hash de contraseñas, Keystore, biometría, bloqueo al volver de segundo plano | Pendiente |
 | [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) | HTTP en cinco minutos, todo lo que puede salir mal en una descarga (y su mensaje), tres relojes, ¿llegó entero?, errores como valores, hilos y cancelación, permiso `INTERNET`, alternativas (OkHttp...), cómo probar sin Internet, qué está verificado | **Escrito** (capa de red; lista y búsqueda, pendientes) |
 | [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) | El código de la capa de red **línea a línea**: `FetchResult`, `HttpUrlConnectionFetcher`, `LigandLoadResult`, `LigandRepository`, el servidor casero de pruebas y las 42 pruebas una a una, con mutación | **Escrito** |
-| 06b · Lista y búsqueda | `ligands.txt`, búsqueda insensible a mayúsculas en tiempo real, estados de la interfaz, `ViewModel` | Pendiente |
+| [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) | `LigandCatalog` (lista y búsqueda en tiempo real), `LoadState`, `LigandLoader` (corrutinas, cancelación, la garantía del indicador), simulaciones, 25 pruebas con mutación, qué falta para enchufarlo a Android | **Escrito** (lógica; pegamento con Android, pendiente) |
 | 07 · Vista 3D | Escena, cámara, gestos, selección de átomos | Pendiente |
 | 08 · Compartir y acabado | Captura, diseño adaptable, accesibilidad | Pendiente |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |
