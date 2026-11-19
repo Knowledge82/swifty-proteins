@@ -100,5 +100,5 @@ Los anillos aromáticos **sí** aparecen, pero escritos de la forma clásica de 
 
 | Término | Qué es |
 |---------|--------|
-| **PyPI** (*Python Package Index*) | Repositorio público de paquetes de Python (el que usa `pip install`). **No forma parte del proyecto.** Se mencionó porque el entorno donde trabaja el asistente no llega a RCSB, wwPDB ni PDBe, pero sí a PyPI; de ahí se descargó el paquete `biotite`, que incluye una copia binaria del CCD, para calcular las estadísticas del documento 03, 3.5. |
+| **PyPI** (*Python Package Index*) | Repositorio público de paquetes de Python (el que usa `pip install`). **No forma parte del proyecto.** Se mencionó porque el entorno de análisis no llega a RCSB, wwPDB ni PDBe, pero sí a PyPI; de ahí se descargó el paquete `biotite`, que incluye una copia binaria del CCD, para calcular las estadísticas del documento 03, 3.5. |
 | **`cif_stats.py`** | Script desechable de Python que analiza ficheros `.cif`. No es código del proyecto. |

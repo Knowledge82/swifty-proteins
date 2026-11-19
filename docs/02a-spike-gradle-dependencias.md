@@ -350,7 +350,7 @@ Se actualizó `composeBom` y la comprobación mostró `ui`, `foundation` y `runt
 **Notas de método:**
 
 - No se pudo leer el registro de cambios de SceneView ni su API de referencia por completo (algunas
-  páginas no eran accesibles desde el entorno del asistente), así que **las firmas de la API se
+  páginas no eran accesibles desde el entorno de análisis), así que **las firmas de la API se
   confirmarán en el IDE** y no se han dado por válidas desde la documentación.
 - Las capturas de Maven Central las aportó el equipo.
 

@@ -58,7 +58,7 @@ al tope no hay un «sí» claro, la respuesta es «no» y se pasa al plan B (sec
 **Reglas:**
 
 - Rama `spike/3d`, que **no se fusiona en `main`** (si se aprovecha algo, se copia de forma explícita; sección 10).
-- Regla original del spike: el código lo escribe el equipo y cada paso se entiende antes de escribirse. (Desde el 18/11/2026 el código lo escribe el asistente y lo explica línea a línea; ver README, «Cómo trabajamos».)
+- Cada paso se entiende antes de escribirse.
 - Datos de prueba **fabricados a mano** (unos pocos átomos). No hace falta descargar ni interpretar
   ningún `.cif` todavía.
 - Se anota cada fallo y cada sorpresa: serán la materia del documento 07.

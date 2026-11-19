@@ -265,7 +265,7 @@ Consecuencias, que se recogen en las secciones 7 y 9:
 
 ## 4. Modelo de datos
 
-Diseño propuesto (esbozo, el código lo escribe el equipo):
+Diseño propuesto (esbozo):
 
 ```
 Molecule
@@ -569,7 +569,7 @@ Casos mínimos del test del extractor:
 ### 10.2 Cómo conseguir los datos reales
 
 Hay dos caminos. El **lote** de la página de descargas de ligandos de RCSB (`rcsb.org/downloads/ligands`, «Generate File Batches
-for Download»), que es el que usó Valera para obtener `001`; **no hemos verificado** cómo nombra los ficheros ni cuántos devuelve por
+for Download»), que es el que se usó para obtener `001`; **no hemos verificado** cómo nombra los ficheros ni cuántos devuelve por
 lote. Y el **script** por ficheros individuales. Las URL `https://files.rcsb.org/ligands/view/{ID}.cif` y
 `https://files.rcsb.org/ligands/download/{ID}.cif` figuran en la página oficial de descargas HTTP de RCSB (comprobado el 18/11/2026).
 Desde la máquina de desarrollo (el entorno donde se escribe este documento no puede llegar a RCSB):

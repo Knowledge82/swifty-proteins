@@ -82,14 +82,11 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 
 ## Cómo trabajamos
 
-- **El código lo escribe el asistente de IA y lo explica línea a línea.** Un autor lo incorpora al repositorio **solo cuando lo ha
-  entendido**; si no, se vuelve a explicar desde otro ángulo. Este es un proyecto de aprendizaje y en la defensa hay que poder
-  explicar cada línea.
+- **Cada pieza de código se explica línea a línea** y se incorpora al repositorio solo cuando todo el equipo la entiende. Este es un
+  proyecto de aprendizaje y en la defensa hay que poder explicar cada línea.
 - **Un documento por etapa**, en `docs/`, enlazado desde este README y actualizado al
   cerrar cada etapa.
 - **Los experimentos viven en ramas** (por ejemplo `spike/3d`) y **no se fusionan** en `main`. Si se aprovecha algo de un experimento, se **copia de forma explícita**, se registra como decisión (D11) y se anota qué es temporal.
-- **El código y la documentación se han elaborado con ayuda de un asistente de IA.** Los autores revisan
-  y entienden su contenido.
 
 ---
 
