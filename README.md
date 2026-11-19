@@ -8,10 +8,12 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** carga de ligandos. El parser de CIF está **completo** (88 pruebas, verificado
 > contra los 1242 ligandos presentes en el diccionario) y la **capa de red** (descarga, errores, tiempos, cancelación y conversión a molécula) está **escrita y probada en la JVM** (42 pruebas más; sin probar en dispositivo ni contra RCSB real).
 > También están escritos y probados en la JVM el **catálogo con búsqueda** (`ligands.txt`, sin distinguir mayúsculas) y el **cargador** que gobierna el estado de carga (`Idle / Loading / Loaded / Failed`, con la garantía de que el indicador siempre desaparece).
-> Falta todo el pegamento con Android (leer los *assets*, `ViewModel`, pantallas, navegación, dependencias nuevas) y el permiso `INTERNET` en el manifiesto. Documentos:
+> Está escrito el **pegamento con Android** (leer los *assets*, `ViewModel`, lista con buscador, diálogos de carga y de error, pantalla provisional con los datos de la molécula): **sin compilar con el SDK de Android** (los textos de error, con 7 pruebas, sí están probados en la JVM; 162 pruebas en total).
+> Falta la primera compilación y prueba en el móvil, el inicio de sesión, y la escena 3D con una molécula real. Documentos:
 > [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (parser),
 > [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red),
-> [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) (lista, búsqueda y estado de carga).
+> [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) (lista, búsqueda y estado de carga),
+> [`docs/06c-pegamento-android-lista-y-carga.md`](docs/06c-pegamento-android-lista-y-carga.md) (pegamento con Android).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -52,7 +54,9 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D15 | Red: tres relojes (10 s conexión, 10 s lectura, 30 s total), tamaño máximo 2 000 000 bytes y comprobación de `Content-Length` | Decidida; valores **estimados**, no medidos | Un servidor lento o mentiroso no puede dejar el indicador de carga girando ni llenar la memoria. Sin `Content-Length` el parser deja pasar el 10,4 % de los cortes posibles del `001` (medido). Detalle en el documento 06, secciones 4 y 5. |
 | D16 | Los errores de carga son **valores** (`FetchResult`, `LigandLoadResult`, `LoadError`) en dos niveles, con una red de seguridad `catch (Exception)` en el repositorio | Decidida | Un cierre inesperado suspende; con tipos cerrados el compilador obliga a tratar todos los casos. Detalle en el documento 06, sección 6. |
 | D17 | Búsqueda: el texto **contenido** en el id, sin distinguir mayúsculas, con los ids que **empiezan** por el texto primero | Decidida | Con ids de 3 letras «contiene» es más útil que solo «empieza por», y el prefijo primero pone arriba lo más probable. 57 µs en la JVM de análisis (sin medir en el A33). Detalle en [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md), 4, 5 y 15. |
-| D18 | Las reglas de la carga viven en `LigandLoader` (Kotlin + corrutinas) y el estado es una `sealed interface` (`LoadState`); el `ViewModel` será una envoltura mínima | Decidida | Se prueba en la JVM sin Android; el indicador no puede coexistir con un error. Detalle en el documento 06b, 6, 7 y 9. |
+| D18 | Las reglas de la carga viven en `LigandLoader` (Kotlin + corrutinas) y el estado es una `sealed interface` (`LoadState`); el `ViewModel` es una envoltura mínima | Decidida | Se prueba en la JVM sin Android; el indicador no puede coexistir con un error. Detalle en el documento 06b, 6, 7 y 9, y en el 06c, 6. |
+| D19 | La pantalla se decide con un `if` sobre el `LoadState` (**sin librería de navegación**); el texto buscado y la posición de la lista viven en la raíz (`SwiftyApp`) | Provisional | Hay dos pantallas y el estado de carga ya es la verdad. Se revisará al llegar el inicio de sesión y la escena 3D. Detalle en [`docs/06c-pegamento-android-lista-y-carga.md`](docs/06c-pegamento-android-lista-y-carga.md), 7, 16 y 18. |
+| D20 | Los textos de la interfaz van **en inglés, escritos en el código** (no en `strings.xml`) | Provisional | Menos ceremonia ahora; cambiarlo después es mecánico. **Supuesto no confirmado:** que la app deba estar en inglés. Detalle en el documento 06c, 18. |
 
 ---
 
@@ -88,6 +92,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) | HTTP en cinco minutos, todo lo que puede salir mal en una descarga (y su mensaje), tres relojes, ¿llegó entero?, errores como valores, hilos y cancelación, permiso `INTERNET`, alternativas (OkHttp...), cómo probar sin Internet, qué está verificado | **Escrito** (capa de red; lista y búsqueda, pendientes) |
 | [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) | El código de la capa de red **línea a línea**: `FetchResult`, `HttpUrlConnectionFetcher`, `LigandLoadResult`, `LigandRepository`, el servidor casero de pruebas y las 42 pruebas una a una, con mutación | **Escrito** |
 | [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) | `LigandCatalog` (lista y búsqueda en tiempo real), `LoadState`, `LigandLoader` (corrutinas, cancelación, la garantía del indicador), simulaciones, 25 pruebas con mutación, qué falta para enchufarlo a Android | **Escrito** (lógica; pegamento con Android, pendiente) |
+| [`docs/06c-pegamento-android-lista-y-carga.md`](docs/06c-pegamento-android-lista-y-carga.md) | El pegamento con Android **línea a línea**: dependencias, `ViewModel` y su fábrica, la raíz (navegar por estado), lista con buscador, diálogos de carga y de error, pantalla provisional; simulaciones, cómo probar los cuatro errores en el móvil, alternativas, qué está verificado y qué no | **Escrito** (sin compilar con el SDK de Android) |
 | 07 · Vista 3D | Escena, cámara, gestos, selección de átomos | Pendiente |
 | 08 · Compartir y acabado | Captura, diseño adaptable, accesibilidad | Pendiente |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |

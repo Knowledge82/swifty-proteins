@@ -12,6 +12,7 @@
 5. [Tecnologías del proyecto y términos de arquitectura](#5-tecnologías-del-proyecto-y-términos-de-arquitectura)
 6. [Herramientas usadas solo para analizar](#6-herramientas-usadas-solo-para-analizar)
 7. [Red y HTTP](#7-red-y-http)
+8. [Android y Compose: el pegamento con la pantalla](#8-android-y-compose-el-pegamento-con-la-pantalla)
 
 ---
 
@@ -129,7 +130,7 @@ Los anillos aromáticos **sí** aparecen, pero escritos de la forma clásica de 
 | **Goteo** (*slow drip*) | Servidor que manda un byte cada poco tiempo: nunca dispara el tiempo de lectura pero nunca acaba. | Lo para el reloj total. |
 | **Hilo principal** (*main thread*) | El hilo que dibuja la pantalla y recibe los toques. Si se bloquea, la app se congela. Hacer red en él lanza `NetworkOnMainThreadException`. | `fetch` y `load` **bloquean**: se llamarán desde `Dispatchers.IO`. |
 | **Bloqueante** | Una función que **para** el hilo que la llama hasta tener resultado. | `HttpFetcher.fetch` y `LigandRepository.load`. |
-| **`Dispatchers.IO`** | Grupo de hilos de las corrutinas de Kotlin pensado para trabajo que espera (red, disco). | Lo usará el `ViewModel` (pendiente). |
+| **`Dispatchers.IO`** | Grupo de hilos de las corrutinas de Kotlin pensado para trabajo que espera (red, disco). | Lo usa el `ViewModel` para el trabajo lento del cargador (`LigandsViewModel`). |
 | **Cancelación** | Parar un trabajo porque el resultado ya no interesa (el usuario salió de la pantalla). | Función `isCancelled: () -> Boolean` consultada antes de empezar y en cada vuelta de lectura. `Cancelled` no es un error. |
 | **Permiso `INTERNET`** | Permiso de Android (`<uses-permission android:name="android.permission.INTERNET" />`) sin el cual la app no puede usar la red. Se concede al instalar, sin cuadro de diálogo (según recordamos de la documentación; no releído). | **Pendiente de añadir** en `AndroidManifest.xml`. |
 | **`HttpURLConnection`** | Clase del JDK y de Android para hacer peticiones HTTP. API antigua y de bajo nivel, sin dependencias. | D14: es la que usamos. |
@@ -151,6 +152,35 @@ Los anillos aromáticos **sí** aparecen, pero escritos de la forma clásica de 
 | **`StateFlow`** | Contenedor observable con **siempre un valor actual**; avisa a los observadores cuando cambia (solo si el valor nuevo es distinto por `equals`). Hace que Compose redibuje solo. | `LigandLoader.state`. |
 | **`typealias`** | Un **apodo** para un tipo (aquí, un tipo de función). No crea un tipo nuevo. | `LigandSource`. |
 | **Constructor privado + fábrica** | La clase solo se crea por una función de su `companion object`, que garantiza que los datos pasan por la limpieza. | `LigandCatalog.fromText`. |
-| **`ViewModel`** | Clase de Android que **sobrevive a los giros de pantalla** (la actividad se destruye y recrea; el `ViewModel`, no). Trae `viewModelScope`. | Envoltura mínima de `LigandLoader` (pendiente). |
+| **`ViewModel`** | Clase de Android que **sobrevive a los giros de pantalla** (la actividad se destruye y recrea; el `ViewModel`, no). Trae `viewModelScope`. | Envoltura mínima de `LigandLoader` y `LigandCatalog` (`LigandsViewModel`, documento 06c, sección 6). |
 | **`LazyColumn`** | Lista de Compose que solo dibuja los elementos **visibles**. | Para mostrar hasta 1243 ids. |
 | **Mutante equivalente** | Avería que **no cambia el comportamiento** (p. ej. quitar `requestMethod = "GET"`, que ya es el valor por defecto): ninguna prueba puede detectarla. | Documento 06a, sección 12. |
+
+---
+
+## 8. Android y Compose: el pegamento con la pantalla
+
+Desarrollado en [`06c-pegamento-android-lista-y-carga.md`](06c-pegamento-android-lista-y-carga.md), sección 3.
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **`Activity` y su recreación** | La actividad es la «ventana» de la app. Al **girar el móvil** (u otros cambios de configuración) Android la **destruye y crea otra**; lo que viva en sus variables se pierde. | Por eso el estado de la carga vive en el `ViewModel` y el texto buscado en `rememberSaveable`. |
+| **`@Composable`** | Anotación de las funciones que **describen** una parte de la interfaz a partir de datos. No se llaman «a mano» para modificar la pantalla: Compose las ejecuta cuando los datos cambian. | Todas las pantallas de `ui/`. |
+| **Recomposición** | Volver a ejecutar una función `@Composable` porque cambió un dato que **leyó**. Compose solo recompone lo afectado. Por eso el cuerpo de una función composable **se ejecuta muchas veces** y no debe tener efectos (escribir en el log, lanzar descargas) sin protegerlos. | `LaunchedEffect` para el log de errores. |
+| **`State` / `mutableStateOf`** | Contenedor cuyo cambio provoca recomposición. Con `by` se lee y escribe como una variable. | `query` del buscador. |
+| **`remember` / `remember(claves)`** | Guarda un valor **entre recomposiciones**; con claves, lo **recalcula solo si cambian**. No sobrevive a un giro. | El filtrado de la lista (`remember(catalog, query)`). |
+| **`rememberSaveable`** | Como `remember`, pero guarda el valor en un `Bundle` y **sobrevive al giro y a que Android mate el proceso** (valores pequeños). | El texto del buscador. |
+| **Elevar el estado** (*state hoisting*) | Que una pantalla **reciba** su estado y un `onCambio`, en vez de guardarlo. Quien está encima decide dónde vive. | `LigandListScreen` recibe `query`; vive en `SwiftyApp`. |
+| **`collectAsStateWithLifecycle`** | Observa un `StateFlow` desde Compose y **deja de escuchar con la app fuera de pantalla**. | `SwiftyApp`. |
+| **`LaunchedEffect(clave)`** | Ejecuta un bloque (con corrutinas) **una vez cuando la clave cambia**, no en cada recomposición. | Escribir el error técnico en el Logcat. |
+| **`Scaffold` / márgenes del sistema (*insets*)** | `Scaffold` es la estructura estándar de Material 3 y entrega el margen que dejan las barras del sistema (`innerPadding`). Los *insets* son esos márgenes (barras, teclado). `imePadding()` añade el del teclado; `consumeWindowInsets` avisa de que ya se contó. | `SwiftyApp` y `LigandListScreen`. |
+| **`AlertDialog` (diálogo modal)** | Ventana emergente que **bloquea** lo de debajo; «Atrás» la cierra. | Diálogos de «cargando» y de error. |
+| **`BackHandler`** | Captura el botón «Atrás» del sistema mientras la pantalla está dibujada. | `MoleculeSummaryScreen`. |
+| **Fábrica de `ViewModel`** (*factory*) | Objeto que le enseña a Android a **construir** un `ViewModel` con argumentos. | `LigandsViewModelFactory`. |
+| **`assets/`** | Carpeta que se empaqueta tal cual dentro de la app; se lee con `context.assets.open(nombre)`. | `ligands.txt`. |
+| **Función de extensión** | Función que se escribe fuera de una clase pero se llama como si fuera suya (`error.userMessage(id)`). | `LoadError.userMessage` y `canRetry`. |
+| ***Smart cast*** | Tras comprobar `is T`, el compilador **trata el valor como `T`** sin conversión. No funciona con propiedades delegadas (`by`): hay que copiarlas a un `val`. | `val current = state` en `SwiftyApp`. |
+| **Referencia a función** (`viewModel::open`) | Pasar una función como valor; equivale a `{ id -> viewModel.open(id) }`. | `SwiftyApp`. |
+| **Logcat** | Registro de mensajes de la app que se ve en Android Studio (`Log.w`, `Log.e`), con filtro por etiqueta. | Etiqueta `SwiftyProteins`. |
+| **ANR** (*Application Not Responding*) | Aviso de Android cuando el hilo principal está bloqueado varios segundos. | Motivo de no hacer red en el hilo principal. |
+| **Relleno** (*stub*) | Versión mínima y falsa de una librería, escrita solo para que el compilador compruebe **nuestro** código. No prueba que la librería real tenga esa firma. | Comprobación de tipos de `ui/` (06c, sección 15). |
