@@ -1,11 +1,12 @@
 # 03 · Formato CIF y parser
 
-> Estado: **BORRADOR, contrastado con un fichero real y con todo el corpus** (sección 3.4 y 3.5). Un fichero de texto real (`001`,
-> descargado de RCSB el 18/11/2026) confirma la estructura; las estadísticas de los 1243 ligandos salen de una copia **binaria** del
-> diccionario de componentes (sección 3.5), que **no conserva el formato de texto**: lo que depende de cómo se escribe el texto
-> (p. ej. un ion en forma de pares) sigue sin verificar y está marcado.
-> Documento redactado el 16/11/2026 y actualizado el 18/11/2026.
-> El **código** ya escrito (tokenizador y lector de tablas) está explicado línea a línea en [`03a-codigo-parser.md`](03a-codigo-parser.md).
+> Estado: **ESCRITO Y VERIFICADO con el corpus** (código de las tres capas, 88 pruebas). El parser (tokenizador, lector de tablas,
+> extractor y `CifParser.parse`) extrae **los mismos átomos, enlaces y coordenadas** que una implementación independiente en Python para
+> **los 1242 ligandos** de `ligands.txt` presentes en el diccionario, en dos formas de escribir el texto (sección 10.1). Lo que sigue
+> **sin verificar** depende de cómo escribe el servidor de RCSB el texto (p. ej. un ion en forma de pares) y está marcado: las cifras
+> del corpus salen de una copia **binaria** (sección 3.5), no de ficheros descargados de RCSB. Un fichero real (`001`) sí lo es.
+> Documento redactado el 16/11/2026 y actualizado el 19/11/2026.
+> El **código** está explicado línea a línea en [`03a-codigo-parser.md`](03a-codigo-parser.md).
 
 ## Índice
 
@@ -15,7 +16,7 @@
 4. [Modelo de datos](#4-modelo-de-datos)
 5. [Diseño del parser en tres capas](#5-diseño-del-parser-en-tres-capas)
 6. [Simulación paso a paso](#6-simulación-paso-a-paso)
-7. [Decisiones de política (abiertas)](#7-decisiones-de-política-abiertas)
+7. [Decisiones de política (cerradas con datos)](#7-decisiones-de-política-cerradas-con-datos)
 8. [Gestión de errores](#8-gestión-de-errores)
 9. [Trampas y casos límite](#9-trampas-y-casos-límite)
 10. [Pruebas y plan para conseguir datos reales](#10-pruebas-y-plan-para-conseguir-datos-reales)
@@ -262,6 +263,26 @@ Consecuencias, que se recogen en las secciones 7 y 9:
 - **La molécula más grande tiene 256 átomos y 256 enlaces**. Con un nodo de pivote y un cilindro por enlace (diseño del spike) serían
   unos **768 nodos** en escena, no los ~200 que se supusieron para la hipótesis H6.
 
+### 3.6 Hallazgo al verificar el extractor: cinco ligandos con las ideales «rotas»
+
+Al medir la **longitud de todos los enlaces** de lo que devolvía el parser (54 527 enlaces) aparecieron **9 enlaces de 8 a 14 Å**, todos
+O–H. No era un fallo del parser (la implementación independiente coincidía): es **el dato**. En cinco ligandos las coordenadas
+**ideales** colocan algunos hidrógenos ácidos muy lejos del oxígeno al que están unidos, mientras que las de **modelo** están bien:
+
+| Ligando | Enlace más largo con ideales | Enlace más largo con modelo |
+|---------|-----------------------------:|----------------------------:|
+| `HEM` (el grupo hemo, muy conocido) | 12,43 Å | 2,08 Å |
+| `HEC` | 12,25 Å | 2,01 Å |
+| `HEA` | 8,08 Å | 2,03 Å |
+| `B12` | 9,28 Å | 1,91 Å |
+| `AV2` | 14,04 Å | 2,00 Å |
+
+Dibujado tal cual, un hidrógeno flotando a 12 Å con un cilindro largo hasta su oxígeno parece un **fallo de la aplicación**, y `HEM`
+es de los primeros ligandos que un evaluador abriría. De ahí la decisión D13 (sección 7.1). Lo contrario también ocurre, pero sin efecto:
+con las coordenadas de modelo `KWT` (3,09 Å) y `PDX` (4,88 Å) tienen un enlace largo, y en ambos las ideales están bien y son las elegidas.
+
+Tras aplicar D13, **los 54 527 enlaces miden entre 0,86 y 2,65 Å** (mediana 1,31 Å).
+
 ---
 
 ## 4. Modelo de datos
@@ -372,18 +393,21 @@ Solo se procesa el **primer** bloque `data_`; si aparece otro, se ignora el rest
 - Comprobado contra el `.cif` real `001` (7 tablas) y contra el analizador de referencia en Python: mismas tablas, mismas filas,
   mismas celdas.
 
-### 5.3 Capa 3: extractor de molécula
+### 5.3 Capa 3: extractor de molécula (implementado en `CifExtractor.kt`)
 
 ```
-1. tabla_atomos  = buscar la tabla que contiene la columna "_chem_comp_atom.atom_id"   (si no hay → ERROR)
-2. índices de columnas: atom_id, type_symbol, coordenadas (según política 7.1)         (si falta lo imprescindible → ERROR)
-3. por cada fila: nombre, elemento normalizado, x, y, z (Float finito)                 (valor inválido → ver 7.2)
-4. mapa nombre → índice  (si un nombre se repite → ver 7.3)
-5. tabla_enlaces = buscar "_chem_comp_bond.atom_id_1"   (si no existe → lista vacía, NO es error)
-6. por cada fila: resolver los dos nombres a índices                                   (nombre desconocido → ver 7.2)
-7. exigir al menos 1 átomo
-8. devolver Molecule
+1. tabla_atomos  = tabla que contiene "_chem_comp_atom.atom_id"                (si no hay → MissingColumn)
+2. al menos 1 átomo y como máximo 2000                                          (si no → NoAtoms / TooBig)
+3. por cada fila: nombre y elemento normalizado ("CL" → "Cl")                    (elemento imposible → BadElement)
+4. mapa nombre → índice                                                         (nombre repetido → DuplicateAtomName)
+5. tabla_enlaces = tabla con "_chem_comp_bond.atom_id_1"   (si no existe → lista vacía, NO es error)
+6. por cada fila: dos nombres → dos índices, y orden de enlace                  (desconocido → UnknownAtomInBond; consigo mismo → BondToItself)
+7. elegir UN juego de coordenadas (ideales, luego modelo): el primero COMPLETO y CREÍBLE   (ninguno completo → NoCompleteCoordinates)
+8. centrar en el centroide y construir Molecule
 ```
+
+Detalle que importa: los **enlaces se leen antes de elegir las coordenadas**, porque la comprobación de «creíble» (D13) necesita saber
+qué átomos están unidos. Código y simulación línea a línea en [`03a-codigo-parser.md`](03a-codigo-parser.md).
 
 ---
 
@@ -420,9 +444,9 @@ tokenización llegaran 29 valores, `29 % 10 = 9 ≠ 0` y el lector declara **fil
 
 ---
 
-## 7. Decisiones de política (abiertas)
+## 7. Decisiones de política (cerradas con datos)
 
-Son elecciones con varias respuestas razonables. Se cierran **con los datos reales**, no antes.
+Son elecciones con varias respuestas razonables. Se cerraron **con los datos reales**, no antes.
 
 ### 7.1 ¿Qué coordenadas usar? (decidida con datos: D10)
 
@@ -434,8 +458,16 @@ Hay dos juegos por átomo: **ideales** (`pdbx_model_Cartn_*_ideal`) y de **model
 | Ideales incompletas, modelo completa | 17 |
 | Ninguna completa | **0** |
 
-**Regla:** se elige **un juego entero por ligando**: ideales si **todos** los átomos las tienen; si no, modelo si **todos** las
+**Regla D10:** se elige **un juego entero por ligando**: ideales si **todos** los átomos las tienen; si no, modelo si **todos** las
 tienen; si ninguno está completo, `Fallo`. Con los datos actuales ese fallo no ocurre nunca; se deja como red de seguridad.
+
+**Refinamiento D13 (sección 3.6):** un juego **completo** no siempre es **creíble**. Se toma el primero que sea completo **y** cuyo enlace más
+largo no pase de **5 Å**. Si hay juegos completos pero ninguno creíble, se usa el primero completo (un hidrógeno suelto es mejor que
+no mostrar la molécula). Por qué 5 Å: en los 1242 ligandos, los enlaces correctos miden **menos de 3 Å**, y los cinco ligandos con las
+ideales rotas tienen enlaces de **8 a 14 Å**; el umbral está en medio de un hueco enorme. Con D13, 1220 ligandos usan las ideales y 22 las
+de modelo (los 17 con ideales incompletas y los 5 con ideales rotas).
+*Coste*: el extractor ahora contiene un poco de geometría. *Alternativa descartada*: corregir a mano los cinco ligandos (frágil, no
+generaliza); *otra descartada*: usar siempre las de modelo (48 ligandos las tienen incompletas y las ideales son las «limpias»).
 
 **Por qué por ligando y no por átomo** (la opción «ideales primero y, átomo a átomo, modelo como reserva» queda **descartada**): los
 dos juegos están en **sistemas de referencia distintos** (en `001`, a unos 30 Å uno de otro). Mezclarlos dentro de una molécula
@@ -445,24 +477,28 @@ incompletas son justo el caso que rompería esa mezcla.
 **Regla común:** siempre se **centra en el centroide**, y se calcula el radio para ajustar la cámara (la distancia del centroide al
 origen llega a 226 Å y el radio a 41 Å).
 
-### 7.2 ¿Qué hacemos con datos defectuosos?
+### 7.2 ¿Qué hacemos con datos defectuosos? (cerrada: D12, política **estricta**)
 
-*Con los datos actuales (3.5) no hay ni enlaces rotos, ni nombres duplicados, ni átomos sin coordenadas. La política sigue siendo necesaria como defensa ante un fichero corrupto o un cambio futuro del formato, pero **no se espera que se dispare** con el corpus.*
+*Con los datos actuales (3.5) no hay ni enlaces rotos, ni nombres duplicados, ni átomos sin coordenadas*: la política es una defensa
+ante un fichero corrupto o un cambio futuro del formato, y **no se dispara con el corpus** (comprobado con los 1242 ligandos).
 
-| Caso | Opción estricta | Opción tolerante |
-|------|-----------------|------------------|
-| Átomo sin coordenadas utilizables | Error de formato | Descartar el átomo y los enlaces que lo usan |
-| Enlace con un átomo que no existe | Error de formato | Descartar solo ese enlace |
-| Número ilegible (`1.2.3`) | Error de formato | Tratar como «sin coordenadas» |
+| Caso | Opción estricta (**elegida**) | Opción tolerante (descartada) |
+|------|-------------------------------|-------------------------------|
+| Átomo sin coordenadas utilizables | El juego entero se descarta; si ninguno vale, `NoCompleteCoordinates` | Descartar el átomo y los enlaces que lo usan |
+| Enlace con un átomo que no existe | `UnknownAtomInBond` | Descartar solo ese enlace |
+| Enlace de un átomo consigo mismo | `BondToItself` | Descartarlo |
+| Número ilegible (`1.2.3`, `NaN`) | Cuenta como «sin coordenada» | Idem |
+| Elemento imposible (`?`, `C1`) | `BadElement` | Elemento genérico |
 
-Propuesta provisional: **tolerante** para enlaces sueltos (la molécula sigue siendo útil), **estricta** si queda **menos de un
-átomo**. Hay un coste de la opción tolerante: puede dibujar una molécula incompleta sin avisar; por eso el resultado debería poder
-llevar una **lista de avisos** (`warnings`) que se registra y se puede mostrar.
+**Por qué estricta** (en la propuesta provisional se había apuntado «tolerante para enlaces sueltos»): con el corpus real la tolerancia **no
+aporta nada** (no hay casos), cuesta código y una lista de avisos que habría que propagar hasta la interfaz, y su riesgo es el peor: dibujar
+**sin avisar** una molécula incompleta. Un fichero defectuoso se muestra como «fichero corrupto», uno de los cuatro errores que exige el
+enunciado. Si algún día un fichero real violara una regla, se verá en el registro con su motivo y se decide con ese caso delante.
 
-### 7.3 Nombres de átomo repetidos
+### 7.3 Nombres de átomo repetidos (cerrada: estricta)
 
-No esperamos duplicados dentro de un ligando, pero no lo hemos comprobado. Si pasa, un enlace sería ambiguo. Opción provisional:
-**gana el primero y se emite un aviso**.
+El corpus tiene **0** casos. Si ocurriera, un enlace sería ambiguo: `DuplicateAtomName`. (La opción provisional «gana el primero y se emite
+un aviso» se descartó por el mismo motivo que en 7.2.)
 
 ### 7.4 Hidrógenos y orden de enlace
 
@@ -491,8 +527,8 @@ Reglas:
    *Cuidado*: en corrutinas no se debe tragar `CancellationException`, hay que relanzarla (documento 06).
 3. Los **motivos** son valores de un tipo cerrado (`sealed interface CifFailure`), no cadenas. Hoy existen: `UnterminatedQuote`,
    `UnterminatedTextField` (capa 1); `NoDataBlock` (cuerpo vacío, página HTML, texto que no es CIF), `LoopWithoutColumns`,
-   `TruncatedRow`, `MissingValue`, `StrayValue` (capa 2). Se añadirán los de la capa 3 (`NoAtoms`, columna obligatoria ausente,
-   coordenada inválida, demasiado grande). Todos se muestran al usuario como «fichero corrupto» con un texto útil; el motivo
+   `TruncatedRow`, `MissingValue`, `StrayValue` (capa 2); `MissingColumn`, `NoAtoms`, `NoCompleteCoordinates`, `BadElement`,
+   `DuplicateAtomName`, `UnknownAtomInBond`, `BondToItself` (capa 3); `TooBig` y `Unexpected` (puerta de entrada). Todos se muestran al usuario como «fichero corrupto» con un texto útil; el motivo
    concreto, con su línea, va al registro.
 4. **Tope de tamaño** antes de tokenizar (por ejemplo, descartar cuerpos de varios MB): protege la memoria frente a respuestas
    inesperadas.
@@ -523,11 +559,14 @@ Los otros tres errores (sin red, 404, tiempo agotado) son de la capa de red y se
 | 7 | Elemento desconocido o ausente | Excepción en `map[element]!!` | Color por defecto, sin `!!` |
 | 8 | `?` o `.` en coordenadas | `NumberFormatException` | `toFloatOrNull()` y elección de juego por ligando (7.1). **65 ligandos tienen `?` en alguno de los dos juegos** |
 | 9 | `NaN`/`Infinity` en un `Float` válido | Geometría rota en Filament | Exigir `isFinite()` |
-| 10 | Enlace a un átomo inexistente | `IndexOutOfBounds` o `null` | Resolver con mapa; política 7.2 |
+| 10 | Enlace a un átomo inexistente | `IndexOutOfBounds` o `null` | Resolver con mapa; `UnknownAtomInBond` (política estricta, 7.2) |
 | 11 | `\r\n` y BOM | Valores con `\r` pegado, no coinciden con nada | `\r` es espacio; descartar BOM |
-| 12 | Cuerpo HTML con estado 200 | Parser «tiene éxito» con cero átomos | Detectar y `Fallo(NoEsCif)`; exigir ≥ 1 átomo |
+| 12 | Cuerpo HTML con estado 200 | Parser «tiene éxito» con cero átomos | `NoDataBlock` (el HTML no empieza por `data_`); exigir ≥ 1 átomo |
 | 13 | Molécula descentrada o muy grande | Cámara apuntando al vacío | Centrar en el centroide y escalar según el radio (documento 07) |
-| 14 | `Float` vs texto con coma decimal | Entrada con `,` en lugar de `.` | `toFloatOrNull()` no usa la configuración regional; si falla → política 7.2 |
+| 14 | `Float` vs texto con coma decimal | Entrada con `,` en lugar de `.` | `toDoubleOrNull()` no usa la configuración regional; la coma no pasa el filtro de caracteres y el número cuenta como ausente |
+| 15 | Juego de coordenadas completo pero absurdo | Hidrógenos a 12 Å con cilindros largos (`HEM`, `HEC`, `HEA`, `B12`, `AV2`) | D13: se prefiere el juego cuyo enlace más largo no pasa de 5 Å (3.6) |
+| 16 | Descarga cortada **justo en el límite de una fila** | Una tabla con menos filas es válida: el parser **no puede notarlo** y devuelve una molécula incompleta con éxito | **Límite conocido del parser.** Se compensa fuera: la capa de red debe leer la respuesta entera y comparar con `Content-Length` (documento 06). Una fila cortada a medias sí se detecta (`TruncatedRow`) |
+| 17 | `toDoubleOrNull` acepta más de lo que parece (`NaN`, `Infinity`, `0x1p3`, `1.5f`) | Coordenadas no finitas o formatos que CIF no usa | Filtro previo: solo dígitos, signos, `.`, `e` y `E`; y valor finito con módulo ≤ 10 000 Å |
 | 15 | Muchos átomos | Lentitud en 3D | Máximo real: **256 átomos y 256 enlaces** (`CDL`). Medir con él (H6); el parser no es el cuello de botella |
 | 16 | `UNL` está en la lista pero no en el diccionario | Fallo al tocarlo en la evaluación | Es el caso «404»; debe mostrar su aviso y quitar el indicador de carga |
 
@@ -537,17 +576,24 @@ Los otros tres errores (sin red, 404, tiempo agotado) son de la capa de red y se
 
 ### 10.1 Qué se prueba y dónde
 
-- **Tests de JVM** (`app/src/test/java/...`), sin Android: tokenizador, lector de tablas y extractor por separado.
+- **Tests de JVM** (`app/src/test/java/...`), sin Android: tokenizador, lector de tablas, extractor y `CifParser` (**88 pruebas**, descritas en [`03a-codigo-parser.md`](03a-codigo-parser.md), sección 12).
 - **Fixtures reales**: ficheros `.cif` en `app/src/test/resources/cif/`, leídos con
   `javaClass.classLoader.getResourceAsStream(...)`.
 - **Tests de robustez**: entradas vacías, truncadas en cada posición posible, bytes aleatorios. Criterio: **ninguna excepción**, el
   resultado siempre es `Éxito` o `Fallo`.
-- **Corpus completo**: ejecutar el parser contra **todos** los ligandos de `ligands.txt` (descargados una vez). Criterio de
-  aceptación: cero excepciones, y cada fallo explicado y revisado.
+- **Corpus completo con ficheros descargados de RCSB**: ejecutar el parser contra **todos** los ligandos de `ligands.txt` descargados una
+  vez. **Pendiente** (desde el entorno de redacción no se llega a RCSB). Criterio de aceptación: cero excepciones y cada fallo revisado.
 - **Verificación cruzada con una fuente independiente**: con la copia binaria del diccionario (3.5) se generan ficheros de texto de
   los 1243 ligandos y se comprueba que el parser de Kotlin devuelve **los mismos átomos, enlaces y coordenadas** que la copia binaria.
   Ojo: esos ficheros los serializa nuestro propio script, así que **comprueban la extracción de datos, no la fidelidad de la grafía
   de RCSB**; para esto último se necesitan ficheros descargados de RCSB (`001` ya lo es).
+  **HECHO (19/11/2026)**: el generador reproduce el `001` real celda a celda en las columnas comunes (87 filas de átomos, 90 de enlaces);
+  se generaron **dos variantes** (todo en `loop_`, y las categorías de una fila en forma de pares) y en **ambas** los 1242 ligandos dan
+  el mismo resultado que la implementación independiente (53 241 átomos y 54 527 enlaces comparados; diferencia máxima de coordenadas
+  2·10⁻⁶ Å; unos 0,8 s para los 1242 en la JVM del entorno de redacción, arranque incluido). La propia comprobación se probó con tres
+  parsers deliberadamente rotos (orden de enlace, destino de un enlace, orden de los juegos de coordenadas): los tres se detectan. La
+  primera versión del comparador **no** detectaba el cambio de juego de coordenadas (comparaba pero no lo contaba como problema); se
+  descubrió al romper el parser a propósito y se corrigió. Las herramientas están en `tools/corpus-check/`.
 
 Casos mínimos del test del extractor:
 
@@ -557,13 +603,14 @@ Casos mínimos del test del extractor:
 | Un ion como par clave-valor | 1 átomo, 0 enlaces |
 | Sin `_chem_comp_bond` | N átomos, 0 enlaces |
 | Columnas en distinto orden | Mismo resultado |
-| Fila truncada | `Fallo(FilaTruncada)` |
-| Enlace a átomo inexistente | Enlace descartado + aviso (política 7.2) |
-| Cuerpo HTML | `Fallo(NoEsCif)` |
-| Cadena vacía | `Fallo(CuerpoVacío)` |
+| Fila truncada | `TruncatedRow` |
+| Enlace a átomo inexistente | `UnknownAtomInBond` (política estricta, 7.2) |
+| Cuerpo HTML | `NoDataBlock` |
+| Cadena vacía | `NoDataBlock` |
 | Ideales con `?` en **algún** átomo y modelo completa | Se usa el modelo **entero**; nunca se mezclan juegos (política 7.1) |
 | Modelo con `?` y ideales completas (caso `15P`) | Se usan las ideales |
-| Ninguno de los dos juegos completo | `Fallo` (no ocurre en el corpus actual) |
+| Ninguno de los dos juegos completo | `NoCompleteCoordinates` (no ocurre en el corpus actual) |
+| Ideales completas pero con un enlace de 20 Å, modelo creíble | Se usa el modelo (D13, caso `HEM`) |
 | Ion de un átomo (`CL`) | 1 átomo, 0 enlaces, elemento `Cl` |
 | Nombre `C1'` con comilla simple | El átomo se llama `C1'` y los enlaces lo encuentran |
 
@@ -637,6 +684,12 @@ sueltos de tamaño pequeño el riesgo es mínimo, y se añade a `fixtures/README
 | Nombres con comilla simple en 155 ligandos; en texto van entre comillas dobles | Contenido verificado en el corpus; **la grafía en texto, no** (se asume `"O5'"`) | Corpus binario |
 | Tamaño máximo de un ligando: 256 átomos; tamaño máximo del **fichero** en bytes | Átomos verificado; **bytes no** | Corpus binario |
 | `UNK` 16 átomos; `UNX` 1 átomo de elemento `X`; `UNL` **no está** en el diccionario | Verificado en el corpus; respuesta real del servidor para `UNL`: **no** | Corpus binario |
+| Extractor y `CifParser.parse`: 1242 ligandos, dos formas de escribir el texto, mismos átomos, enlaces y coordenadas que una implementación independiente | **Verificado** (53 241 átomos, 54 527 enlaces; diferencia máxima 2·10⁻⁶ Å) | `tools/corpus-check/` |
+| Enlaces de todo el corpus tras el parser: 0,86–2,65 Å | **Verificado** | Cálculo propio sobre la salida del parser |
+| Cinco ligandos con ideales rotas (`HEM`, `HEC`, `HEA`, `B12`, `AV2`) | **Verificado en la copia binaria**; no en texto de RCSB | Corpus binario |
+| 88 pruebas unitarias verdes con `kotlinc` + JUnit; las dos primeras capas, además, en Android Studio por el equipo | Verificado (en el entorno de redacción) | Ejecución |
+| De 11 averías introducidas a propósito en el extractor y en `CifParser`, las pruebas detectan **10**; **la que no**: quitar la red de seguridad `catch (Exception)` de `CifParser` (ninguna entrada válida o inválida la activa por diseño; sí se vio funcionar al romper un enlace a propósito) | Verificado | Pruebas de mutación manuales |
+| Descarga cortada en el límite de una fila: **no detectable** por el parser | Verificado (aparece en la prueba de truncado) | `CifParserTest` |
 | Cómo nombra y empaqueta los ficheros el «lote» de RCSB | **No verificado** | — |
 | Existencia de librerías Java para CIF | **No verificado** | Memoria |
 
@@ -654,5 +707,8 @@ Lo que sigue «No verificado» depende del **texto** de los ficheros (formato de
 5. Sin enlaces no es un error; sin átomos sí.
 6. Los enlaces del modelo guardan **índices**; los nombres solo sirven para resolverlos.
 7. El parser **nunca lanza excepciones por la entrada**: devuelve éxito o fallo con motivo.
-8. Las políticas de la sección 7 se cierran **con datos reales**, no con suposiciones.
+8. Las políticas de la sección 7 se cerraron **con datos reales**, no con suposiciones: y los datos cambiaron una de ellas (D13).
 9. El parser vive sin `android.*` para poder probarlo en JVM.
+10. **Un juego de coordenadas completo no es necesariamente bueno**: medir las longitudes de los enlaces encontró cinco ligandos con las ideales rotas.
+11. **Verificar la verificación**: el comparador del corpus tenía un fallo que solo se vio al romper el parser a propósito.
+12. Política **estricta**: ante la duda, `Fallo` y no una molécula incompleta dibujada en silencio.

@@ -102,3 +102,7 @@ Los anillos aromáticos **sí** aparecen, pero escritos de la forma clásica de 
 |---------|--------|
 | **PyPI** (*Python Package Index*) | Repositorio público de paquetes de Python (el que usa `pip install`). **No forma parte del proyecto.** Se mencionó porque el entorno de análisis no llega a RCSB, wwPDB ni PDBe, pero sí a PyPI; de ahí se descargó el paquete `biotite`, que incluye una copia binaria del CCD, para calcular las estadísticas del documento 03, 3.5. |
 | **`cif_stats.py`** | Script desechable de Python que analiza ficheros `.cif`. No es código del proyecto. |
+| **Prueba de mutación (manual)** | Estropear el código a propósito (p. ej. cambiar un `<=` por `true`) y comprobar que alguna prueba se pone en rojo. Si ninguna falla, esa parte del código no está protegida. |
+| **Red de seguridad (`catch (Exception)`)** | Captura final en `CifParser.parse` que convierte cualquier excepción inesperada en un `Failure(Unexpected)` para que la aplicación no se cierre. Marca un fallo del parser, no del fichero. |
+| **Enlace creíble / juego de coordenadas creíble** | Juego de coordenadas cuyo enlace más largo no pasa de 5 Å (D13). Un juego puede estar completo y aun así ser absurdo. |
+| **Política estricta** | Ante un dato dudoso, fallar con un motivo en lugar de adivinar o descartar en silencio (D12). |

@@ -5,8 +5,9 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 
 > **Estado actual:** *spike* 3D **cerrado con reservas** (ADR-001, ver
 > [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md), sección 7). El proyecto Android ya vive en la raíz
-> de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** formato CIF y parser
-> ([`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), borrador contrastado con un ligando real y con los 1243 ligandos en copia binaria; código escrito: modelo `Molecule`, tokenizador y lector de tablas, con 41 pruebas; falta el extractor; explicado línea a línea en [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md)).
+> de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** parser de CIF (código **completo**: tokenizador, lector de tablas, extractor y `CifParser.parse`, con 88 pruebas, verificado
+> contra los 1242 ligandos presentes en el diccionario; falta enlazarlo con la red y la interfaz). Documentos:
+> [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) (diseño y datos) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (código línea a línea).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -41,6 +42,8 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D9 | Parser de CIF **escrito a mano**, en Kotlin puro (sin `android.*`), en tres capas, con resultado éxito/fallo y sin excepciones por la entrada | Provisional | Es el objetivo de aprendizaje (D2) y permite probarlo en JVM. Las políticas abiertas (coordenadas, datos defectuosos) se cierran con el corpus real. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md). |
 | D10 | Coordenadas: se elige **un juego entero por ligando** (ideales si están completas; si no, modelo) y siempre se centra en el centroide | Decidida con datos | De 1243 ligandos, 1225 tienen ideales completas y los otros 17 modelo completa; ninguno falla. Los dos juegos están en sistemas de referencia distintos, así que no se mezclan. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), 7.1. |
 | D11 | El proyecto Android del spike se **copió** a la raíz de `main` como esqueleto del proyecto real; el código demostrativo (`MoleculeScene.kt` con átomos fijos) es **temporal** y se reescribirá | Decidida | La configuración y la integración de SceneView estaban comprobadas en dispositivo; rehacerlas desde cero no aportaba nada. Antes, la documentación decía lo contrario; se corrigió. Detalle y lista de limpieza en [`docs/02-spike-3d.md`](docs/02-spike-3d.md), sección 10. |
+| D12 | Datos defectuosos: política **estricta**. Ante la duda, `Failure` con un motivo; sin avisos ni molécula incompleta dibujada en silencio | Decidida | Con el corpus real la política tolerante no aporta nada (0 casos), cuesta código y su riesgo es dibujar sin avisar. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), 7.2. |
+| D13 | Coordenadas (refina D10): se elige el primer juego **completo y creíble** (ningún enlace de más de 5 Å); si ninguno es creíble, el primero completo | Decidida con datos | Cinco ligandos (`HEM`, `HEC`, `HEA`, `B12`, `AV2`) tienen las ideales rotas, con hidrógenos a 8–14 Å de su oxígeno. Con D13, los 54 527 enlaces del corpus miden 0,86–2,65 Å. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), 3.6 y 7.1. |
 
 ---
 
@@ -69,8 +72,8 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/02-spike-3d.md`](docs/02-spike-3d.md) | Plan del spike: qué validamos, cómo, criterios de paso y teoría de 3D necesaria | Escrito |
 | [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md) | Teoría de Gradle, Maven Central y BOM; registro de los pasos 0 a 3; ADR-001 (borrador) | Escrito |
 | [`docs/02b-spike-seleccion-atomos.md`](docs/02b-spike-seleccion-atomos.md) | Teoría del picking por rayo, cómo lo hace SceneView, implementación, resultado y alternativas de mayor precisión | Escrito |
-| [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) | Sintaxis CIF, estructura de un ligando, modelo de datos, diseño del parser en tres capas, errores y casos límite | **Borrador** (contrastado con un ligando real y con el corpus completo en copia binaria) |
-| [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) | El código del parser **línea a línea**: `Molecule`, tokenizador, lector de tablas; simulación completa, pruebas (cómo ejecutarlas y qué demuestran), alternativas, límites | **Escrito** (capas 1 y 2; falta la capa 3) |
+| [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) | Sintaxis CIF, estructura de un ligando, modelo de datos, diseño del parser en tres capas, políticas cerradas con datos, errores, casos límite y qué está verificado | **Escrito** (verificado con 1242 ligandos en copia binaria y un fichero real) |
+| [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) | El código del parser **línea a línea**: `Molecule`, tokenizador, lector de tablas, extractor y `CifParser`; simulación completa, las 88 pruebas (cómo ejecutarlas y qué demuestran), comprobación con el corpus, alternativas, límites | **Escrito** |
 | 04 · Arquitectura y decisiones (ADR) | Capas, módulos y registro de decisiones | Pendiente |
 | 05 · Autenticación y seguridad | Hash de contraseñas, Keystore, biometría, bloqueo al volver de segundo plano | Pendiente |
 | 06 · Lista, búsqueda y red | Carga asíncrona, errores, estados de la interfaz | Pendiente |

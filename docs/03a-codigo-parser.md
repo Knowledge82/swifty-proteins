@@ -1,8 +1,8 @@
 # 03a · Código del parser: tokenizador y lector de tablas (línea a línea)
 
-> Estado: **ESCRITO**. Describe el código que existe hoy: `Molecule.kt`, `CifToken.kt`, `CifFailure.kt`, `CifTokenizer.kt`,
-> `CifTable.kt` y `CifTableReader.kt`, más sus dos ficheros de pruebas. **Falta** la tercera capa (el extractor, que convierte tablas
-> en una `Molecule`) y el punto de entrada público `CifParser.parse`; se describen en la sección 11.
+> Estado: **ESCRITO**. Describe el código completo del parser: `Molecule.kt`, `CifToken.kt`, `CifFailure.kt`, `CifTokenizer.kt`,
+> `CifTable.kt`, `CifTableReader.kt`, `CifExtractor.kt` y `CifParser.kt`, más sus cuatro ficheros de pruebas (88 pruebas) y la comprobación
+> contra el corpus de 1242 ligandos. **No** incluye todavía la integración con la red ni con la interfaz (sección 14).
 > Las citas de código de este documento se generan **desde los ficheros reales** por rango de líneas; si se edita un fichero hay que
 > regenerar el documento (los números de línea dejarían de coincidir).
 > Redactado el 19/11/2026. El diseño y los motivos están en [`03-formato-cif-y-parser.md`](03-formato-cif-y-parser.md); aquí está el
@@ -18,13 +18,16 @@
 6. [`CifTokenizer.kt`: capa 1, del texto a los tokens](#6-ciftokenizerkt-capa-1-del-texto-a-los-tokens)
 7. [`CifTable.kt`: tabla y bloque](#7-ciftablekt-tabla-y-bloque)
 8. [`CifTableReader.kt`: capa 2, de los tokens a las tablas](#8-ciftablereaderkt-capa-2-de-los-tokens-a-las-tablas)
-9. [Simulación de extremo a extremo](#9-simulación-de-extremo-a-extremo)
-10. [Las pruebas: qué hay, cómo se ejecutan, qué demuestran](#10-las-pruebas-qué-hay-cómo-se-ejecutan-qué-demuestran)
-11. [Qué falta](#11-qué-falta)
-12. [Alternativas y por qué no se eligieron](#12-alternativas-y-por-qué-no-se-eligieron)
-13. [Trampas y límites conocidos](#13-trampas-y-límites-conocidos)
-14. [Qué está verificado y qué no](#14-qué-está-verificado-y-qué-no)
-15. [Qué recordar](#15-qué-recordar)
+9. [`CifExtractor.kt`: capa 3, de las tablas a la molécula](#9-cifextractorkt-capa-3-de-las-tablas-a-la-molécula)
+10. [`CifParser.kt`: la puerta de entrada](#10-cifparserkt-la-puerta-de-entrada)
+11. [Simulación de extremo a extremo](#11-simulación-de-extremo-a-extremo)
+12. [Las pruebas: qué hay, cómo se ejecutan, qué demuestran](#12-las-pruebas-qué-hay-cómo-se-ejecutan-qué-demuestran)
+13. [Comprobación contra el corpus completo](#13-comprobación-contra-el-corpus-completo)
+14. [Qué falta](#14-qué-falta)
+15. [Alternativas y por qué no se eligieron](#15-alternativas-y-por-qué-no-se-eligieron)
+16. [Trampas y límites conocidos](#16-trampas-y-límites-conocidos)
+17. [Qué está verificado y qué no](#17-qué-está-verificado-y-qué-no)
+18. [Qué recordar](#18-qué-recordar)
 
 ---
 
@@ -38,38 +41,46 @@ pero Android Studio protesta y es una fuente de confusión.
 |---------|------|-------:|------|----------|
 | `Molecule.kt` | `app/src/main/java/dev/knowledge82/swiftyproteins/molecule/` | 62 | Dominio | Lo que el visor 3D necesita: átomos, enlaces, molécula. No sabe nada de CIF. |
 | `CifToken.kt` | `app/src/main/java/dev/knowledge82/swiftyproteins/cif/` | 27 | Capa 1 | Tipos `CifTokenType` y `CifToken`: la pieza en que se corta el texto. |
-| `CifFailure.kt` | `.../cif/` | 40 | Capas 1 y 2 | Los motivos de fallo (`CifFailure`) y la excepción interna que los transporta. |
+| `CifFailure.kt` | `.../cif/` | 71 | Todas | Los motivos de fallo (`CifFailure`, 16 variantes) y la excepción interna que los transporta. |
 | `CifTokenizer.kt` | `.../cif/` | 97 | Capa 1 | Texto → lista de tokens. Conoce la **sintaxis** (comillas, comentarios, campos `;`). |
 | `CifTable.kt` | `.../cif/` | 31 | Capa 2 | `CifTable` (columnas con nombre + filas) y `CifBlock` (nombre + tablas). |
 | `CifTableReader.kt` | `.../cif/` | 82 | Capa 2 | Lista de tokens → `CifBlock`. Conoce la **estructura** (`loop_`, pares sueltos). |
+| `CifExtractor.kt` | `.../cif/` | 189 | Capa 3 | `CifBlock` → `Molecule`. Conoce la **química**: qué columna es el nombre, el elemento, las coordenadas; qué juego de coordenadas elegir; centrado. |
+| `CifParser.kt` | `.../cif/` | 38 | Puerta de entrada | `ParseResult` y `CifParser.parse(texto)`: lo **único** que usará el resto de la app. Captura las excepciones. |
 | `CifTokenizerTest.kt` | `app/src/test/java/dev/knowledge82/swiftyproteins/cif/` | 217 | Pruebas | 21 pruebas de la capa 1. |
 | `CifTableReaderTest.kt` | `.../cif/` (en `src/test`) | 217 | Pruebas | 20 pruebas de la capa 2. |
-| `001.cif` | `app/src/test/resources/cif/` | 275 | Datos de prueba | El ligando real `001`, **sin modificar**. Lo leen dos pruebas. |
+| `CifExtractorTest.kt` | `.../cif/` (en `src/test`) | 446 | Pruebas | 36 pruebas de la capa 3. |
+| `CifParserTest.kt` | `.../cif/` (en `src/test`) | 135 | Pruebas | 11 pruebas de la puerta de entrada, incluidas las de robustez (truncado y ruido aleatorio). |
+| `001.cif` | `app/src/test/resources/cif/` | 275 | Datos de prueba | El ligando real `001`, **sin modificar**. Lo leen varias pruebas. |
 
-Flujo de datos, con lo que existe y lo que falta:
+Flujo de datos completo:
 
 ```
  String (el .cif entero)
         │
         ▼
- CifTokenizer.tokenize ───────────────►  List<CifToken>
-   (capa 1, sintaxis)                          │
-        │ puede lanzar                         ▼
-        │ CifFormatException            CifTableReader.read ───────►  CifBlock
-        │ (comilla o ';' sin cerrar)      (capa 2, estructura)         ├─ CifTable  _chem_comp_atom  (87 filas × 18 col.)
-        │                                       │ puede lanzar         ├─ CifTable  _chem_comp_bond  (90 filas × 7 col.)
-        │                                       │ CifFormatException   └─ ... (7 tablas en el fichero 001)
-        │                                       │ (sin data_, fila truncada...)         │
-        ▼                                       ▼                                       ▼
-  [FALTA] CifParser.parse(text): captura la excepción y devuelve éxito/fallo      [FALTA] extractor (capa 3)
-                                                                                         │
-                                                                                         ▼
-                                                                                  Molecule  (Molecule.kt)
+ CifParser.parse ──── (1) tamaño ≤ 2 000 000 caracteres ───────────────► si no: Failure(TooBig)
+        │
+        ▼
+ CifTokenizer.tokenize ──────────►  List<CifToken>            capa 1, sintaxis
+        │
+        ▼
+ CifTableReader.read ────────────►  CifBlock (tablas)          capa 2, estructura
+        │
+        ▼
+ CifExtractor.extract ───────────►  Molecule                   capa 3, química
+        │
+        ▼
+ ParseResult.Success(molecule)
+
+ Cualquiera de las tres capas lanza CifFormatException(failure)  ──►  CifParser la captura  ──►  ParseResult.Failure(failure)
+ Cualquier OTRA excepción                                          ──►  CifParser la captura  ──►  ParseResult.Failure(Unexpected(...))
 ```
 
-Dependencias entre ficheros (una flecha significa «usa»): `CifTokenizer` → `CifToken`, `CifFailure`; `CifTableReader` → `CifToken`,
-`CifTable`, `CifFailure`; `CifTable` no usa nada; `Molecule` no usa nada y **nadie de la capa CIF lo usa todavía** (lo usará el
-extractor). Por eso se pueden probar capa por capa.
+Dependencias entre ficheros (una flecha significa «usa»): `CifParser` → `CifTokenizer`, `CifTableReader`, `CifExtractor`, `CifFailure`, `Molecule`;
+`CifExtractor` → `CifTable`/`CifBlock`, `CifFailure`, `Molecule`; `CifTableReader` → `CifToken`, `CifTable`, `CifFailure`; `CifTokenizer` →
+`CifToken`, `CifFailure`; `CifTable` y `Molecule` no usan nada. Por eso se pueden probar capa por capa. **El resto de la app solo debe tocar
+`CifParser`, `ParseResult`, `CifFailure` y `Molecule`.**
 
 ---
 
@@ -96,6 +107,17 @@ Se explican aquí una vez; en las secciones siguientes se remite a este apartado
 | `buildMap { ... }` | Crea un `Map` de solo lectura rellenándolo dentro del bloque. | `CifTable` |
 | `chunked(n)` | Parte una lista en trozos de `n` elementos: `[1,2,3,4].chunked(2)` → `[[1,2],[3,4]]`. El último trozo puede ser más corto. | `CifTableReader` |
 | `substringBefore('.')` | Texto hasta la primera aparición del carácter (o todo el texto si no aparece). | `CifTableReader` |
+| `x ?: throw ...` y `x ?: return null` | Si `x` es `null`, **lanza** o **sale de la función**. Es el «guard clause» de Kotlin: tras esa línea el compilador **sabe** que `x` ya no es `null`. | `CifExtractor` |
+| `const val` | Constante conocida al compilar. Los números «mágicos» (`2_000`) se nombran así. `2_000` es `2000` (el `_` solo ayuda a leer). | `CifExtractor`, `CifParser` |
+| `private class Point` | Una clase visible solo dentro del `object`. Un tipo de ayuda que nadie más debe conocer. | `CifExtractor` |
+| `for ((index, row) in rows.withIndex())` | Recorre una lista con su posición; los paréntesis **desestructuran** el par (índice, elemento). | `CifExtractor` |
+| `rows.indices.map { ... }` | `indices` es el rango `0 until size`; `map` convierte cada elemento y devuelve una **lista nueva**. | `CifExtractor` |
+| `sumOf { ... }`, `maxOfOrNull { ... }` | Suma o máximo de lo que devuelve el bloque; `maxOfOrNull` devuelve `null` si la lista está vacía (por eso va con `?: 0.0`). | `CifExtractor` |
+| `return` dentro de `map { ... }` | `map` es una función **inline**: un `return` en su bloque sale de la función **de fuera** (no solo del bloque). | `CifExtractor.readCompleteSet` |
+| Función de extensión `fun CifTable.column(...)` | Añade un método a una clase existente **sin modificarla**; dentro, `this` es la tabla. | `CifExtractor` |
+| `it in "0123456789+-.eE"` y `'A'..'Z'` | `Char in String` pregunta «¿está este carácter en el texto?»; `'A'..'Z'` es un **rango** de caracteres. | `CifExtractor` |
+| `raw?.uppercase()` | `?.` (llamada segura): si `raw` es `null`, el resultado es `null` y no se llama. | `CifExtractor` |
+| `try { ... } catch (e: X) { ... }` como **expresión** | `try` devuelve un valor: el del bloque, o el del `catch` que se ejecute. Se usa con `return try {`. | `CifParser` |
 
 **Verbos de texto que se repiten:** `text[i]` es el carácter en la posición `i` (empieza en 0); `text.substring(a, b)` toma desde `a`
 **incluido** hasta `b` **excluido**; `text.indexOf('\n', i)` busca el siguiente salto de línea desde `i` y devuelve `-1` si no hay.
@@ -251,7 +273,7 @@ Detalles importantes:
 ## 5. `CifFailure.kt`: los fallos tipados
 
 ```kotlin
-// CifFailure.kt · líneas 3–32
+// CifFailure.kt · líneas 3–31
  3  /** Why a file could not be understood. New reasons are added here as the parser grows. */
  4  sealed interface CifFailure {
  5      // ---- layer 1: tokenizer ------------------------------------------------------------------
@@ -281,36 +303,74 @@ Detalles importantes:
 29
 30      /** A value that belongs to no data name and to no loop. */
 31      data class StrayValue(val value: String, val line: Int) : CifFailure
-32  }
 ```
 
 - **Línea 4** `sealed interface CifFailure`: una lista **cerrada** de motivos de fallo. Cada `data class`/`data object` de dentro es
   una variante. Ventaja sobre un `String` de error: el código que reacciona al fallo (la interfaz de usuario) puede hacer un `when`
   y el compilador **avisa si se añade un motivo nuevo y alguien olvida tratarlo**.
 - Cada variante lleva solo los datos útiles: dónde (`line`), qué (`tag`, `value`).
-- Reparto por capas:
-  - capa 1: `UnterminatedQuote`, `UnterminatedTextField`;
-  - capa 2: `NoDataBlock`, `LoopWithoutColumns`, `TruncatedRow`, `MissingValue`, `StrayValue`;
-  - capa 3 (todavía no existe): aquí se añadirán `MissingColumn`, `BadNumber`, `NoAtoms`, etc.
-- **Relación con el error de usuario**: de los cuatro errores de carga que exige la tarea (sin red, 404, fichero corrupto,
-  *timeout*), **todo lo de esta capa es «fichero corrupto»**. Sin red, 404 y *timeout* se detectan antes, en la capa de red.
+- **Capa 1** (líneas 5–11): `UnterminatedQuote`, `UnterminatedTextField`. **Capa 2** (líneas 13–31): `NoDataBlock`, `LoopWithoutColumns`,
+  `TruncatedRow`, `MissingValue`, `StrayValue`.
 
 ```kotlin
-// CifFailure.kt · líneas 34–40
-34  /**
-35   * The only exception the parser layers throw. It carries a typed [failure], not just a message.
-36   *
-37   * It is thrown INSIDE the parser's layers and caught at its public entry point, which turns it into a
-38   * result value. The rest of the app never sees this exception.
-39   */
-40  class CifFormatException(val failure: CifFailure) : Exception(failure.toString())
+// CifFailure.kt · líneas 33–62
+33  // ---- layer 3: extractor ------------------------------------------------------------------
+34
+35  /** A column we cannot live without is not in the file (or there is no atom table at all). */
+36  data class MissingColumn(val tag: String) : CifFailure
+37
+38  /** The atom table exists but has no rows. */
+39  data object NoAtoms : CifFailure
+40
+41  /** Neither the ideal nor the model coordinates are complete for every atom (see decision D10). */
+42  data object NoCompleteCoordinates : CifFailure
+43
+44  /** The element of an atom is empty, `?`, `.` or not made of letters. */
+45  data class BadElement(val atom: String, val element: String) : CifFailure
+46
+47  /** Two atoms of the same ligand have the same name, so a bond could not tell them apart. */
+48  data class DuplicateAtomName(val name: String) : CifFailure
+49
+50  /** A bond names an atom that is not in the atom table. */
+51  data class UnknownAtomInBond(val name: String) : CifFailure
+52
+53  /** A bond joins an atom with itself. */
+54  data class BondToItself(val name: String) : CifFailure
+55
+56  // ---- entry point: CifParser ----------------------------------------------------------------
+57
+58  /** Something is bigger than the limit we accept: the text, the atoms or the bonds. */
+59  data class TooBig(val what: String, val count: Int, val max: Int) : CifFailure
+60
+61  /** Safety net: an exception nobody expected. It means a bug in the parser, not a bad file. */
+62  data class Unexpected(val description: String) : CifFailure
 ```
 
-- **Línea 40** `class CifFormatException(val failure: CifFailure) : Exception(failure.toString())`: la **única** excepción de las capas
+- **Capa 3** (líneas 33–54): `MissingColumn` (falta una columna imprescindible o no hay tabla de átomos), `NoAtoms`, `NoCompleteCoordinates`,
+  `BadElement`, `DuplicateAtomName`, `UnknownAtomInBond`, `BondToItself`.
+- **Puerta de entrada** (líneas 56–62): `TooBig` (el texto, los átomos o los enlaces superan el límite) y `Unexpected` (red de seguridad: una
+  excepción que nadie esperaba; **significa un fallo del parser, no del fichero**).
+- Dos variantes usan `data object` (`NoDataBlock`, `NoAtoms`, `NoCompleteCoordinates`) porque no necesitan datos: son un valor único.
+- **Relación con el error de usuario**: de los cuatro errores de carga que exige la tarea (sin red, 404, fichero corrupto,
+  *timeout*), **todo lo de este fichero es «fichero corrupto»**. Sin red, 404 y *timeout* se detectan antes, en la capa de red.
+  La interfaz solo necesita un mensaje («Fichero corrupto») y el `failure` concreto va al registro.
+
+```kotlin
+// CifFailure.kt · líneas 65–71
+65  /**
+66   * The only exception the parser layers throw. It carries a typed [failure], not just a message.
+67   *
+68   * It is thrown INSIDE the parser's layers and caught at its public entry point, which turns it into a
+69   * result value. The rest of the app never sees this exception.
+70   */
+71  class CifFormatException(val failure: CifFailure) : Exception(failure.toString())
+```
+
+- **Línea 71** `class CifFormatException(val failure: CifFailure) : Exception(failure.toString())`: la **única** excepción de las capas
   del parser. Hereda de `Exception` y lleva el `failure` tipado, además del mensaje de texto.
 - **Por qué existe una excepción si D9 dice «sin excepciones»**: dentro de las capas, lanzar es la forma más sencilla de abandonar
   un análisis en cualquier profundidad (si el bucle del tokenizador detecta una comilla sin cerrar, no tiene un valor de retorno
-  cómodo). La regla se cumple en el **borde**: el punto de entrada público (`CifParser.parse`, por escribir) captura
+  cómodo). La regla se cumple en el **borde**: el punto de entrada público (`CifParser.parse`, sección 10) captura
   `CifFormatException` y devuelve un resultado. El resto de la aplicación **nunca** ve esta excepción.
 
 ---
@@ -794,204 +854,687 @@ fichero reformateado daría datos corruptos **sin error**. Contando valores, el 
 
 ---
 
-## 9. Simulación de extremo a extremo
+## 9. `CifExtractor.kt`: capa 3, de las tablas a la molécula
 
-El fichero de juguete (`mini.cif`; no forma parte del repositorio, es solo para este documento). Contiene un comentario, un campo
-de texto `;` de dos líneas, un átomo con comilla en el nombre y dos `loop_`:
+### 9.1 Idea general
+
+Hasta aquí todo era **texto**: tokens, y tablas de celdas de texto. Esta capa es la única que sabe **qué significa** cada columna. Recibe
+un `CifBlock` y produce una `Molecule` o lanza `CifFormatException`. Los pasos, en el orden en que el código los ejecuta:
+
+1. Buscar la tabla de átomos **por el nombre de una columna** (`_chem_comp_atom.atom_id`).
+2. Leer **nombre** y **elemento** de cada átomo; construir el mapa «nombre → posición».
+3. Leer los **enlaces** y traducir los nombres a posiciones.
+4. Elegir **un juego de coordenadas** para toda la molécula.
+5. **Centrar** la molécula en su centroide y construir los `Atom`.
+6. Construir la `Molecule`.
+
+Política para datos dudosos: **estricta** (decisión D12). Ante la duda, `CifFormatException` con un motivo, nunca una molécula dibujada «a medias»
+sin avisar.
+
+### 9.2 Constantes
+
+```kotlin
+// CifExtractor.kt · líneas 17–33
+17  object CifExtractor {
+18
+19      const val MAX_ATOMS = 2_000
+20      const val MAX_BONDS = 5_000
+21
+22      // The real ligands have at most 256 atoms and a radius of 41 Å. A coordinate beyond this is garbage.
+23      private const val MAX_ABS_COORDINATE = 10_000.0
+24
+25      // A covalent bond is 1-2.5 Å long. In the 1242 real ligands the longest correct one is below 3 Å, while
+26      // five ligands (HEM, HEA, HEC, B12, AV2) have an IDEAL set with bonds of 8-14 Å. 5 Å separates both worlds.
+27      private const val MAX_PLAUSIBLE_BOND_LENGTH = 5.0
+28
+29      private const val ATOM_ID = "_chem_comp_atom.atom_id"
+30      private const val ELEMENT = "_chem_comp_atom.type_symbol"
+31      private const val BOND_FIRST = "_chem_comp_bond.atom_id_1"
+32      private const val BOND_SECOND = "_chem_comp_bond.atom_id_2"
+33      private const val BOND_ORDER = "_chem_comp_bond.value_order"
+```
+
+- **Líneas 19–20** `MAX_ATOMS` y `MAX_BONDS`: topes de seguridad. El mayor ligando real tiene 256 átomos y 256 enlaces (en el corpus de la lista). Cada
+  átomo y cada enlace serán nodos de la escena 3D, y una respuesta absurda de 100 000 átomos dejaría la aplicación sin memoria. Los topes están muy por
+  encima de lo real y muy por debajo de lo peligroso. `2_000` es `2000`: el `_` solo ayuda a leer.
+- **Líneas 22–23** `MAX_ABS_COORDINATE`: una coordenada de más de 10 000 Å es basura (el radio máximo real es 41 Å, la distancia máxima del centroide al
+  origen 226 Å). Es `10_000.0` con `.0` porque es un `Double`.
+- **Líneas 25–27** `MAX_PLAUSIBLE_BOND_LENGTH = 5.0`: el umbral de la decisión D13. Se explica en 9.7. El comentario guarda **de dónde sale** el número
+  (los datos), porque una constante sin origen es la que dentro de seis meses nadie se atreve a tocar.
+- **Líneas 29–33**: los nombres de columna como constantes. En minúsculas, porque `CifTable.indexOf` compara **sin distinguir mayúsculas**
+  (sección 7). Una errata en una cadena suelta no la detecta el compilador; en una constante, se escribe **una vez**.
+
+### 9.3 Los dos juegos de coordenadas y el tipo `Point`
+
+```kotlin
+// CifExtractor.kt · líneas 35–49
+35  // Two candidate coordinate sets, x/y/z each. The order of this list IS the policy: first the ideal one.
+36  private val COORDINATE_SETS = listOf(
+37      listOf(
+38          "_chem_comp_atom.pdbx_model_cartn_x_ideal",
+39          "_chem_comp_atom.pdbx_model_cartn_y_ideal",
+40          "_chem_comp_atom.pdbx_model_cartn_z_ideal",
+41      ),
+42      listOf(
+43          "_chem_comp_atom.model_cartn_x",
+44          "_chem_comp_atom.model_cartn_y",
+45          "_chem_comp_atom.model_cartn_z",
+46      ),
+47  )
+48
+49  private class Point(val x: Double, val y: Double, val z: Double)
+```
+
+- **Líneas 36–47**: una lista de dos listas; cada una tiene los tres nombres de columna (x, y, z) de un juego. **El orden de esta lista ES la política:**
+  primero las ideales, luego las de modelo. Para cambiar de preferencia bastaría con intercambiarlas (y una de las pruebas lo detectaría).
+- **Línea 49** `private class Point(val x: Double, val y: Double, val z: Double)`: una posición. Es `private`: solo el extractor la conoce.
+  Se usa `Double` (64 bits) **dentro** del extractor, para promediar sin pérdida de precisión, y se convierte a `Float` **solo al final**, al crear cada `Atom`.
+
+### 9.4 `extract`: átomos
+
+```kotlin
+// CifExtractor.kt · líneas 51–74
+51  /** @throws CifFormatException if the block does not describe a usable molecule. */
+52  fun extract(block: CifBlock): Molecule {
+53      // ---- atoms -------------------------------------------------------------------------
+54      val atomTable = block.tableWith(ATOM_ID) ?: throw fail(CifFailure.MissingColumn(ATOM_ID))
+55      val rows = atomTable.rows
+56      if (rows.isEmpty()) throw fail(CifFailure.NoAtoms)
+57      if (rows.size > MAX_ATOMS) throw fail(CifFailure.TooBig("atoms", rows.size, MAX_ATOMS))
+58
+59      val nameColumn = atomTable.column(ATOM_ID)
+60      val elementColumn = atomTable.column(ELEMENT)
+61
+62      // Names and elements first: the bonds refer to atoms BY NAME and need this map.
+63      val indexByName = HashMap<String, Int>()
+64      val names = ArrayList<String>(rows.size)
+65      val elements = ArrayList<String>(rows.size)
+66      for ((index, row) in rows.withIndex()) {
+67          val name = row[nameColumn]
+68          val element = normalizeElement(row[elementColumn])
+69              ?: throw fail(CifFailure.BadElement(name, row[elementColumn]))
+70          // put() returns the previous value of that key: not null means the name was already taken.
+71          if (indexByName.put(name, index) != null) throw fail(CifFailure.DuplicateAtomName(name))
+72          names += name
+73          elements += element
+74      }
+```
+
+- **Línea 54**: `block.tableWith(ATOM_ID) ?: throw fail(...)`. `tableWith` devuelve `CifTable?` (puede ser `null`). El operador `?:` («y si es `null`…»)
+  lanza `MissingColumn`. **A partir de esta línea `atomTable` es un `CifTable` a secas**: el compilador lo sabe.
+- **Línea 55**: `rows` es la lista de filas de la tabla de átomos (cada fila, una lista de textos).
+- **Línea 56**: tabla sin filas → `NoAtoms`. Una molécula sin átomos no se puede dibujar ni centrar (dividiríamos por cero).
+- **Línea 57**: demasiados átomos → `TooBig`.
+- **Líneas 59–60**: las posiciones de las **dos columnas obligatorias**. `column(...)` (sección 9.8, al final) devuelve un `Int` o lanza `MissingColumn` con el nombre exacto
+  que falta. Se piden **antes** del bucle: si falta una columna, se falla una vez, no en cada fila.
+- **Líneas 63–65**: el mapa nombre → posición y dos listas, una de nombres y otra de elementos. `ArrayList<String>(rows.size)` reserva ya el tamaño final.
+- **Línea 66** `for ((index, row) in rows.withIndex())`: recorre las filas con su posición (0, 1, 2…). Los paréntesis desestructuran el par.
+- **Línea 67**: `row[nameColumn]` es la celda de esa fila en la columna del nombre. **Aquí se usa la posición que dio `column`**; por eso es seguro (existe) y no depende de
+  que el fichero ordene las columnas de una forma concreta.
+- **Líneas 68–69**: el elemento se normaliza (9.8); si no puede ser un símbolo (`?`, `.`, `C1`, vacío) → `BadElement`, con el **nombre del átomo** y el valor
+  malo, para poder encontrarlo en el fichero.
+- **Líneas 70–71**: `indexByName.put(name, index)` devuelve el valor **anterior** de esa clave, o `null` si no había. Si **no** es `null`, el nombre ya estaba
+  ocupado: `DuplicateAtomName`. Se comprueba y se inserta **en una sola operación**.
+- **Líneas 72–73**: se guardan nombre y elemento; los `Atom` se crean más tarde porque todavía no se sabe qué coordenadas usar.
+
+**Por qué el mapa va por nombre**: el fichero escribe los enlaces con **nombres** de átomo (`C1 O5'`). El mapa los traduce a posiciones **una vez**.
+
+### 9.5 `extract`: enlaces, coordenadas y centrado
+
+```kotlin
+// CifExtractor.kt · líneas 76–101
+ 76      // A ligand with a single atom (an ion) has no bonds and may not have the table at all.
+ 77      val bondTable = block.tableWith(BOND_FIRST)
+ 78      val bonds = if (bondTable == null) emptyList() else readBonds(bondTable, indexByName)
+ 79
+ 80      // The bonds come BEFORE the coordinates because they are needed to judge which set is believable.
+ 81      val points = chooseCoordinates(atomTable, bonds) ?: throw fail(CifFailure.NoCompleteCoordinates)
+ 82
+ 83      // The centroid is the average position. Moving it to (0, 0, 0) puts the molecule in front of
+ 84      // the camera whatever the reference frame of the file was (it can be 226 Å away from the origin).
+ 85      val centerX = points.sumOf { it.x } / points.size
+ 86      val centerY = points.sumOf { it.y } / points.size
+ 87      val centerZ = points.sumOf { it.z } / points.size
+ 88
+ 89      val atoms = rows.indices.map { index ->
+ 90          val p = points[index]
+ 91          Atom(
+ 92              name = names[index],
+ 93              element = elements[index],
+ 94              x = (p.x - centerX).toFloat(),
+ 95              y = (p.y - centerY).toFloat(),
+ 96              z = (p.z - centerZ).toFloat(),
+ 97          )
+ 98      }
+ 99
+100      return Molecule(block.name, atoms, bonds)
+101  }
+```
+
+- **Líneas 77–78**: se busca la tabla de enlaces **por una de sus columnas**. Si **no existe** (un ion de un solo átomo puede no tenerla), la lista de enlaces
+  es vacía y **no es un error**. Esto cubre los **39 ligandos de un solo átomo** del corpus. `emptyList()` es la lista vacía, de solo lectura.
+- **Línea 81**: se elige el juego de coordenadas (9.7). Si no hay ninguno completo, `NoCompleteCoordinates`. **Los enlaces se leen antes** porque la comprobación de
+  «creíble» necesita saber qué átomos están unidos.
+- **Líneas 85–87**: el **centroide** es la posición media: suma de todas las x dividida por el número de átomos, y lo mismo para y y z.
+  `sumOf { it.x }` suma el campo `x` de cada `Point`.
+- **Por qué centrar**: los dos juegos de coordenadas viven en sistemas de referencia arbitrarios; el centroide de las ideales llega a estar a **226 Å del origen**
+  (`OMO`). Sin centrar, la cámara apuntaría al vacío. Centrar es **trasladar** todos los puntos por el mismo vector: **no cambia ninguna distancia**.
+- **Líneas 89–98**: se crea un `Atom` por posición. `rows.indices.map { index -> ... }` recorre `0 until rows.size` y devuelve la lista nueva. Cada coordenada es
+  `(p.x - centerX).toFloat()`: se resta el centroide **en Double** y se convierte a `Float` al final. Los argumentos van **con nombre** (`name = ...`) para que
+  nadie confunda `x` con `z`.
+- **Línea 100**: `Molecule(block.name, atoms, bonds)`. Recuerda el `init` de `Molecule` (sección 3.4): comprueba que cada enlace apunta a átomos válidos. Aquí **no
+  puede fallar**, porque `readBonds` ya validó cada nombre (9.6); si fallara, sería un fallo del propio parser y `CifParser` lo convertiría en `Unexpected`.
+
+### 9.6 `readBonds`
+
+```kotlin
+// CifExtractor.kt · líneas 103–117
+103  private fun readBonds(table: CifTable, indexByName: Map<String, Int>): List<Bond> {
+104      if (table.rows.size > MAX_BONDS) throw fail(CifFailure.TooBig("bonds", table.rows.size, MAX_BONDS))
+105      val firstColumn = table.column(BOND_FIRST)
+106      val secondColumn = table.column(BOND_SECOND)
+107      val orderColumn = table.indexOf(BOND_ORDER)   // optional: without it every bond is OTHER
+108
+109      return table.rows.map { row ->
+110          val firstName = row[firstColumn]
+111          val secondName = row[secondColumn]
+112          val from = indexByName[firstName] ?: throw fail(CifFailure.UnknownAtomInBond(firstName))
+113          val to = indexByName[secondName] ?: throw fail(CifFailure.UnknownAtomInBond(secondName))
+114          if (from == to) throw fail(CifFailure.BondToItself(firstName))
+115          Bond(from, to, bondOrderOf(orderColumn?.let { row[it] }))
+116      }
+117  }
+```
+
+- **Línea 104**: demasiadas filas → `TooBig`.
+- **Líneas 105–106**: las dos columnas de átomos son **obligatorias** (si falta una → `MissingColumn`).
+- **Línea 107**: la columna del orden de enlace es **opcional**: `indexOf` devuelve `Int?` y **se deja como nullable** a propósito. Sin ella, todos los enlaces
+  serán `OTHER`, pero la molécula se dibuja.
+- **Líneas 109–116** `table.rows.map { row -> ... }`: convierte cada fila en un `Bond`.
+  - Líneas 112–113: `indexByName[firstName] ?: throw ...`. Un nombre que no está en el mapa → `UnknownAtomInBond` con el nombre. **Distingue mayúsculas**: `c1` no es `C1`
+    (hay una prueba).
+  - Línea 114: un enlace de un átomo consigo mismo → `BondToItself`. Sin esta comprobación saltaría el `require` de `Molecule` con una excepción de otro tipo.
+  - Línea 115: `orderColumn?.let { row[it] }`: si hay columna, la celda; si no, `null`. `bondOrderOf` (9.8) lo traduce.
+
+### 9.7 Elegir las coordenadas (decisiones D10 y D13)
+
+Es la parte con más historia del fichero. Primero el código:
+
+```kotlin
+// CifExtractor.kt · líneas 119–136
+119  /**
+120   * Picks ONE coordinate set for the whole ligand (decisions D10 and D13). The candidates are tried in order
+121   * (ideal, then model) and the first one that is COMPLETE (every atom has the three numbers) and
+122   * BELIEVABLE (no bond longer than [MAX_PLAUSIBLE_BOND_LENGTH]) wins. If there is a complete set but none
+123   * is believable, the first complete one is used anyway: a stray hydrogen is better than no molecule.
+124   * Null if no set is complete.
+125   *
+126   * The two sets live in different reference frames, so mixing them atom by atom would scatter the molecule.
+127   */
+128  private fun chooseCoordinates(table: CifTable, bonds: List<Bond>): List<Point>? {
+129      var firstComplete: List<Point>? = null
+130      for (tags in COORDINATE_SETS) {
+131          val points = readCompleteSet(table, tags) ?: continue
+132          if (longestBond(points, bonds) <= MAX_PLAUSIBLE_BOND_LENGTH) return points
+133          if (firstComplete == null) firstComplete = points
+134      }
+135      return firstComplete
+136  }
+```
+
+La regla, en palabras: se prueban los juegos **en orden** (ideales, modelo). El primero que sea **completo** (todos los átomos tienen los tres números) y **creíble**
+(ningún enlace de más de 5 Å) gana. Si hay juegos completos pero **ninguno** creíble, se usa **el primero completo** (un hidrógeno suelto es mejor que no mostrar la molécula).
+Si ninguno es completo, `null` y de ahí sale `NoCompleteCoordinates`.
+
+- **Línea 129**: `firstComplete` recuerda el primer juego completo, por si ninguno es creíble. Es un `var` con tipo `List<Point>?`.
+- **Línea 131**: `readCompleteSet(...) ?: continue`: si ese juego no está completo, **pasa al siguiente** de la lista.
+- **Línea 132**: si es creíble, **termina aquí** con ese juego.
+- **Línea 133**: si no es creíble, pero es el primero completo que se ve, se guarda.
+- **Línea 135**: fin del bucle sin éxito: se devuelve el primero completo (o `null`).
+
+**Por qué UN juego entero y no átomo a átomo** (D10): las dos familias de coordenadas están en **sistemas de referencia distintos** (en `001`, a unos 30 Å). Mezclarlas
+dentro de una molécula colocaría unos átomos en un sitio y otros a decenas de ångström. Hay una prueba específica (`theTwoSetsAreNeverMixed`).
+
+**Por qué «creíble»** (D13): al medir los enlaces de todo el corpus aparecieron cinco ligandos (`HEM`, `HEC`, `HEA`, `B12`, `AV2`) cuyas **ideales** colocan algunos hidrógenos a
+8–14 Å de su oxígeno, mientras las de modelo están bien (sección 13). Los enlaces correctos miden menos de 3 Å; los rotos, más de 8: el umbral de 5 Å va en medio.
+
+```kotlin
+// CifExtractor.kt · líneas 138–158
+138  /** The x/y/z of every atom for one set, or null if a column is absent or ANY atom lacks a usable number. */
+139  private fun readCompleteSet(table: CifTable, tags: List<String>): List<Point>? {
+140      val xColumn = table.indexOf(tags[0]) ?: return null
+141      val yColumn = table.indexOf(tags[1]) ?: return null
+142      val zColumn = table.indexOf(tags[2]) ?: return null
+143      return table.rows.map { row ->
+144          // One unusable number in ONE atom and the whole set is discarded.
+145          Point(
+146              parseCoordinate(row[xColumn]) ?: return null,
+147              parseCoordinate(row[yColumn]) ?: return null,
+148              parseCoordinate(row[zColumn]) ?: return null,
+149          )
+150      }
+151  }
+152
+153  private fun longestBond(points: List<Point>, bonds: List<Bond>): Double =
+154      bonds.maxOfOrNull { bond ->
+155          val a = points[bond.from]
+156          val b = points[bond.to]
+157          sqrt((a.x - b.x) * (a.x - b.x) + (a.y - b.y) * (a.y - b.y) + (a.z - b.z) * (a.z - b.z))
+158      } ?: 0.0   // no bonds (an ion): nothing to doubt
+```
+
+- **`readCompleteSet`** (líneas 139–151): busca las tres columnas del juego; si **alguna no existe**, el juego no está disponible y devuelve `null` (líneas 140–142).
+  Después construye un `Point` por fila con `table.rows.map`. Si **cualquier** número de **cualquier** átomo es inutilizable, `?: return null` **abandona la función entera**:
+  un `return` dentro de `map` sale de `readCompleteSet`, no solo del bloque (porque `map` es inline). Resultado: un solo `?` en un solo átomo descarta el juego **completo**.
+- **`longestBond`** (líneas 153–158): para cada enlace, la distancia euclídea entre sus dos átomos
+  (`sqrt((ax-bx)² + (ay-by)² + (az-bz)²)`), y se queda con la mayor. `maxOfOrNull` devuelve `null` si no hay enlaces, y entonces `?: 0.0`: **sin enlaces (un ion) no hay nada que
+  dudar**, el juego es creíble.
+
+### 9.8 Números, elementos, órdenes de enlace y ayudas
+
+```kotlin
+// CifExtractor.kt · líneas 160–167
+160  /** A usable number, or null for `?`, `.`, text, NaN, infinities and absurd magnitudes. */
+161  private fun parseCoordinate(text: String): Double? {
+162      // toDoubleOrNull alone also accepts "NaN", "Infinity", "0x1p3" and "1.5f". Only these characters
+163      // can be part of a plain decimal number such as -3.053 or 1e-3.
+164      if (text.isEmpty() || !text.all { it in "0123456789+-.eE" }) return null
+165      val value = text.toDoubleOrNull() ?: return null
+166      return if (value.isFinite() && abs(value) <= MAX_ABS_COORDINATE) value else null
+167  }
+```
+
+- **Línea 164**: `text.all { it in "0123456789+-.eE" }`: **todos** los caracteres deben ser de esa lista. Esto **descarta** `NaN`, `Infinity`, `0x1p3` (hexadecimal) y `1.5f` / `1.5d`,
+  porque `toDoubleOrNull` de Kotlin **los acepta como números válidos** (usa la gramática de Java). Es una trampa real que una prueba cubre. `?` y `.` también caen aquí (la `?` no está en
+  la lista) y un texto vacío (`''`).
+- **Línea 165**: `toDoubleOrNull()` devuelve `null` si no es un número (`--1`, `1e`, `.`). No usa la configuración regional: `1,5` ya no habría pasado el filtro.
+- **Línea 166**: el valor debe ser **finito** (`1e999` se convierte en infinito) y de módulo ≤ 10 000.
+
+```kotlin
+// CifExtractor.kt · líneas 169–182
+169  /** "CL" -> "Cl", "fe" -> "Fe", "C" -> "C". Null if it cannot be an element symbol. */
+170  private fun normalizeElement(raw: String): String? {
+171      if (raw.length !in 1..3) return null
+172      if (!raw.all { it in 'A'..'Z' || it in 'a'..'z' }) return null
+173      return raw.substring(0, 1).uppercase() + raw.substring(1).lowercase()
+174  }
+175
+176  private fun bondOrderOf(raw: String?): BondOrder = when (raw?.uppercase()) {
+177      "SING" -> BondOrder.SINGLE
+178      "DOUB" -> BondOrder.DOUBLE
+179      "TRIP" -> BondOrder.TRIPLE
+180      "AROM" -> BondOrder.AROMATIC
+181      else -> BondOrder.OTHER   // "QUAD", "DELO", missing column... a bond is drawn anyway
+182  }
+```
+
+- **`normalizeElement`**: acepta de 1 a 3 letras (`raw.length !in 1..3`, un rango) y solo letras ASCII. `"CL"` → `"C"` en mayúscula + `"l"` en minúscula = `"Cl"`; `"fe"` → `"Fe"`.
+  Devuelve `null` para lo imposible. El corpus solo tiene símbolos de 1–2 letras en mayúsculas; aceptar 3 letras es holgura.
+- **`bondOrderOf`**: un `when` con una **cadena** como sujeto: `"SING"` → `SINGLE`, etc. `raw?.uppercase()` primero pasa a mayúsculas (así `doub` también vale) y no falla si `raw` es `null`.
+  Lo desconocido (`QUAD`, `DELO`, columna ausente) es `OTHER`: **no se falla por un adjetivo**; el enlace se dibuja igual. En el corpus solo hay `SING`, `DOUB` y `TRIP`.
+
+```kotlin
+// CifExtractor.kt · líneas 184–189
+184      /** The position of a REQUIRED column, or a failure that names it. */
+185      private fun CifTable.column(tag: String): Int =
+186          indexOf(tag) ?: throw fail(CifFailure.MissingColumn(tag))
+187
+188      private fun fail(failure: CifFailure) = CifFormatException(failure)
+189  }
+```
+
+- **Línea 185** `private fun CifTable.column(tag: String): Int`: una **función de extensión**: añade el método `column` a `CifTable` **sin tocar la clase**. Dentro, `indexOf(tag)` significa
+  `this.indexOf(tag)`. Hace lo mismo que `indexOf`, pero para columnas **obligatorias**: si falta, lanza el fallo que **nombra la columna**.
+- **Línea 188** `fail(...)`: construye la excepción. Se escribe `throw fail(x)` para que el `throw` se vea siempre en el sitio donde se lanza.
+
+---
+
+## 10. `CifParser.kt`: la puerta de entrada
+
+```kotlin
+// CifParser.kt · líneas 5–9
+5  /** What [CifParser.parse] returns: a molecule, or the reason why there is none. Never an exception. */
+6  sealed interface ParseResult {
+7      data class Success(val molecule: Molecule) : ParseResult
+8      data class Failure(val failure: CifFailure) : ParseResult
+9  }
+```
+
+- **`ParseResult`**: el resultado, un `sealed interface` con **dos** variantes: `Success(molecule)` y `Failure(failure)`. Quien llama **no puede olvidar** el caso de fallo: si hace un `when`
+  y se deja uno, **no compila**. (El nombre `Failure` está dentro de `ParseResult`, no choca con `CifFailure`.)
+
+```kotlin
+// CifParser.kt · líneas 16–38
+16  object CifParser {
+17
+18      /** Real ligand files are well under 100 KB. A body above this limit is not a ligand. */
+19      const val MAX_INPUT_CHARS = 2_000_000
+20
+21      /** Never throws because of its input: every problem comes back as [ParseResult.Failure]. */
+22      fun parse(text: String): ParseResult {
+23          if (text.length > MAX_INPUT_CHARS) {
+24              return ParseResult.Failure(CifFailure.TooBig("characters", text.length, MAX_INPUT_CHARS))
+25          }
+26          return try {
+27              val tokens = CifTokenizer.tokenize(text)         // layer 1: syntax
+28              val block = CifTableReader.read(tokens)          // layer 2: structure
+29              ParseResult.Success(CifExtractor.extract(block)) // layer 3: chemistry
+30          } catch (e: CifFormatException) {
+31              ParseResult.Failure(e.failure)                   // the expected way to fail
+32          } catch (e: Exception) {
+33              // A bug of ours (or something nobody foresaw). The app must not die in front of the evaluator:
+34              // it becomes a failure we can log. Errors such as OutOfMemoryError are NOT caught on purpose.
+35              ParseResult.Failure(CifFailure.Unexpected(e.toString()))
+36          }
+37      }
+38  }
+```
+
+- **Líneas 18–19**: `MAX_INPUT_CHARS = 2_000_000`. Un fichero real pesa muy por debajo de 100 KB. Se comprueba **antes de hacer nada**: un cuerpo gigante no llega a tokenizarse.
+- **Líneas 23–25**: si el texto es más largo, `Failure(TooBig(...))` y se vuelve. Fíjate en `>`: el texto de **exactamente** 2 000 000 se procesa (hay una prueba de cada lado).
+- **Línea 26** `return try { ... }`: `try` es una **expresión**: su valor es el de la última línea del bloque, o el del `catch` que se ejecute.
+- **Líneas 27–29**: las tres capas, **en orden**. Cada una se llama con el resultado de la anterior.
+- **Líneas 30–31** `catch (e: CifFormatException)`: el **fallo esperado** (cualquiera de las tres capas). `e.failure` es el motivo tipado.
+- **Líneas 32–36** `catch (e: Exception)`: la **red de seguridad**. Si hay un fallo en algún sitio (un `IndexOutOfBounds` por un error nuestro, el `require` de `Molecule`), la aplicación **no se cierra delante del evaluador**:
+  se convierte en `Unexpected` con la descripción, para que quede en el registro.
+- **El orden de los `catch` importa**: Kotlin los prueba **de arriba abajo** y ejecuta el primero que encaja. `CifFormatException` es una `Exception`, así que si el `catch (Exception)` fuera primero se
+  «comería» todos los fallos esperados y todo saldría como `Unexpected`.
+- **Qué NO se captura**: `Exception` no incluye los `Error` de la JVM (como `OutOfMemoryError`). No hay que ocultarlos: el tope de tamaño de la línea 23 es lo que evita llegar ahí.
+- **Matiz**: si algún día `parse` se llama desde una corrutina y esta se cancela, `CancellationException` (que es una `Exception`) **no debe tragarse**. Hoy `parse` no es `suspend` y no puede lanzarla;
+  si se vuelve `suspend`, habrá que relanzarla (documento 06).
+- **Estado de esta red de seguridad**: **ninguna entrada válida ni inválida la activa por diseño**, así que ninguna prueba la ejercita directamente (sección 12.5). Sí se vio funcionar al introducir un fallo a
+  propósito en un enlace durante la comprobación del corpus: el `IllegalArgumentException` de `Molecule` salió como `Failure(Unexpected(...))` y no como un cierre de la aplicación.
+
+---
+
+## 11. Simulación de extremo a extremo
+
+El fichero de juguete (`mini.cif`; no forma parte del repositorio, es solo para este documento). Contiene un comentario, un campo de texto `;` de dos líneas, un átomo con comilla en el
+nombre, un elemento en mayúsculas (`CL`), dos juegos de coordenadas **distintos** y dos `loop_`:
 
 ```
-data_MIN
-# fichero de juguete
-_chem_comp.id    MIN
-_chem_comp.name
-;ETHANOL
-DE JUGUETE
-;
-loop_
-_chem_comp_atom.atom_id
-_chem_comp_atom.type_symbol
-_chem_comp_atom.model_Cartn_x
-"O5'" O 1.5
-C1    C 0.0
-loop_
-_chem_comp_bond.atom_id_1
-_chem_comp_bond.atom_id_2
-_chem_comp_bond.value_order
-C1 "O5'" SING
+ 1  data_MIN
+ 2  # fichero de juguete
+ 3  _chem_comp.id    MIN
+ 4  _chem_comp.name
+ 5  ;ETHANOL
+ 6  DE JUGUETE
+ 7  ;
+ 8  loop_
+ 9  _chem_comp_atom.atom_id
+10  _chem_comp_atom.type_symbol
+11  _chem_comp_atom.model_Cartn_x
+12  _chem_comp_atom.model_Cartn_y
+13  _chem_comp_atom.model_Cartn_z
+14  _chem_comp_atom.pdbx_model_Cartn_x_ideal
+15  _chem_comp_atom.pdbx_model_Cartn_y_ideal
+16  _chem_comp_atom.pdbx_model_Cartn_z_ideal
+17  "O5'" O  10.0 20.0 30.0   1.0 0.0 0.0
+18  CL1   CL 11.5 20.0 30.0   3.0 0.0 0.0
+19  loop_
+20  _chem_comp_bond.atom_id_1
+21  _chem_comp_bond.atom_id_2
+22  _chem_comp_bond.value_order
+23  CL1 "O5'" SING
 ```
 
-### 9.1 Capa 1: lo que hace el tokenizador
+### 11.1 Capa 1: lo que hace el tokenizador
 
 | Qué hay en `text[i]` | Rama | Resultado |
 |----------------------|------|-----------|
 | `data_MIN` (línea 1) | 6 (palabra) | `DATA "MIN"` |
 | `\n` | 1 | cuenta línea (ahora línea 2) |
 | `# fichero de juguete` | 3 (comentario) | nada; salta hasta el `\n` |
-| `_chem_comp.id` | 6 | `TAG "_chem_comp.id"` |
-| `MIN` | 6 | `VALUE "MIN"` |
+| `_chem_comp.id`, `MIN` | 6 | `TAG`, `VALUE` |
 | `_chem_comp.name` | 6 | `TAG "_chem_comp.name"` |
-| `;` en columna uno (línea 6) | 4 (campo) | busca `\n;` → lo encuentra tras `DE JUGUETE`; contenido `ETHANOL\nDE JUGUETE`; `VALUE`; suma 3 líneas; `i` salta tras el `;` de cierre |
+| `;` en columna uno (línea 5) | 4 (campo) | busca `\n;` → lo encuentra tras `DE JUGUETE`; contenido `ETHANOL\nDE JUGUETE`; **un** `VALUE`; suma 3 líneas |
 | `loop_` | 6 | `LOOP "loop_"` |
-| tres etiquetas de átomo | 6 | tres `TAG` |
-| `"O5'"` | 5 (comillas) | abre `"`; el `'` interior va seguido de `"` → no cierra; el `"` final va seguido de espacio → cierra; `VALUE "O5'"` |
-| `O`, `1.5`, `C1`, `C`, `0.0` | 6 | cinco `VALUE` |
+| ocho etiquetas de átomo | 6 | ocho `TAG` |
+| `"O5'"` (línea 17) | 5 (comillas) | abre `"`; el `'` interior va seguido de `"` → no cierra; el `"` final va seguido de espacio → cierra; `VALUE "O5'"` |
+| `O`, `10.0`, ..., `0.0` | 6 | siete `VALUE` más |
+| línea 18 | 6 | ocho `VALUE` (`CL1`, `CL`, `11.5`...) |
 | `loop_` + tres etiquetas de enlace | 6 | `LOOP` y tres `TAG` |
-| `C1`, `"O5'"`, `SING` | 6, 5, 6 | tres `VALUE` |
+| `CL1`, `"O5'"`, `SING` | 6, 5, 6 | tres `VALUE` |
 
-Lista de tokens resultante (salida **real** del código, no escrita a mano):
+Lista de tokens resultante (salida **real** del código; el número es la **línea del fichero** donde empieza cada token): **37 tokens**.
 
 ```
-DATA   MIN
-TAG    _chem_comp.id                      VALUE  MIN
-TAG    _chem_comp.name                    VALUE  "ETHANOL\nDE JUGUETE"     (un solo valor, con salto dentro)
-LOOP   loop_
-TAG    _chem_comp_atom.atom_id
-TAG    _chem_comp_atom.type_symbol
-TAG    _chem_comp_atom.model_Cartn_x
-VALUE  O5'   VALUE  O   VALUE  1.5
-VALUE  C1    VALUE  C   VALUE  0.0
-LOOP   loop_
-TAG    _chem_comp_bond.atom_id_1
-TAG    _chem_comp_bond.atom_id_2
-TAG    _chem_comp_bond.value_order
-VALUE  C1    VALUE  O5'   VALUE  SING
+DATA   1  MIN
+TAG    3  _chem_comp.id               VALUE  3  MIN
+TAG    4  _chem_comp.name             VALUE  5  ETHANOL\nDE JUGUETE        (un solo valor, con salto dentro)
+LOOP   8  loop_
+TAG    9..16  _chem_comp_atom.atom_id, .type_symbol, .model_Cartn_x/y/z, .pdbx_model_Cartn_x/y/z_ideal   (8 etiquetas)
+VALUE 17  O5'   O   10.0   20.0   30.0   1.0   0.0   0.0            (8 valores en la línea 17)
+VALUE 18  CL1   CL  11.5   20.0   30.0   3.0   0.0   0.0            (8 valores en la línea 18)
+LOOP  19  loop_
+TAG   20..22  _chem_comp_bond.atom_id_1, .atom_id_2, .value_order
+VALUE 23  CL1   O5'   SING
 ```
 
 Observa que el comentario **no** produjo ningún token y que `O5'` perdió las comillas dobles pero **conservó** el apóstrofo.
 
-### 9.2 Capa 2: lo que hace el lector
+### 11.2 Capa 2: lo que hace el lector
+
+Posiciones en la lista de tokens: 0 = `DATA`; 1–2 = `_chem_comp.id` y su valor; 3–4 = `_chem_comp.name` y su valor; 5 = `LOOP`; 6–13 = ocho etiquetas; 14–29 = dieciséis valores; 30 = `LOOP`; 31–33 = tres etiquetas;
+34–36 = tres valores.
 
 | `i` | Token | Rama | Efecto |
 |----:|-------|------|--------|
 | 0 | `DATA MIN` | cabecera | `header` = ese token; `i = 1` |
 | 1 | `TAG _chem_comp.id` | `TAG` | siguiente es `VALUE MIN` ✔; categoría `_chem_comp`; `pairs["_chem_comp"] = [(id, MIN)]`; `i = 3` |
-| 3 | `TAG _chem_comp.name` | `TAG` | siguiente `VALUE` ✔; `pairs["_chem_comp"]` pasa a 2 pares; `i = 5` |
-| 5 | `LOOP` | `LOOP` | columnas: 3 etiquetas; valores: 6 (`O5'`,`O`,`1.5`,`C1`,`C`,`0.0`); 6 % 3 = 0 ✔; `chunked(3)` → 2 filas; `i = 15` |
-| 15 | `LOOP` | `LOOP` | columnas: 3; valores: 3; 3 % 3 = 0 ✔; 1 fila; `i` = fin |
-| fin | — | sale del `while` | convierte `pairs` en tablas |
+| 3 | `TAG _chem_comp.name` | `TAG` | siguiente `VALUE` ✔; la categoría pasa a 2 pares; `i = 5` |
+| 5 | `LOOP` | `LOOP` | columnas: 8 etiquetas; valores: 16; 16 % 8 = 0 ✔; `chunked(8)` → 2 filas; `i = 30` |
+| 30 | `LOOP` | `LOOP` | columnas: 3; valores: 3; 3 % 3 = 0 ✔; 1 fila; `i = 37` (fin) |
+| 37 | — | sale del `while` | convierte `pairs` en tablas |
 
 Resultado (salida **real**):
 
 | Tabla | Columnas | Filas |
 |-------|---------:|------:|
-| `_chem_comp_atom...` | 3 | 2 (`[O5', O, 1.5]`, `[C1, C, 0.0]`) |
-| `_chem_comp_bond...` | 3 | 1 (`[C1, O5', SING]`) |
+| `_chem_comp_atom...` | 8 | 2 (`[O5', O, 10.0, 20.0, 30.0, 1.0, 0.0, 0.0]`, `[CL1, CL, 11.5, 20.0, 30.0, 3.0, 0.0, 0.0]`) |
+| `_chem_comp_bond...` | 3 | 1 (`[CL1, O5', SING]`) |
 | `_chem_comp...` (de los pares sueltos) | 2 | 1 (`[MIN, ETHANOL\nDE JUGUETE]`) |
 
-La tabla de pares sale **la última**, aunque estaba la primera en el fichero. La capa 3 no lo nota porque busca con
-`block.tableWith("_chem_comp_atom.atom_id")`.
+La tabla de pares sale **la última**, aunque estaba la primera en el fichero. La capa 3 no lo nota porque busca con `block.tableWith("_chem_comp_atom.atom_id")`.
 
-### 9.3 Qué haría la capa 3 (todavía sin escribir) con este resultado
+### 11.3 Capa 3: lo que hace el extractor
 
-1. Buscar la tabla de átomos por nombre y las columnas `atom_id`, `type_symbol` y las coordenadas, por nombre.
-2. Convertir `"1.5"` en `Float`; un valor que no sea número es un fallo (`BadNumber`).
-3. Normalizar el elemento (`CL` → `Cl`).
-4. Crear `Atom("O5'", "O", ...)`, `Atom("C1", "C", ...)`.
-5. En los enlaces, traducir los **nombres** `C1` y `O5'` a **índices** 1 y 0, y `SING` a `BondOrder.SINGLE`. Si un nombre no existe en los
-   átomos, es un fallo.
-6. Centrar la molécula en su centroide y devolver `Molecule`.
+| Paso (línea de `CifExtractor.kt`) | Qué ocurre con el ejemplo |
+|-----------------------------------|---------------------------|
+| 54: tabla de átomos | `tableWith("_chem_comp_atom.atom_id")` → la tabla de 8 columnas y 2 filas |
+| 56–57: tamaño | 2 filas: ni 0 ni más de 2000 |
+| 59–60: columnas obligatorias | `atom_id` en la posición 0, `type_symbol` en la 1 |
+| 66–74: nombres y elementos | fila 0: nombre `O5'`, elemento `O` → `"O"`; fila 1: nombre `CL1`, elemento `CL` → `"Cl"`; mapa `{O5' → 0, CL1 → 1}` |
+| 77–78: enlaces | `readBonds`: fila `[CL1, O5', SING]` → `from = 1`, `to = 0`, `SING` → `SINGLE` → `Bond(1, 0, SINGLE)` |
+| 81: coordenadas, 1.er candidato (ideales) | completas: `(1,0,0)` y `(3,0,0)`. Enlace más largo: 2,0 Å ≤ 5 → **creíble** → **gana**; las de modelo (10, 20, 30 y 11,5, 20, 30) no se miran |
+| 85–87: centroide | x: (1 + 3) / 2 = 2; y: 0; z: 0 |
+| 89–98: átomos | `O5'`: x = 1 − 2 = **−1**; `CL1`: x = 3 − 2 = **+1** |
+| 100: molécula | `Molecule(id = "MIN", ...)` |
+
+Resultado (salida **real** de `CifParser.parse`):
+
+```
+Success(molecule=Molecule(id=MIN,
+        atoms=[Atom(name=O5', element=O,  x=-1.0, y=0.0, z=0.0),
+               Atom(name=CL1, element=Cl, x=1.0,  y=0.0, z=0.0)],
+        bonds=[Bond(from=1, to=0, order=SINGLE)]))
+```
+
+Si las ideales fueran `(1,0,0)` y `(30,0,0)` (un enlace de 29 Å, como en `HEM`), la línea 132 las declararía **no creíbles**, se guardarían como `firstComplete` y el bucle probaría las de modelo: `(10,20,30)` y
+`(11.5,20,30)`, enlace de 1,5 Å → **creíbles → ganan**. Cubierto por la prueba `anIdealSetWithAnAbsurdBondFallsBackToModel`.
 
 ---
 
-## 10. Las pruebas: qué hay, cómo se ejecutan, qué demuestran
+## 12. Las pruebas: qué hay, cómo se ejecutan, qué demuestran
 
-### 10.1 Qué hay
+### 12.1 Qué hay
 
-**41 pruebas unitarias**, repartidas en dos ficheros de `app/src/test/java/dev/knowledge82/swiftyproteins/cif/`:
+**88 pruebas unitarias**, repartidas en cuatro ficheros de `app/src/test/java/dev/knowledge82/swiftyproteins/cif/`:
 
 | Fichero | Pruebas | Qué cubre |
 |---------|--------:|-----------|
 | `CifTokenizerTest.kt` | 21 | lo básico (vacío, etiqueta+valor, `loop_`, mayúsculas); comillas (`"O5'"`, cierre solo con espacio, vacías, sin cerrar); comentarios; campos `;` (multilínea, con línea propia, fuera de columna uno, recuento de líneas, sin cerrar); finales de línea Windows; BOM; **el fichero real 001** |
 | `CifTableReaderTest.kt` | 20 | `loop_` y filas por conteo; pares sueltos y categorías; búsqueda de columnas por nombre sin distinguir mayúsculas ni orden; solo el primer bloque; entradas malas (vacía, página HTML, fila truncada, `loop_` sin columnas, etiqueta sin valor, valor sin etiqueta); **el fichero real 001** |
+| `CifExtractorTest.kt` | 36 | molécula pequeña con su enlace; id del bloque; orden de columnas; nombre con comilla; normalización de elementos y elementos imposibles; **elección de coordenadas** (ideales; modelo si falta una ideal; **nunca mezclar**; sin columnas ideales; ninguno completo; **ideales absurdas → modelo**; sin juego creíble → primer completo; enlace largo pero posible; sin enlaces; ideal absurda frente a modelo incompleta); números que no son números (`NaN`, `Infinity`, `1.5f`, `0x10`, `1e999`…); centrado; ion como pares sueltos; sin tabla de enlaces o con tabla vacía; órdenes de enlace; fallos (sin tabla de átomos, sin columna de elemento, sin filas, nombres duplicados, enlace a átomo desconocido, mayúsculas en nombres, enlace consigo mismo, columna de enlace ausente); límites de átomos; **el fichero real 001** (87 átomos, 90 enlaces, ideales elegidas, centrado, **todas** las longitudes de enlace entre 0,8 y 2,3 Å) |
+| `CifParserTest.kt` | 11 | 001 de texto a molécula; BOM + finales Windows dan la **misma** molécula; vacío; página HTML; sin átomos; límite de tamaño (a un lado y a otro); los fallos de las capas llegan por la puerta; **truncado del fichero real cada 7 caracteres** (nunca lanza); **3000 ficheros dañados al azar** (semilla fija) y **3000 textos de ruido**: ninguno lanza ni cae en `Unexpected` |
 
-Hay además un fichero de plantilla de Android Studio, `ExampleUnitTest.kt` (comprueba que `2 + 2 == 4`). No aporta nada y se puede
-borrar; no estorba.
+Hay además un fichero de plantilla de Android Studio, `ExampleUnitTest.kt` (comprueba que `2 + 2 == 4`). No aporta nada y se puede borrar; no estorba.
 
-Cada prueba es una función marcada con `@Test`. El patrón es siempre el mismo: **preparar una entrada, ejecutar, comparar con lo
-esperado** (`assertEquals(esperado, obtenido)`). Para los fallos se usa `assertThrows(CifFormatException::class.java) { ... }`, que
-exige que el bloque lance esa excepción, y luego se comprueba el `failure` concreto.
+Cada prueba es una función marcada con `@Test`. El patrón es siempre el mismo: **preparar una entrada, ejecutar, comparar con lo esperado** (`assertEquals(esperado, obtenido)`).
+Para los fallos se usa `assertThrows(CifFormatException::class.java) { ... }`, que exige que el bloque lance esa excepción, y luego se comprueba el `failure` concreto.
 
-**El fichero de datos reales.** Dos pruebas (una por capa) leen `001.cif` con
-`javaClass.getResourceAsStream("/cif/001.cif")!!`. Eso busca `cif/001.cif` en el *classpath* de las pruebas; la carpeta
-`app/src/test/resources/` se añade automáticamente. **Si el fichero no está en `app/src/test/resources/cif/001.cif`, esas dos pruebas
-fallan** con un `NullPointerException` (por el `!!`); las otras 39 no lo necesitan.
+**Cómo se construyen las entradas en `CifExtractorTest`.** Una función auxiliar `ligand(atoms, bonds, columns, name)` escribe el texto de un ligando pequeño con una fila por átomo. Así cada prueba
+muestra **solo lo que importa** (dos filas, un `?`) y no un fichero de 100 líneas.
 
-**De dónde salen los números esperados del fichero real** (87 átomos, 90 enlaces, 5 `loop_`, 68 etiquetas, 2282 valores): de un
-tokenizador **independiente escrito en Python** en la fase de análisis, no del código Kotlin. Si ambos coinciden, es muy improbable que
-compartan el mismo fallo.
+**El fichero de datos reales.** Varias pruebas leen `001.cif` con `javaClass.getResourceAsStream("/cif/001.cif")!!`. Eso busca `cif/001.cif` en el *classpath* de las pruebas; la carpeta
+`app/src/test/resources/` se añade automáticamente. **Si el fichero no está en `app/src/test/resources/cif/001.cif`, esas pruebas fallan** con un `NullPointerException` (por el `!!`).
 
-### 10.2 Cómo ejecutarlas en Android Studio
+**Pruebas de robustez** (en `CifParserTest`): los criterios son aquí distintos. No se comprueba **qué** devuelve, sino que **nunca lanza** y que, además, **la red de seguridad no es la que salva**:
+si el resultado es un fallo, no puede ser `Unexpected` (eso significaría un fallo escondido en una capa). Se usa `java.util.Random(42)` con **semilla fija**: el «azar» es el mismo en cada ejecución, así
+que una prueba que falla se puede reproducir.
+
+### 12.2 Cómo ejecutarlas en Android Studio
 
 1. Abre el proyecto y espera a que termine la sincronización de Gradle.
-2. En la vista **Project → Android** se ven las pruebas bajo `app` → `java` → `dev.knowledge82.swiftyproteins (test)`. En la vista
-   **Project → Project Files** están en `app/src/test/java/...`.
+2. En la vista **Project → Android** se ven las pruebas bajo `app` → `java` → `dev.knowledge82.swiftyproteins (test)`. En la vista **Project → Project Files** están en `app/src/test/java/...`.
 3. **Todas las pruebas**: clic derecho sobre la carpeta `cif` → **Run 'Tests in 'dev.knowledge82.swiftyproteins.cif''**.
-4. **Un fichero**: clic derecho sobre `CifTokenizerTest.kt` → **Run 'CifTokenizerTest''**.
+4. **Un fichero**: clic derecho sobre el fichero → **Run 'CifExtractorTest''**.
 5. **Una prueba**: icono verde al lado de la función `@Test`.
 6. Abajo se abre el panel **Run** con un árbol: ✔ verde por prueba, ✘ rojo con el mensaje y la línea si falla.
 
-### 10.3 Cómo ejecutarlas desde la terminal (Gradle)
+### 12.3 Cómo ejecutarlas desde la terminal (Gradle)
 
 Desde la raíz del repositorio:
 
 ```bash
 ./gradlew :app:testDebugUnitTest                                       # todas las pruebas unitarias (variante debug)
-./gradlew :app:testDebugUnitTest --tests "*CifTokenizerTest"           # solo un fichero
-./gradlew :app:testDebugUnitTest --tests "*CifTokenizerTest.realLigand001"   # solo una prueba
+./gradlew :app:testDebugUnitTest --tests "*CifExtractorTest"           # solo un fichero
+./gradlew :app:testDebugUnitTest --tests "*CifExtractorTest.realLigand001"   # solo una prueba
 ./gradlew :app:testDebugUnitTest --rerun-tasks                         # forzar a repetir aunque no haya cambios
 ```
 
 - Si nada cambió desde la última vez, Gradle responde `UP-TO-DATE` y **no vuelve a ejecutar**; para forzarlo, `--rerun-tasks` (o `clean`).
-- Gradle **no imprime una lista** de pruebas aprobadas por defecto: si todo va bien, solo ves `BUILD SUCCESSFUL`. El detalle está
-  en el informe HTML: `app/build/reports/tests/testDebugUnitTest/index.html` (ábrelo en el navegador) y en los XML de
-  `app/build/test-results/testDebugUnitTest/`.
+- Gradle **no imprime una lista** de pruebas aprobadas por defecto: si todo va bien, solo ves `BUILD SUCCESSFUL`. El detalle está en el informe HTML:
+  `app/build/reports/tests/testDebugUnitTest/index.html` (ábrelo en el navegador) y en los XML de `app/build/test-results/testDebugUnitTest/`.
 - `./gradlew test` ejecuta además la variante `release`; da lo mismo para estas pruebas, tarda más.
 
-### 10.4 Cómo saber que las pruebas **de verdad** prueban algo
+### 12.4 Cómo saber que las pruebas **de verdad** prueban algo (prueba de mutación manual)
 
-Un test que nunca puede fallar no prueba nada. Comprobación de 2 minutos (**prueba de mutación manual**):
+Un test que nunca puede fallar no prueba nada. La técnica: **estropear el código a propósito** y comprobar que alguna prueba se pone en rojo. Averías que se probaron en `CifExtractor.kt` y
+`CifParser.kt` **con el código final**, y qué pruebas las detectaron (resultado real):
 
-1. En `CifTokenizer.kt`, línea 67, cambia `(j + 1 >= n || isWhitespace(text[j + 1]))` por `true`. Guarda. (Significa: «cualquier comilla
-   cierra la cadena», que es justo el error que la regla de «seguida de espacio» evita.)
-2. Ejecuta las pruebas. **Resultado real al hacer esta mutación: falla 1 prueba de 41**, `quoteOnlyClosesWhenFollowedByWhitespace`
-   (la que prueba `'a'b'`). Las otras 40 siguen en verde. Dos lecciones: la red de seguridad **funciona** (el error se detecta), y
-   **el fichero real 001 no ejerce este caso** (la mutación no hizo fallar sus pruebas), así que dependemos de la
-   prueba sintética. Por eso se escribieron pruebas con casos que el fichero real no cubre.
-3. **Deshaz el cambio** y vuelve a ejecutar: 41 verdes.
-4. Repite con otra mutación para coger práctica, p. ej. en `CifTableReader.kt`, línea 53, cambia `values.size % columns.size != 0` por `false`:
-   deberían fallar las pruebas de fila truncada.
+| Avería introducida | Pruebas que fallan |
+|--------------------|--------------------|
+| Probar primero las coordenadas de modelo (líneas 36–47) | **6** pruebas, entre ellas `idealCoordinatesAreUsedWhenAllAtomsHaveThem`, `aLongButPossibleBondDoesNotDiscreditTheIdealSet` y `realLigand001` |
+| No restar el centroide en x (línea 94) | **4**, entre ellas `theMoleculeIsCenteredOnItsCentroid` y `realLigand001` |
+| Permitir nombres duplicados (línea 71) | `duplicateAtomNamesFail` |
+| `DOUB` → `SINGLE` (línea 178) | `smallMoleculeWithItsBond`, `bondOrdersAreTranslated` |
+| Quitar el filtro de caracteres de los números (línea 164) | `valuesThatAreNotPlainNumbersCountAsMissing` |
+| Permitir un enlace de un átomo consigo mismo (línea 114) | `aBondFromAnAtomToItselfFails` |
+| No poner en minúscula el resto del elemento (línea 173) | `elementsAreNormalizedToFirstCapitalThenLowerCase`, `aSingleAtomWrittenAsLooseTagValuePairs` |
+| Si falta un número, usar 0.0 en vez de descartar el juego (línea 146) | **3**: `valuesThatAreNotPlainNumbersCountAsMissing`, `noCompleteSetIsAFailure`, `anAbsurdButCompleteIdealSetBeatsAnIncompleteModelSet` |
+| Desactivar la comprobación de «creíble» (línea 132) | `anIdealSetWithAnAbsurdBondFallsBackToModel` |
+| Umbral de 5 Å → 50 Å (línea 27) | `anIdealSetWithAnAbsurdBondFallsBackToModel` |
+| **Quitar el `catch (Exception)` de `CifParser` (línea 32)** | **ninguna**: **la avería sobrevive** (ver 12.5) |
 
-### 10.5 Qué demuestran y qué **no**
+Y en el tokenizador (ya en la versión anterior): hacer que **cualquier** comilla cierre la cadena (línea 67) hace fallar **una** prueba de 41, `quoteOnlyClosesWhenFollowedByWhitespace`: el fichero
+real `001` **no** ejerce ese caso, y por eso existen las pruebas sintéticas.
 
-**Demuestran**: que el tokenizador y el lector hacen lo que dice este documento con las entradas probadas, incluido un fichero
-**real** de RCSB; que los 7 tipos de fallo se producen con la información esperada; que cada fallo **sale como `CifFailure`**.
+**Ejercicio para ti** (2 minutos): haz una de esas averías en tu copia, ejecuta las pruebas, comprueba que se pone roja y **deshaz el cambio**. La más didáctica es cambiar
+`MAX_PLAUSIBLE_BOND_LENGTH` de `5.0` a `50.0`.
+
+### 12.5 Qué demuestran y qué **no**
+
+**Demuestran**: que cada capa hace lo que dice este documento con las entradas probadas, incluido un fichero **real** de RCSB; que los fallos se producen con la información esperada y salen como
+`CifFailure`; que `CifParser.parse` **no lanza** con textos truncados, dañados o de ruido.
 
 **No demuestran**:
 
-- Que funcione con **los 1243 ligandos**: solo se probó con el fichero 001 de texto real. La capa 3 se contrastará con el corpus
-  completo (sección 11), pero ese corpus es una copia **binaria** del diccionario: contrasta la extracción, no la **ortografía exacta**
-  del texto que sirve RCSB.
-- Nada sobre red, interfaz ni 3D.
-- Nada de rendimiento (un fichero de ≈ 300 átomos son decenas de miles de tokens; no se ha medido en el móvil).
-- Las pruebas se ejecutaron **con `kotlinc` + JUnit en JVM** en el entorno donde se escribió el código, **no con el Gradle de este
-  proyecto**. La primera ejecución en Android Studio es la verificación definitiva; si hay un error de compilación o una prueba
-  roja, hay que contarlo tal cual.
+- Que funcione con **los 1243 ligandos descargados de RCSB**: con ficheros de texto reales solo se probó `001`. Para el resto, la sección 13 compara con una copia **binaria** del diccionario, y eso comprueba
+  la **extracción**, no la **grafía exacta** del texto que sirve RCSB.
+- **La red de seguridad `catch (Exception)`**: ninguna prueba la ejercita (la avería «quitarla» sobrevive). Es una red por definición para lo que no se ha previsto; no hay entrada que la active a propósito. Se
+  considera correcta por inspección y por haberla visto actuar una vez, no por una prueba automática.
+- Nada de red, interfaz ni 3D.
+- Nada de rendimiento **en el móvil**: en la JVM del entorno de redacción, los 1242 ligandos del corpus se procesan en menos de un segundo (arranque de la JVM incluido), pero **no se ha medido en el A33**.
+- Las pruebas se ejecutaron **con `kotlinc` + JUnit en JVM** en el entorno donde se escribió el código; **tu ejecución en Android Studio es la verificación definitiva**.
 
 ---
 
-## 11. Qué falta
+## 13. Comprobación contra el corpus completo
+
+### 13.1 Qué se hizo y por qué
+
+Las pruebas unitarias usan **un** fichero real y varios inventados. Para mirar los **1242 ligandos** de `ligands.txt` presentes en el diccionario (no se pudo descargar de RCSB desde el entorno de redacción):
+
+1. Se tomó la copia **binaria** del diccionario de componentes (`biotite` de PyPI), ya validada contra el `001` real.
+2. Un script (`tools/corpus-check/gen_corpus.py`) **escribió un `.cif` de texto por ligando** imitando el formato del fichero real: las 18 columnas de átomos y las 7 de enlaces en el mismo orden, nombres con apóstrofo
+   entre comillas dobles, `?` donde falta un dato, tres decimales.
+3. **Se comprobó que el generador es fiel**: para `001`, las 87 filas de átomos y las 90 de enlaces coinciden **celda a celda** con el fichero real de RCSB en todas las columnas que el generador sabe rellenar.
+4. Se generaron **dos variantes**: en la **A** todo va en `loop_`; en la **B** las categorías de una sola fila (los iones) van como pares `etiqueta valor`. Así se cubren las dos maneras posibles de escribir un ion,
+   que **no se ha podido verificar** cuál usa RCSB.
+5. `CifParser.parse` se ejecutó sobre los 2 × 1242 ficheros (`Corpus.kt`).
+6. El resultado se comparó con una **segunda implementación independiente escrita en Python** (otra elección del juego de coordenadas, otro centrado, otro mapeo de nombres a posiciones): mismo número de átomos y
+   enlaces, mismos nombres, elementos, posiciones y órdenes.
+
+### 13.2 Resultado
+
+| Medida | Variante A | Variante B |
+|--------|-----------:|-----------:|
+| Ligandos | 1242 | 1242 |
+| Parseados con éxito | **1242** | **1242** |
+| Diferencias con la implementación independiente | **0** | **0** |
+| Átomos comparados | 53 241 | 53 241 |
+| Enlaces comparados | 54 527 | 54 527 |
+| Diferencia máxima de coordenadas | 2·10⁻⁶ Å | 2·10⁻⁶ Å |
+
+Juegos de coordenadas elegidos: **1220** ligandos con las ideales y **22** con las de modelo (17 con ideales incompletas y 5 con ideales rotas).
+Tiempo: unos 0,8 s para los 1242 en la JVM del entorno de redacción, arranque incluido.
+
+### 13.3 La comprobación se comprobó (y falló una vez)
+
+Una comprobación que siempre dice «todo bien» no vale nada. Se rompió el parser a propósito de tres maneras y se miró si la comparación lo notaba:
+
+| Avería | Resultado de la comparación |
+|--------|-----------------------------|
+| `TRIP` leído como `DOUBLE` | 27 ligandos con diferencias |
+| Un enlace apunta al átomo equivocado | 1122 ligandos con diferencias |
+| Coordenadas de modelo antes que ideales | **0 diferencias** (¡no lo notó!) → **fallo del comparador** |
+
+El tercer caso reveló que **el comparador calculaba la diferencia de coordenadas pero no la contaba como problema**. Se corrigió (umbral 10⁻³ Å) y, repetida la prueba, la misma avería dio 1135 ligandos
+con diferencias. Después se repitieron las dos variantes con el parser bueno: 0 diferencias.
+
+### 13.4 El hallazgo: cinco ligandos con las ideales rotas
+
+Como comprobación **adicional e independiente de la segunda implementación** se midió la longitud de **todos los enlaces** de lo que devolvía el parser. La primera medición dio **9 enlaces de 8 a 14 Å**,
+todos O–H, en `HEM`, `HEC`, `HEA`, `B12` y `AV2`. No era un fallo del parser (ambas implementaciones coincidían): estaba **en los datos**, en las coordenadas ideales. Con las de modelo, esos mismos enlaces
+miden unos 0,95 Å. De ahí la decisión D13 (sección 9.7). Después: **54 527 enlaces entre 0,86 y 2,65 Å**, mediana 1,31 Å.
+
+### 13.5 Qué no demuestra
+
+- El texto lo escribe **nuestro generador**, no RCSB. Una diferencia en la grafía real (otro tipo de comilla, un ion de otra forma, una categoría ausente) **no se vería aquí**. Se cierra con una descarga real
+  de la lista (documento 03, sección 10.2).
+- Las dos implementaciones las ha escrito la **misma persona**: un malentendido compartido del formato pasaría desapercibido. Lo mitiga que los datos de partida son independientes del código (la copia
+  binaria) y que el generador reproduce el fichero real.
+- `UNL` no está en el diccionario: no hay nada que comparar; la respuesta del servidor para `UNL.cif` **no se ha podido comprobar**.
+
+Cómo repetirlo: `tools/corpus-check/README.md`.
+
+---
+
+## 14. Qué falta
 
 | Pieza | Qué hará | Estado |
 |-------|----------|--------|
-| **Extractor** (capa 3) | Buscar columnas por nombre; `String` → `Float`; normalizar elementos; elegir **un juego de coordenadas** por ligando (D10: ideales si están completas, si no modelo, nunca mezclados); centrar en el centroide; nombres → índices; `value_order` → `BondOrder`; construir `Molecule` | Sin escribir |
-| **`CifParser.parse(text)`** | Punto de entrada público: llama a las tres capas, **captura** `CifFormatException` y cualquier otro fallo previsible y devuelve éxito (`Molecule`) o fallo (`CifFailure`); límite de tamaño de entrada | Sin escribir |
-| Nuevos `CifFailure` | `MissingColumn`, `BadNumber`, `NoAtoms`, `UnknownAtomInBond`, etc. | Sin escribir |
-| Contraste con el corpus | Generar un `.cif` de texto por cada uno de los 1243 ligandos y comprobar que el parser extrae lo mismo que la copia binaria | Pendiente |
-| Capa de red | Descarga, errores sin red / 404 / *timeout*, UNL | Fuera de este documento (documento 06, «Lista, búsqueda y red») |
+| **Capa de red** | Descarga de `https://files.rcsb.org/ligands/view/{ID}.cif`; los tres errores de red (sin conexión, 404, *timeout*); **leer la respuesta entera y comparar con `Content-Length`** (el parser no puede detectar un corte justo en el límite de una fila, 16.5); caso `UNL` | Sin escribir (documento 06) |
+| **Hilo** | Llamar a `CifParser.parse` fuera del hilo principal (`Dispatchers.Default`) | Sin escribir (documento 06) |
+| **Mensajes de error** | Traducir `ParseResult.Failure` a «Fichero corrupto» + registro del motivo | Sin escribir (documento 06) |
+| **Escena 3D con `Molecule`** | Sustituir el `MoleculeScene.kt` con 7 átomos fijos del spike por una escena que reciba una `Molecule` (colores CPK, esferas, cilindros) | Sin escribir (documento 07) |
+| **Descarga real de la lista** | Comprobar el parser con los ficheros de texto reales de RCSB (ion, categoría de enlaces ausente, `UNL`) | Pendiente |
+| **Rendimiento en el A33** | Medir el tiempo de `parse` con el ligando mayor (256 átomos) y de la escena con ~768 nodos | Pendiente |
 
 ---
 
-## 12. Alternativas y por qué no se eligieron
+## 15. Alternativas y por qué no se eligieron
 
 | Alternativa | Qué es | Por qué no |
 |-------------|--------|-----------|
@@ -1002,50 +1545,72 @@ Un test que nunca puede fallar no prueba nada. Comprobación de 2 minutos (**pru
 | **Un solo bucle que haga todo** (sin capas) | Tokenizar y agrupar a la vez | Más corto, pero un fallo de comillas y un fallo de estructura se confunden y no se pueden probar por separado |
 | **Parser «en flujo»** (leer del `InputStream` sin cargar el texto entero) | Menos memoria | Los ficheros pesan unos pocos KB; la complejidad no compensa |
 | **Devolver `null` en lugar de excepciones/`CifFailure`** | Más sencillo | Pierde **por qué** falló; sin eso no se puede dar un mensaje útil ni diagnosticar |
-| **Tokens como índices** (rangos del texto original en vez de `String`) | Menos asignaciones | Optimización prematura; no hay medida que la pida |
+| **`Result<Molecule>` de Kotlin** en lugar de `ParseResult` | Tipo estándar | Su fallo es un `Throwable` cualquiera, sin tipo cerrado: la interfaz no podría hacer un `when` exhaustivo sobre los motivos |
+| **Política tolerante** con enlaces rotos (descartar el enlace y seguir) | Dibujar algo siempre | Con el corpus real no aporta nada y dibuja **en silencio** una molécula incompleta (D12) |
+| **Mezclar coordenadas átomo a átomo** | Ideales y, donde falten, las de modelo | Sistemas de referencia distintos: átomos a decenas de ångström (D10) |
+| **Usar siempre las de modelo** | Evitar el problema de las ideales rotas | 48 ligandos las tienen incompletas, y las ideales son las «limpias» en el resto (D13) |
+| **Corregir a mano los 5 ligandos con ideales rotas** | Una lista de excepciones | Frágil; no generaliza a otros ligandos con el mismo defecto |
+| **Tokens como rangos del texto original** en vez de `String` | Menos asignaciones | Optimización prematura; no hay medida que la pida |
 
 ---
 
-## 13. Trampas y límites conocidos
+## 16. Trampas y límites conocidos
 
-1. **Palabras clave no tratadas**: `save_`, `global_`, `stop_` (propias de otros usos de CIF) se tokenizan como `VALUE`. No aparecen
-   en ficheros de ligandos; **no verificado** con el texto real servido por RCSB.
+1. **Palabras clave no tratadas**: `save_`, `global_`, `stop_` (propias de otros usos de CIF) se tokenizan como `VALUE`. No aparecen en ficheros de ligandos; **no verificado** con el texto real servido por RCSB.
 2. **Un segundo `data_`** corta la lectura sin aviso: se ignora lo que siga. Intencional.
 3. **`trim` de campos `;`** quita todos los saltos de línea de los extremos, no solo uno. Irrelevante para nuestros datos.
-4. **Valores con `_` inicial**: una palabra que empieza por `_` siempre es una etiqueta; el estándar no permite un valor sin comillas que
-   empiece así, así que no es un problema.
-5. **Sin límite de tamaño** en estas dos capas: si se les pasara un fichero enorme, lo procesarían. El límite se pondrá en `CifParser.parse`.
-6. **`.` y `?` son valores normales aquí**: la capa 3 debe tratarlos (p. ej. una coordenada `?` es un dato ausente).
-7. **Carpeta y `package` deben coincidir** (sección 1), y `001.cif` debe estar en `app/src/test/resources/cif/`.
-8. **Las pruebas de rendimiento no existen**: el tiempo de parsear 256 átomos en el A33 no se ha medido.
+4. **Valores con `_` inicial**: una palabra que empieza por `_` siempre es una etiqueta; el estándar no permite un valor sin comillas que empiece así.
+5. **`.` y `?` son valores normales en las capas 1 y 2**; la capa 3 los trata como «número no utilizable» (descartan el juego de coordenadas) y como elemento imposible (`BadElement`).
+6. **Carpeta y `package` deben coincidir** (sección 1), y `001.cif` debe estar en `app/src/test/resources/cif/`.
+7. **`toDoubleOrNull` acepta más de lo esperado** (`NaN`, `Infinity`, `0x1p3`, `1.5f`): por eso el filtro de caracteres de la línea 164.
+8. **Un número CIF con incertidumbre, como `1.234(5)`**, **no** pasa el filtro de caracteres (los paréntesis no están) y se trata como «no utilizable». Los ligandos del corpus no los usan; si algún día los usaran,
+   todos los juegos serían «incompletos» y saldría `NoCompleteCoordinates`.
+9. **Descarga cortada justo entre dos filas de un `loop_`**: el parser **no puede notarlo**. Una tabla con menos filas es válida; la molécula sale con menos átomos o menos enlaces **con éxito**.
+   Se detecta por una vía distinta: comparar con `Content-Length` en la capa de red. (Un corte **a mitad de una fila** sí da `TruncatedRow`.) Se probó añadir la regla «≥ 2 átomos ⇒ al menos 1 enlace»; se descartó:
+   en el diccionario completo hay 3 ligandos con 2 o más átomos y 0 enlaces (ninguno en la lista), y solo cubriría una parte de los cortes.
+10. **El máximo real de átomos es 256** (corpus de la lista); el diccionario completo llega a 440. Los topes del parser (2000 átomos) cubren ambos.
+11. **Nombres de átomo sensibles a mayúsculas**: `c1` no es `C1`. En el corpus no hay ningún caso que lo necesite; la prueba `atomNamesAreCaseSensitive` lo fija.
+12. **Las pruebas de rendimiento no existen**: el tiempo de parsear 256 átomos en el A33 no se ha medido.
+13. **Dos implementaciones, un solo autor** (13.5): un malentendido compartido no se detectaría.
 
 ---
 
-## 14. Qué está verificado y qué no
+## 17. Qué está verificado y qué no
 
 | Afirmación | Estado |
 |------------|--------|
-| Los seis ficheros compilan y las **41 pruebas** pasan con `kotlinc` 2.4.21 + JUnit 4.13.2 en JVM | **Verificado** (en el entorno donde se escribió) |
+| Los ocho ficheros de código compilan y las **88 pruebas** pasan con `kotlinc` 2.4.21 + JUnit 4.13.2 en JVM | **Verificado** (en el entorno donde se escribió) |
+| Las 41 pruebas de las dos primeras capas pasan en Android Studio con el Gradle/AGP del proyecto | **Verificado por el equipo** (19/11/2026). Las 47 nuevas (capa 3 y `CifParser`): **sin verificar** hasta la primera ejecución |
 | Tokenizador y lector dan los mismos números que un tokenizador independiente en Python sobre el fichero 001 (5 `loop_`, 68 etiquetas, 2282 valores, 87×18 y 90×7) | **Verificado** |
-| La simulación de la sección 9 (tokens y tablas) | **Verificado**: salida real del código |
-| Las pruebas pasan con el Gradle/AGP **de este proyecto** en Android Studio | **Sin verificar** hasta la primera ejecución |
-| `app/src/test/resources` entra en el *classpath* de las pruebas unitarias con AGP 9.4.1 | **Esperado** (es la convención estándar de Gradle/Android), sin verificar en este proyecto |
-| Cómo escribe el texto de RCSB los iones o ligandos sin enlaces (¿pares sueltos o `loop_`?) | **Sin verificar** (el corpus está en copia binaria) |
+| El parser completo coincide con una implementación independiente en los **1242 ligandos**, en dos formas de escribir el texto (53 241 átomos, 54 527 enlaces, diferencia máxima 2·10⁻⁶ Å) | **Verificado** |
+| El generador de texto reproduce el `001` real celda a celda (87 + 90 filas) | **Verificado** |
+| Los 54 527 enlaces tras el parser miden entre 0,86 y 2,65 Å | **Verificado** |
+| Cinco ligandos con ideales rotas (`HEM`, `HEC`, `HEA`, `B12`, `AV2`) | **Verificado en la copia binaria**; en texto de RCSB, no |
+| Las pruebas detectan 10 de 11 averías introducidas a propósito en el extractor y `CifParser`; la que no: quitar el `catch (Exception)` | **Verificado** |
+| La comparación con el corpus detecta parsers rotos (tras corregirla; la primera versión no detectaba el cambio de juego de coordenadas) | **Verificado** |
+| La simulación de la sección 11 (tokens, tablas y molécula) | **Verificado**: salida real del código |
+| `app/src/test/resources` entra en el *classpath* de las pruebas con AGP 9.4.1 | **Verificado**: el equipo ejecutó las pruebas del fichero real `001` con éxito |
+| Cómo escribe el texto de RCSB los iones o ligandos sin enlaces (¿pares sueltos o `loop_`?) | **Sin verificar** (se cubren las dos formas con los generadores) |
+| Respuesta del servidor para `UNL` | **Sin verificar** |
 | Rendimiento en el dispositivo | **Sin medir** |
+| `CancellationException` y `parse` desde una corrutina | Razonado, no probado: hoy `parse` no es `suspend` |
 
 ---
 
-## 15. Qué recordar
+## 18. Qué recordar
 
-1. **Tres capas, cada una con su trabajo**: la capa 1 conoce la sintaxis; la capa 2, la estructura; la capa 3 (pendiente), la química.
-   Cada una se prueba sola.
-2. **El significado de un carácter depende de dónde está**: `#` es comentario solo al principio de un token; `;` es campo de texto solo
-   en la columna uno; una comilla cierra solo si va seguida de espacio.
+1. **Tres capas y una puerta**: sintaxis (tokenizador), estructura (lector de tablas), química (extractor) y `CifParser.parse`, lo único que usa el resto de la app. Cada capa se prueba sola.
+2. **El significado de un carácter depende de dónde está**: `#` es comentario solo al principio de un token; `;` es campo de texto solo en la columna uno; una comilla cierra solo si va seguida de espacio.
 3. **Las filas de un `loop_` se cortan contando valores**, nunca por saltos de línea.
 4. **Las columnas se buscan por nombre**, sin distinguir mayúsculas, y la búsqueda devuelve `Int?`: «puede no existir» es parte del tipo.
-5. **Dentro de las capas se lanza `CifFormatException(failure)`; en el borde se captura** y se convierte en un resultado. La app nunca ve la excepción.
-6. **Cada rama del tokenizador avanza el cursor**: es lo que garantiza que no hay bucles infinitos con un fichero malo.
+5. **Dentro de las capas se lanza `CifFormatException(failure)`; en el borde se captura** y se convierte en `ParseResult.Failure`. El orden de los `catch` importa: lo específico primero.
+6. **Cada rama del tokenizador avanza el cursor**: garantiza que no hay bucles infinitos con un fichero malo.
 7. **`Molecule` se valida al construirse**: un enlace hacia un átomo inexistente es un fallo del parser y salta junto a su causa.
 8. **Un `when` sobre un `enum`/`sealed` exhaustivo es una red de seguridad**: añadir un caso y olvidarse de tratarlo no compila.
-9. **Probar de verdad**: si una prueba no puede fallar, no prueba nada (sección 10.4).
-10. **Falta el extractor y `CifParser.parse`**; hasta que existan, nada de esta carpeta se usa desde la interfaz.
+9. **Un solo juego de coordenadas por molécula**, nunca mezclados; el primero **completo y creíble** (ideales, luego modelo); siempre **centrado en el centroide**.
+10. **Un juego completo no es necesariamente bueno**: medir las longitudes de los enlaces encontró cinco ligandos con las ideales rotas (`HEM` entre ellos).
+11. **Política estricta**: ante la duda, `Failure` con un motivo, nunca una molécula incompleta dibujada en silencio.
+12. **`toDoubleOrNull` acepta `NaN`, `Infinity`, `0x10` y `1.5f`**: hay que filtrar los caracteres antes.
+13. **Probar de verdad**: si una prueba no puede fallar, no prueba nada. Estropear el código a propósito (mutación) lo comprueba; y **también hay que probar los comprobadores** (el comparador del corpus tenía un fallo).
+14. **El parser no puede notar un corte entre dos filas**: esa defensa es de la capa de red (`Content-Length`).
+15. **Falta**: red, hilos, mensajes, escena con `Molecule`, descarga real y medir en el A33.
