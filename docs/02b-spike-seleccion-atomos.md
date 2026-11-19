@@ -73,7 +73,7 @@ Verificado en el código del tag `v4.69.4` (commit `5bfe25d`), no en la document
 
 ## 4. Implementación del spike
 
-Fichero `MoleculeScene.kt` de `spike-3d` (no es código de la aplicación final):
+Fichero `MoleculeScene.kt` del spike (hoy en la raíz de `main` como **semilla provisional**; se reescribirá para consumir un `Molecule`, ver el documento 02, sección 10):
 
 - **Estado:** `var selected by remember { mutableStateOf<Int?>(null) }`, índice del átomo seleccionado o `null`.
 - **Nombres:** cada átomo recibe `name = "atom <id>"` (el central es el 0) y cada enlace `"bond <id>"`, fijados en `apply`.

@@ -40,6 +40,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D8 | Selección de átomos: forma de colisión **esférica** (`collision.Sphere`) con resaltado por estado | Provisional | Sustituye a la caja (AABB) por defecto, cuyas zonas eran grandes. Aplicada en el spike; se mide con una molécula real. Detalle en [`docs/02b-spike-seleccion-atomos.md`](docs/02b-spike-seleccion-atomos.md). |
 | D9 | Parser de CIF **escrito a mano**, en Kotlin puro (sin `android.*`), en tres capas, con resultado éxito/fallo y sin excepciones por la entrada | Provisional | Es el objetivo de aprendizaje (D2) y permite probarlo en JVM. Las políticas abiertas (coordenadas, datos defectuosos) se cierran con el corpus real. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md). |
 | D10 | Coordenadas: se elige **un juego entero por ligando** (ideales si están completas; si no, modelo) y siempre se centra en el centroide | Decidida con datos | De 1243 ligandos, 1225 tienen ideales completas y los otros 17 modelo completa; ninguno falla. Los dos juegos están en sistemas de referencia distintos, así que no se mezclan. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), 7.1. |
+| D11 | El proyecto Android del spike se **copió** a la raíz de `main` como esqueleto del proyecto real; el código demostrativo (`MoleculeScene.kt` con átomos fijos) es **temporal** y se reescribirá | Decidida | La configuración y la integración de SceneView estaban comprobadas en dispositivo; rehacerlas desde cero no aportaba nada. Antes, la documentación decía lo contrario; se corrigió. Detalle y lista de limpieza en [`docs/02-spike-3d.md`](docs/02-spike-3d.md), sección 10. |
 
 ---
 
@@ -63,7 +64,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 
 | Documento | Contenido | Estado |
 |-----------|-----------|--------|
-| [`docs/00-glosario.md`](docs/00-glosario.md) | Términos: RCSB, wwPDB, PDBe, CCD, coordenadas de modelo e ideales, orden de enlace, nodo pivote, etc. | Vivo |
+| [`docs/00-glosario.md`](docs/00-glosario.md) | Términos: RCSB, wwPDB, PDBe, CCD, coordenadas de modelo e ideales, orden de enlace, nodo pivote, Compose, SceneView, Filament, OpenGL ES, ADR, etc. | Vivo |
 | [`docs/01-tarea-y-punto-de-partida.md`](docs/01-tarea-y-punto-de-partida.md) | Problema, requisitos, no-objetivos, ambigüedades, criterios de éxito, riesgos y decisiones | Escrito |
 | [`docs/02-spike-3d.md`](docs/02-spike-3d.md) | Plan del spike: qué validamos, cómo, criterios de paso y teoría de 3D necesaria | Escrito |
 | [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md) | Teoría de Gradle, Maven Central y BOM; registro de los pasos 0 a 3; ADR-001 (borrador) | Escrito |
@@ -86,7 +87,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
   explicar cada línea.
 - **Un documento por etapa**, en `docs/`, enlazado desde este README y actualizado al
   cerrar cada etapa.
-- **Los experimentos viven en ramas** (por ejemplo `spike/3d`) y no se fusionan en `main`.
+- **Los experimentos viven en ramas** (por ejemplo `spike/3d`) y **no se fusionan** en `main`. Si se aprovecha algo de un experimento, se **copia de forma explícita**, se registra como decisión (D11) y se anota qué es temporal.
 - **El código y la documentación se han elaborado con ayuda de un asistente de IA.** Los autores revisan
   y entienden su contenido.
 

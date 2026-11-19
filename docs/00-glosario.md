@@ -9,7 +9,8 @@
 2. [Formato del fichero](#2-formato-del-fichero)
 3. [Química y geometría](#3-química-y-geometría)
 4. [Términos del 3D y del spike](#4-términos-del-3d-y-del-spike)
-5. [Herramientas usadas solo para analizar](#5-herramientas-usadas-solo-para-analizar)
+5. [Tecnologías del proyecto y términos de arquitectura](#5-tecnologías-del-proyecto-y-términos-de-arquitectura)
+6. [Herramientas usadas solo para analizar](#6-herramientas-usadas-solo-para-analizar)
 
 ---
 
@@ -83,7 +84,19 @@ Los anillos aromáticos **sí** aparecen, pero escritos de la forma clásica de 
 | **Picking** | Averiguar qué objeto 3D hay bajo el dedo: se lanza un rayo desde el toque y se mira qué toca. | Documento 02b |
 | **Collider / forma de colisión** | Forma invisible que se usa para ese rayo. Por defecto es una caja; la sustituimos por una esfera (más precisa) en D8. | Documento 02b |
 
-## 5. Herramientas usadas solo para analizar
+## 5. Tecnologías del proyecto y términos de arquitectura
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Jetpack Compose** | Herramienta de Google para construir interfaces de Android **de forma declarativa**, en Kotlin. En vez de crear vistas y modificarlas a mano, se escriben funciones `@Composable` que **describen** la pantalla a partir de un *estado*; cuando el estado cambia, Compose vuelve a dibujar solo lo afectado (*recomposición*). Alternativa clásica: vistas XML («Views»). | D3. Compose BOM 2026.09.00 (Compose 1.12.1). El login, la lista, los avisos de error y la integración con la escena 3D se escriben con él. |
+| **SceneView** | Librería de 3D (y realidad aumentada) para Android, construida sobre Filament, con una API pensada para Compose: la escena se declara como elementos (`SceneView { SphereNode(...) }`). Ahorra el código repetitivo de usar Filament «a pelo». | D4. Versión 4.69.4. Se leyó su código fuente en el spike. Documentos 02, 02a y 02b. |
+| **Filament** | Motor de renderizado 3D de Google para Android y otras plataformas (el que realmente dibuja). SceneView es una capa por encima. *Que por debajo use OpenGL ES o Vulkan es lo que recordamos de su documentación; no se ha releído en esta sesión.* | Aparece de forma explícita entre las opciones del enunciado. Documento 02, sección 1. |
+| **OpenGL ES** | API gráfica estándar para móviles (versión reducida de OpenGL). Se programa la GPU con *shaders* y se dibuja con listas de vértices. Muy potente y de **bajo nivel**: hay que escribir las mallas, las luces y la cámara. | Plan B del spike (no usado, porque SceneView pasó). Documento 02, sección 6. |
+| **`GLSurfaceView`** | Vista clásica de Android que gestiona el contexto de OpenGL ES y un hilo de dibujo. Es la base de dibujar con OpenGL ES. Riesgo documentado: al pasar la app a segundo plano **el contexto de OpenGL puede perderse** y hay que recrear los recursos. | Plan B del spike. Documento 02, sección 6. |
+| **ADR** (*Architecture Decision Record*) | Nota breve que registra **una decisión técnica**: qué se decidió, qué alternativas había, por qué y qué consecuencias tiene. Sirve para no olvidar el motivo y poder revisarlo con datos. | ADR-001 (capa 3D) en el documento 02a, sección 7. El documento 04 reunirá todos. |
+| **Spike** | Experimento corto, con tiempo limitado, para **reducir una incertidumbre** (aquí: ¿SceneView sirve?). Su código es **provisional**: se aprovecha solo lo que quedó comprobado y se anota qué es temporal. | Documento 02, secciones 1 y 10. |
+
+## 6. Herramientas usadas solo para analizar
 
 | Término | Qué es |
 |---------|--------|

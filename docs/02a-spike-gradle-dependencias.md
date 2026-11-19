@@ -638,7 +638,7 @@ Se clonó el tag `v4.69.4` (commit `5bfe25d`) y se leyó. Esto sustituye a supos
 3. ~~H3, toque sobre un átomo~~: hecho con la detección integrada (zonas grandes); decisión D8 y alternativas en [`02b-spike-seleccion-atomos.md`](02b-spike-seleccion-atomos.md).
 4. **Cerrado el spike con reservas (sección 7).** Pendientes, ya dentro del proyecto real: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 5. Registrar versión de Android Studio y versión de Android del A33 en el README.
-6. Archivar `spike/3d` con la etiqueta `spike-3d-final` (**sin fusionarla**: contiene una copia antigua de `README.md` y `docs/`) y crear el proyecto real en `main`.
+6. ~~Archivar `spike/3d` con la etiqueta `spike-3d-final` (**sin fusionarla**: contiene una copia antigua de `README.md` y `docs/`) y crear el proyecto real en `main`~~ (hecho entre el 15 y el 16/11; el proyecto real **se creó copiando** el del spike a la raíz de `main`, no desde cero; ver [`02-spike-3d.md`](02-spike-3d.md), sección 10).
 
 ### Hallazgos sobre el repositorio (15/11/2026, rama `spike/3d`)
 

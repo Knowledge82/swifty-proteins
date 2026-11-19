@@ -15,14 +15,17 @@
 7. [Entorno de trabajo](#7-entorno-de-trabajo)
 8. [Diagnóstico](#8-diagnóstico)
 9. [Qué haremos con el resultado](#9-qué-haremos-con-el-resultado)
+10. [Qué pasó con el código del spike (D11)](#10-qué-pasó-con-el-código-del-spike-d11)
 
 ---
 
 ## 1. Qué es un spike y por qué lo hacemos
 
 Un **spike** es un experimento corto, con tiempo limitado, cuyo único objetivo es
-**reducir una incertidumbre**. Su código es desechable: no se fusiona en `main` ni se
-«arregla» para quedarse. Lo que se conserva es lo aprendido y la decisión que se toma.
+**reducir una incertidumbre**. Su código es **provisional**: no se fusiona la rama en `main` ni se
+«arregla» para quedarse tal cual. Lo que se conserva es lo aprendido, la decisión que se toma y, **solo si se decide de forma
+explícita y se anota**, lo que haya quedado comprobado (se copia, no se fusiona; ver la sección 10, que recoge lo que ocurrió
+de verdad).
 
 La incertidumbre aquí es la capa 3D. De los cinco ámbitos del proyecto (formato, red, 3D,
 seguridad, dominio) es el que más depende de una librería externa y el que más puede
@@ -54,8 +57,8 @@ al tope no hay un «sí» claro, la respuesta es «no» y se pasa al plan B (sec
 
 **Reglas:**
 
-- Rama `spike/3d`, que **no se fusiona en `main`**.
-- El código lo escribe el equipo; cada paso se entiende antes de escribirse.
+- Rama `spike/3d`, que **no se fusiona en `main`** (si se aprovecha algo, se copia de forma explícita; sección 10).
+- Regla original del spike: el código lo escribe el equipo y cada paso se entiende antes de escribirse. (Desde el 18/11/2026 el código lo escribe el asistente y lo explica línea a línea; ver README, «Cómo trabajamos».)
 - Datos de prueba **fabricados a mano** (unos pocos átomos). No hace falta descargar ni interpretar
   ningún `.cif` todavía.
 - Se anota cada fallo y cada sorpresa: serán la materia del documento 07.
@@ -408,3 +411,47 @@ Pendiente / riesgos que quedan:
 Después del spike confirmamos o cambiamos las decisiones provisionales D3 y D4 del README,
 y pasamos al documento 03: el formato CIF y el parser, empezando por descargar todos los
 ligandos de `ligands.txt` para ver los casos reales.
+
+---
+
+## 10. Qué pasó con el código del spike (D11)
+
+> Añadido el 19/11/2026. **Corrige una contradicción**: la sección 1 y el documento 01 decían que el código del spike era
+> desechable y no se llevaba a `main`, y a la vez el proyecto Android del spike se movió a la raíz de `main`. Lo segundo es lo que
+> ocurrió; el texto de arriba se ha corregido para decir lo mismo.
+
+### 10.1 Cronología
+
+1. El spike cumplió su objetivo (ADR-001, documento 02a, sección 7) mientras se seguía trabajando en su rama.
+2. Se preguntó por qué se seguía en la rama del spike y no en `main`. La respuesta honesta fue que el objetivo ya estaba cumplido.
+3. El 15/11 se decidió **copiar** el proyecto Android a la raíz de `main` (commit `870677d`) e ignorar `.kotlin/` y `/.idea/`
+   (`0641943`); el 16/11 se renombró el paquete a `dev.knowledge82.swiftyproteins` (`cb54bb0`). La rama `spike/3d` **no se fusionó** (contiene una
+   copia antigua de `README.md` y `docs/`) y se archivó con la etiqueta `spike-3d-final`.
+4. La documentación **no se actualizó** en ese momento y siguió diciendo lo contrario. Eso es lo que se arregla aquí.
+
+### 10.2 Qué se aprovechó y qué es temporal
+
+| Pieza | Estado en `main` | Qué se hará |
+|-------|------------------|-------------|
+| Configuración de Gradle, versiones fijadas (D7), JDK 21, SDK | **Se queda** (comprobada en dispositivo) | Revisar `gradle-daemon-jvm.properties` y `.idea` en el documento 04 |
+| Dependencia de SceneView y arranque de la escena (`rememberEngine`, `rememberMaterialLoader`, cámara orbital) | **Se queda como base** | Se reutiliza en la vista 3D real (documento 07) |
+| Orientación de enlaces (`bondAngles`, nodos anidados), selección con `collision.Sphere` y resalte por estado (D8) | **Se reutiliza la técnica**, adaptada | Se mueve al visor real |
+| `MoleculeScene.kt` con **7 átomos fijos a mano**, `Log.d("SwiftyProteins", ...)`, interruptores `DEBUG_HITBOX` y `SPHERE_COLLIDER` | **Temporal** («semilla») | Se **reescribe** para consumir un `Molecule` (documento 07) |
+| `ExampleUnitTest`, `ExampleInstrumentedTest` y la pantalla de `MainActivity` del spike | **Temporal** | Se sustituyen por las pantallas y tests reales |
+| Copia antigua de `README.md` y `docs/` de la rama del spike | **No se copió** | — |
+
+### 10.3 Alternativas que existían
+
+| Alternativa | Por qué no |
+|-------------|------------|
+| Proyecto nuevo vacío, copiando solo la configuración | Resultado casi idéntico; habría costado más tiempo para el mismo estado final |
+| Fusionar `spike/3d` en `main` | Arrastraría una copia antigua de `README.md` y `docs/` y el historial del experimento |
+| Mantener el spike como proyecto aparte | Dos proyectos Android con la misma configuración que mantener |
+
+### 10.4 Regla para el futuro y riesgo
+
+- **Regla:** un spike no se fusiona. Si se aprovecha algo, es una decisión **explícita**, se registra como decisión numerada (esta
+  es D11) y se lista **qué es temporal**.
+- **Riesgo:** que el código temporal se quede en `main` y se olvide. Mitigación: la lista de 10.2 es la lista de limpieza; la
+  semilla (`MoleculeScene.kt`) se reescribe en la etapa del documento 07 y se comprueba al cerrarla que no queda ningún átomo fijo
+  a mano ni `Log.d` del spike.

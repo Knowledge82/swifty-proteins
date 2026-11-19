@@ -250,7 +250,7 @@ Resumen de las decisiones (el detalle y su motivo están en el [README](../READM
 
 ## 13. Primer paso: el spike
 
-Antes de construir nada, hacemos un experimento corto y desechable que responde a la
+Antes de construir nada, hacemos un experimento corto que responde a la
 pregunta más arriesgada: **¿podemos dibujar y manipular una molécula con SceneView en un
 dispositivo real, de forma estable?** El plan completo, los criterios de paso y la teoría
 de 3D necesaria están en [`02-spike-3d.md`](02-spike-3d.md).
@@ -265,6 +265,6 @@ de 3D necesaria están en [`02-spike-3d.md`](02-spike-3d.md).
 - **CPK:** esquema de colores por elemento químico (Corey-Pauling-Koltun).
 - **Ball-and-stick:** representación con esferas (átomos) y cilindros (enlaces).
 - **Espacio lleno:** representación con esferas solapadas del tamaño de van der Waals, que muestra el volumen de la molécula.
-- **Spike:** experimento corto con tiempo limitado para reducir una incertidumbre. Su código se descarta.
+- **Spike:** experimento corto con tiempo limitado para reducir una incertidumbre. Su código es provisional: se reutiliza solo lo que quedó comprobado y se anota qué es temporal (documento 02, sección 10).
 - **ADR (*Architecture Decision Record*):** nota breve que registra una decisión, sus alternativas y su motivo.
 - **Estado de interfaz:** en Compose, los datos de los que depende lo que se ve en pantalla.
