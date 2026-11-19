@@ -5,9 +5,11 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 
 > **Estado actual:** *spike* 3D **cerrado con reservas** (ADR-001, ver
 > [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md), sección 7). El proyecto Android ya vive en la raíz
-> de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** parser de CIF (código **completo**: tokenizador, lector de tablas, extractor y `CifParser.parse`, con 88 pruebas, verificado
-> contra los 1242 ligandos presentes en el diccionario; falta enlazarlo con la red y la interfaz). Documentos:
-> [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) (diseño y datos) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (código línea a línea).
+> de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** carga de ligandos. El parser de CIF está **completo** (88 pruebas, verificado
+> contra los 1242 ligandos presentes en el diccionario) y la **capa de red** (descarga, errores, tiempos, cancelación y conversión a molécula) está **escrita y probada en la JVM** (41 pruebas más; sin probar en dispositivo ni contra RCSB real).
+> Faltan el `ViewModel`, las pantallas de error, la lista con búsqueda y el permiso `INTERNET` en el manifiesto. Documentos:
+> [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (parser),
+> [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -44,6 +46,9 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D11 | El proyecto Android del spike se **copió** a la raíz de `main` como esqueleto del proyecto real; el código demostrativo (`MoleculeScene.kt` con átomos fijos) es **temporal** y se reescribirá | Decidida | La configuración y la integración de SceneView estaban comprobadas en dispositivo; rehacerlas desde cero no aportaba nada. Antes, la documentación decía lo contrario; se corrigió. Detalle y lista de limpieza en [`docs/02-spike-3d.md`](docs/02-spike-3d.md), sección 10. |
 | D12 | Datos defectuosos: política **estricta**. Ante la duda, `Failure` con un motivo; sin avisos ni molécula incompleta dibujada en silencio | Decidida | Con el corpus real la política tolerante no aporta nada (0 casos), cuesta código y su riesgo es dibujar sin avisar. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), 7.2. |
 | D13 | Coordenadas (refina D10): se elige el primer juego **completo y creíble** (ningún enlace de más de 5 Å); si ninguno es creíble, el primero completo | Decidida con datos | Cinco ligandos (`HEM`, `HEC`, `HEA`, `B12`, `AV2`) tienen las ideales rotas, con hidrógenos a 8–14 Å de su oxígeno. Con D13, los 54 527 enlaces del corpus miden 0,86–2,65 Å. Detalle en [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), 3.6 y 7.1. |
+| D14 | Cliente HTTP: `java.net.HttpURLConnection`, **sin dependencias nuevas**, detrás de la interfaz `HttpFetcher` | Decidida | Hace lo que necesitamos (un `GET` de un fichero pequeño), viene con Android y la JVM, y se prueba sin emulador. OkHttp es la alternativa si la prueba real descubre problemas; solo habría que cambiar una clase. Detalle en [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md), 10 y 11. |
+| D15 | Red: tres relojes (10 s conexión, 10 s lectura, 30 s total), tamaño máximo 2 000 000 bytes y comprobación de `Content-Length` | Decidida; valores **estimados**, no medidos | Un servidor lento o mentiroso no puede dejar el indicador de carga girando ni llenar la memoria. Sin `Content-Length` el parser deja pasar el 10,4 % de los cortes posibles del `001` (medido). Detalle en el documento 06, secciones 4 y 5. |
+| D16 | Los errores de carga son **valores** (`FetchResult`, `LigandLoadResult`, `LoadError`) en dos niveles, con una red de seguridad `catch (Exception)` en el repositorio | Decidida | Un cierre inesperado suspende; con tipos cerrados el compilador obliga a tratar todos los casos. Detalle en el documento 06, sección 6. |
 
 ---
 
@@ -76,7 +81,9 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) | El código del parser **línea a línea**: `Molecule`, tokenizador, lector de tablas, extractor y `CifParser`; simulación completa, las 88 pruebas (cómo ejecutarlas y qué demuestran), comprobación con el corpus, alternativas, límites | **Escrito** |
 | 04 · Arquitectura y decisiones (ADR) | Capas, módulos y registro de decisiones | Pendiente |
 | 05 · Autenticación y seguridad | Hash de contraseñas, Keystore, biometría, bloqueo al volver de segundo plano | Pendiente |
-| 06 · Lista, búsqueda y red | Carga asíncrona, errores, estados de la interfaz | Pendiente |
+| [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) | HTTP en cinco minutos, todo lo que puede salir mal en una descarga (y su mensaje), tres relojes, ¿llegó entero?, errores como valores, hilos y cancelación, permiso `INTERNET`, alternativas (OkHttp...), cómo probar sin Internet, qué está verificado | **Escrito** (capa de red; lista y búsqueda, pendientes) |
+| [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) | El código de la capa de red **línea a línea**: `FetchResult`, `HttpUrlConnectionFetcher`, `LigandLoadResult`, `LigandRepository`, el servidor casero de pruebas y las 41 pruebas una a una, con mutación | **Escrito** |
+| 06b · Lista y búsqueda | `ligands.txt`, búsqueda insensible a mayúsculas en tiempo real, estados de la interfaz, `ViewModel` | Pendiente |
 | 07 · Vista 3D | Escena, cámara, gestos, selección de átomos | Pendiente |
 | 08 · Compartir y acabado | Captura, diseño adaptable, accesibilidad | Pendiente |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |

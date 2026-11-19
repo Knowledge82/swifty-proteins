@@ -11,6 +11,7 @@
 4. [Términos del 3D y del spike](#4-términos-del-3d-y-del-spike)
 5. [Tecnologías del proyecto y términos de arquitectura](#5-tecnologías-del-proyecto-y-términos-de-arquitectura)
 6. [Herramientas usadas solo para analizar](#6-herramientas-usadas-solo-para-analizar)
+7. [Red y HTTP](#7-red-y-http)
 
 ---
 
@@ -110,3 +111,34 @@ Los anillos aromáticos **sí** aparecen, pero escritos de la forma clásica de 
 | **`CifFailure`** | Tipo cerrado (`sealed interface`, fichero `cif/CifFailure.kt`) con **todos los motivos** por los que un fichero CIF no se pudo convertir en molécula (16 variantes: comilla sin cerrar, fila truncada, falta una columna...). Viaja dentro de `ParseResult.Failure`. La interfaz solo muestra «Fichero corrupto»; el motivo concreto va al registro. Ver documento 03a, sección 5. |
 | **`ParseResult`** | Lo que devuelve `CifParser.parse`: `Success(molecule)` o `Failure(failure)`. Nunca una excepción. Documento 03a, sección 10. |
 | **`sealed interface`** | Interfaz de Kotlin con un **conjunto cerrado y conocido** de variantes. Un `when` sobre ella obliga a tratarlas todas: si se añade una variante y se olvida un caso, **no compila**. |
+
+## 7. Red y HTTP
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **HTTP** | Protocolo con el que un cliente pide algo a un servidor. Es **texto** sobre una conexión TCP: una petición (método, ruta, cabeceras) y una respuesta (código de estado, cabeceras, cuerpo). | Pedimos un fichero con un `GET`. Documento 06, sección 2. |
+| **HTTPS / TLS** | HTTP dentro de una conexión **cifrada y autenticada** (el servidor demuestra con un certificado quién es). Si el certificado no vale, la conexión **falla** (`SSLHandshakeException`). | La URL de RCSB es `https`. No se desactiva nunca la comprobación del certificado. |
+| **Código de estado** | Número de tres cifras con que el servidor resume su respuesta. 2xx éxito, 3xx redirección, 4xx fallo del cliente (`404` no existe), 5xx fallo del servidor. | `404` y `410` → «Ligando no encontrado»; el resto de errores → `ServerError`. |
+| **Cabecera** (*header*) | Línea `Nombre: valor` de una petición o respuesta. | Enviamos `Accept-Encoding: identity` y `User-Agent`. |
+| **`Content-Length`** | Cabecera con el **tamaño exacto del cuerpo** en bytes. Es la única forma de saber si el cuerpo **llegó entero**. | Si recibimos menos de lo anunciado, es `Incomplete`. Documento 06, sección 5. |
+| **`Transfer-Encoding: chunked`** | El servidor no anuncia el tamaño: manda el cuerpo en trozos, cada uno precedido de su tamaño en hexadecimal, y acaba con un trozo de tamaño 0. | La librería lo reensambla; un cuerpo `chunked` sin trozo final lanza `IOException`. |
+| **Compresión (`Content-Encoding: gzip`)** | El cuerpo viaja comprimido. Entonces `Content-Length` cuenta los bytes comprimidos. | Pedimos `identity` (sin compresión); con `Content-Encoding` no se compara el tamaño. |
+| **Redirección** | Respuesta 3xx con una cabecera `Location`: «está en otra dirección». | La sigue la librería sola (probado http a http). |
+| **Portal cautivo** (*captive portal*) | Red (hotel, aeropuerto) que responde **cualquier** petición con una página HTML de inicio de sesión y código `200`. | Es el caso en que la red «va bien» y el contenido no es un CIF: lo detecta el parser. Documento 06, sección 3, caso 11. |
+| **Tiempo de espera** (*timeout*) | Límite de una espera. Hay **tres** distintas: de **conexión**, de **lectura** (silencio entre dos llegadas de datos) y **total** (todo el cuerpo). | 10 s, 10 s y 30 s (estimados). Solo el total para a un servidor que «gotea». Documento 06, sección 4. |
+| **Goteo** (*slow drip*) | Servidor que manda un byte cada poco tiempo: nunca dispara el tiempo de lectura pero nunca acaba. | Lo para el reloj total. |
+| **Hilo principal** (*main thread*) | El hilo que dibuja la pantalla y recibe los toques. Si se bloquea, la app se congela. Hacer red en él lanza `NetworkOnMainThreadException`. | `fetch` y `load` **bloquean**: se llamarán desde `Dispatchers.IO`. |
+| **Bloqueante** | Una función que **para** el hilo que la llama hasta tener resultado. | `HttpFetcher.fetch` y `LigandRepository.load`. |
+| **`Dispatchers.IO`** | Grupo de hilos de las corrutinas de Kotlin pensado para trabajo que espera (red, disco). | Lo usará el `ViewModel` (pendiente). |
+| **Cancelación** | Parar un trabajo porque el resultado ya no interesa (el usuario salió de la pantalla). | Función `isCancelled: () -> Boolean` consultada antes de empezar y en cada vuelta de lectura. `Cancelled` no es un error. |
+| **Permiso `INTERNET`** | Permiso de Android (`<uses-permission android:name="android.permission.INTERNET" />`) sin el cual la app no puede usar la red. Se concede al instalar, sin cuadro de diálogo (según recordamos de la documentación; no releído). | **Pendiente de añadir** en `AndroidManifest.xml`. |
+| **`HttpURLConnection`** | Clase del JDK y de Android para hacer peticiones HTTP. API antigua y de bajo nivel, sin dependencias. | D14: es la que usamos. |
+| **OkHttp** | Librería de red muy usada, con cancelación inmediata y límite de llamada completa. Se dice que `HttpURLConnection` de Android se apoya en ella (recordado, no verificado). | Alternativa a D14 si la prueba real lo pide. |
+| **Descargador falso** (*fake*) | Implementación de la interfaz `HttpFetcher` que devuelve lo que se le diga, sin red. | Prueba del repositorio sin Internet. |
+| **Servidor de prueba / bucle local** (*loopback*) | Servidor HTTP casero que solo escucha en `127.0.0.1` (el propio ordenador). | `TestHttpServer`, sobre `ServerSocket`. Documento 06a, sección 9. |
+| **`ServerSocket` / `Socket`** | Clases del JDK para **esperar** conexiones (`ServerSocket`) y para **una** conexión ya establecida (`Socket`). | Base del servidor de prueba. |
+| **Prueba de extremo a extremo** (*end to end*) | Prueba que atraviesa **todas** las capas reales (aquí: servidor casero → descargador → parser → molécula). | `LigandRepositoryTest`, sección «De extremo a extremo». |
+| **Punto de inyección** | Parámetro (a menudo una función) que permite sustituir una pieza por otra en las pruebas. | `open: (URL) -> HttpURLConnection` del descargador. |
+| **`data object`** | Objeto único de Kotlin (`object`) con `toString` y `equals` útiles. Se usa para los casos sin datos de una `sealed interface`. | `FetchResult.Timeout`, `LoadError.NotFound`... |
+| **Retorno no local** | `return` dentro de una lambda *inline* (como la de `use { }`) que sale de la **función que la contiene**. | `return FetchResult.Cancelled` dentro del bucle de lectura. |
+| **Error como valor** | Devolver el fallo como un resultado (de un tipo cerrado) en lugar de lanzar una excepción. El compilador obliga a tratar todos los casos. | D16. |
