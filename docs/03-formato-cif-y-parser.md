@@ -5,6 +5,7 @@
 > diccionario de componentes (sección 3.5), que **no conserva el formato de texto**: lo que depende de cómo se escribe el texto
 > (p. ej. un ion en forma de pares) sigue sin verificar y está marcado.
 > Documento redactado el 16/11/2026 y actualizado el 18/11/2026.
+> El **código** ya escrito (tokenizador y lector de tablas) está explicado línea a línea en [`03a-codigo-parser.md`](03a-codigo-parser.md).
 
 ## Índice
 
@@ -335,7 +336,7 @@ Detalles que importan:
   confundiría con el inicio de un campo de texto).
 - Un `#` solo es comentario **al principio de un token**: en `C1#` el `#` forma parte del valor.
 - Un campo de texto sin cerrar (fin de fichero antes del `;` final) es entrada malformada.
-- Un BOM UTF-8 (`﻿`) al inicio se descarta.
+- Un BOM UTF-8 (`U+FEFF`) al inicio se descarta.
 
 ### 5.2 Capa 2: lector de tablas
 

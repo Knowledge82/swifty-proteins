@@ -6,7 +6,7 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > **Estado actual:** *spike* 3D **cerrado con reservas** (ADR-001, ver
 > [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md), sección 7). El proyecto Android ya vive en la raíz
 > de `main` (paquete `dev.knowledge82.swiftyproteins`). **Etapa en curso:** formato CIF y parser
-> ([`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), borrador contrastado con un ligando real y con los 1243 ligandos en copia binaria; primer código: tokenizador).
+> ([`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md), borrador contrastado con un ligando real y con los 1243 ligandos en copia binaria; código escrito: modelo `Molecule`, tokenizador y lector de tablas, con 41 pruebas; falta el extractor; explicado línea a línea en [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md)).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -70,6 +70,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/02a-spike-gradle-dependencias.md`](docs/02a-spike-gradle-dependencias.md) | Teoría de Gradle, Maven Central y BOM; registro de los pasos 0 a 3; ADR-001 (borrador) | Escrito |
 | [`docs/02b-spike-seleccion-atomos.md`](docs/02b-spike-seleccion-atomos.md) | Teoría del picking por rayo, cómo lo hace SceneView, implementación, resultado y alternativas de mayor precisión | Escrito |
 | [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) | Sintaxis CIF, estructura de un ligando, modelo de datos, diseño del parser en tres capas, errores y casos límite | **Borrador** (contrastado con un ligando real y con el corpus completo en copia binaria) |
+| [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) | El código del parser **línea a línea**: `Molecule`, tokenizador, lector de tablas; simulación completa, pruebas (cómo ejecutarlas y qué demuestran), alternativas, límites | **Escrito** (capas 1 y 2; falta la capa 3) |
 | 04 · Arquitectura y decisiones (ADR) | Capas, módulos y registro de decisiones | Pendiente |
 | 05 · Autenticación y seguridad | Hash de contraseñas, Keystore, biometría, bloqueo al volver de segundo plano | Pendiente |
 | 06 · Lista, búsqueda y red | Carga asíncrona, errores, estados de la interfaz | Pendiente |
