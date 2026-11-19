@@ -359,13 +359,14 @@ esporádico de una prueba de tiempo no es necesariamente un error del código. T
 
 | Afirmación | Estado |
 |------------|--------|
-| 41 pruebas nuevas de red pasan en la JVM (kotlinc 2.4.21 + JUnit), junto a las 88 del parser: **129** | **Verificado** |
+| 42 pruebas nuevas de red pasan en la JVM (kotlinc 2.4.21 + JUnit, OpenJDK 21.0.12), junto a las 88 del parser: **130** | **Verificado** |
+| Primera ejecución bajo el Gradle del equipo: 13 fallos de 130. **12** porque faltaba `app/src/test/resources/cif/001.cif` en el proyecto (el fichero real que leen las pruebas); **1** porque la prueba de compresión dependía de cómo reacciona **la JVM** ante un cuerpo que termina antes de lo anunciado (en la JVM del análisis termina con fin limpio; en la del equipo el resultado fue otro, causa exacta **no confirmada**). Esa prueba se reescribió con una conexión falsa que no depende del JDK | **Verificado** (el registro de la ejecución); segunda ejecución pendiente |
 | Las pruebas detectan averías introducidas a propósito en el código de red | Ver la tabla de la sección 13.1 |
 | Petición real vista por el servidor de pruebas (cabeceras de la sección 2) | **Verificado en la JVM**; en Android la librería es otra |
 | Se sigue una redirección `302` con `Location` relativo (http a http) | **Verificado en la JVM** |
 | Una respuesta `chunked` completa se reensambla; una incompleta se detecta | **Verificado en la JVM** |
 | El reloj total detiene un servidor que gotea | **Verificado en la JVM** |
-| Las pruebas de red **compilan y pasan bajo el Gradle del equipo** (AGP 9.4.1) | **Sin verificar** (se pasan con `kotlinc` y JUnit sueltos) |
+| Las pruebas de red **compilan y pasan bajo el Gradle del equipo** (AGP 9.4.1) | **Compilan** (se ejecutaron); **pasan**: pendiente de la segunda ejecución con los dos arreglos de arriba |
 | La descarga real desde `files.rcsb.org` (certificado, cabeceras, tipo de contenido, redirecciones) | **Sin verificar**: el entorno de análisis no llega a ese servidor |
 | Cómo responde RCSB para `UNL` (el único id de `ligands.txt` que no está en el diccionario) | **Sin verificar**: se espera `404` → «Ligando no encontrado», pero podría devolver otra cosa |
 | Cómo escribe el texto de RCSB un ion (¿pares sueltos o `loop_`?) | **Sin verificar** (el parser cubre las dos formas) |
@@ -376,7 +377,7 @@ esporádico de una prueba de tiempo no es necesariamente un error del código. T
 
 ### 13.1 Pruebas de mutación de la capa de red
 
-Se estropeó el código a propósito (una avería cada vez) y se ejecutaron las 41 pruebas de red; una avería «sobrevive» si ninguna se pone en rojo.
+Se estropeó el código a propósito (una avería cada vez) y se ejecutaron las 42 pruebas de red; una avería «sobrevive» si ninguna se pone en rojo.
 
 | N.º | Avería introducida | Resultado | Prueba(s) que la detectan |
 |----:|--------------------|-----------|---------------------------|
@@ -386,14 +387,14 @@ Se estropeó el código a propósito (una avería cada vez) y se ejecutaron las 
 | N4 | Quitar el reloj total | Muere | `aServerThatDripsOneByteAtATimeHitsTheTotalLimit` |
 | N5 | Quitar la consulta de cancelación del bucle de lectura | Muere | `cancellingWhileTheBodyArrivesStopsTheDownload` |
 | N6 | Quitar la consulta de cancelación inicial | Muere | `cancellingBeforeStartingNeverTouchesTheServer` |
-| N7 | `checkLength = false` (nunca comparar el tamaño) | Muere | `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
+| N7 | `checkLength = false` (nunca comparar el tamaño) | Muere | `aBodyShorterThanAnnouncedIsIncompleteEvenWhenTheStreamEndsCleanly`, `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
 | N8 | Quitar la rama `SocketTimeoutException` de la fase 1 | Muere | `aServerThatNeverAnswersIsATimeout`, `networkExceptionsAreTranslated`, `endToEndAServerThatNeverAnswersIsATimeout` |
 | N9 | `UnknownHostException` → `Failed` en lugar de `NoConnection` | Muere | `networkExceptionsAreTranslated` |
 | N10 | `SocketException` → `Failed` en lugar de `NoConnection` | Muere | `aClosedPortIsNoConnection`, `networkExceptionsAreTranslated`, `endToEndNothingListeningIsNoConnection` |
 | N11 | `status !in 200..299` → `status >= 500` (un 404 se lee como éxito) | Muere | `status404IsAnHttpError`, `endToEndAnUnknownLigandIs404` |
 | N12 | Decodificar con `ISO_8859_1` en vez de UTF-8 | Muere | `aSuccessfulResponseGivesItsBodyDecodedAsUtf8` |
 | N13 | La `IOException` al leer el cuerpo → `Failed` en vez de `Incomplete` | Muere | `aChunkedBodyThatIsNeverFinishedIsIncomplete` |
-| N14 | Quitar la comparación con `Content-Length` tras el bucle | Muere | `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
+| N14 | Quitar la comparación con `Content-Length` tras el bucle | Muere | `aBodyShorterThanAnnouncedIsIncompleteEvenWhenTheStreamEndsCleanly`, `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
 | N15 | Quitar `readTimeout` | Muere | `aServerThatStopsHalfWayIsATimeout`, `aServerThatNeverAnswersIsATimeout`, `endToEndAServerThatNeverAnswersIsATimeout` |
 | N16 | `contentEncoding == null` → `true` (comparar también con compresión) | **Sobrevivió la primera vez**; se añadió la prueba y ahora muere | `whenTheServerCompressesAnyway_theLengthIsNotComparedBecauseItCountsCompressedBytes` |
 | N20 | Quitar la rama `IllegalArgumentException` de la conversión a URL | Muere | `aTextThatIsNotAUrlFailsWithoutThrowing` |

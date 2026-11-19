@@ -39,7 +39,7 @@ El paquete es `dev.knowledge82.swiftyproteins.net`, en la carpeta `dev/knowledge
 | `LigandLoadResult.kt` | `.../net/` | 53 | `LigandLoadResult` (éxito, fallo o cancelado) y `LoadError` (por qué falló). Lo único que verá la interfaz. |
 | `LigandRepository.kt` | `.../net/` | 56 | Valida el id, pide la URL, pasa el cuerpo al parser y traduce todo a `LigandLoadResult`. |
 | `TestHttpServer.kt` | `app/src/test/java/dev/knowledge82/swiftyproteins/net/` | 99 | Servidor HTTP casero sobre `ServerSocket` para las pruebas. |
-| `HttpUrlConnectionFetcherTest.kt` | `.../net/` (en `src/test`) | 254 | 21 pruebas del descargador real contra el servidor casero. |
+| `HttpUrlConnectionFetcherTest.kt` | `.../net/` (en `src/test`) | 274 | 22 pruebas del descargador real contra el servidor casero. |
 | `LigandRepositoryTest.kt` | `.../net/` (en `src/test`) | 237 | 20 pruebas del repositorio: con un descargador falso y de extremo a extremo. |
 
 Flujo de datos (cada flecha es una llamada; lo que baja es el resultado):
@@ -623,10 +623,10 @@ La red responde `200 OK` con `<html>Proxy login required</html>`. Los pasos 1–
 
 | Fichero | Pruebas | Qué verifica |
 |---------|--------:|--------------|
-| `HttpUrlConnectionFetcherTest.kt` | 21 | El descargador **real** contra un servidor casero: éxito, estados, fallos de conexión, relojes, cuerpos incompletos o demasiado grandes, cancelación |
+| `HttpUrlConnectionFetcherTest.kt` | 22 | El descargador **real** contra un servidor casero: éxito, estados, fallos de conexión, relojes, cuerpos incompletos o demasiado grandes, cancelación |
 | `LigandRepositoryTest.kt` | 20 | El repositorio con un descargador **falso**, y de extremo a extremo con el real |
 
-Junto a las 88 del parser son **129** en total.
+Junto a las 88 del parser son **130** en total (Android Studio cuenta además `ExampleUnitTest`, la de plantilla: 131).
 
 **Ejecutar desde Android Studio.** Abrir el fichero de pruebas y pulsar el triángulo verde junto al nombre de la clase, o con el botón derecho sobre la carpeta `app/src/test/java` → *Run Tests*. Los resultados salen en la ventana *Run*.
 
@@ -636,7 +636,7 @@ Junto a las 88 del parser son **129** en total.
 ./gradlew testDebugUnitTest
 ```
 
-Las pruebas se ejecutan **en la JVM del ordenador**, no en el móvil ni en el emulador: por eso la capa de red **no usa nada de `android.*`**. Hay que dar un mensaje honesto: estas pruebas se han ejecutado con `kotlinc` y JUnit sueltos, **no** bajo el Gradle del equipo (AGP 9.4.1); no se espera ninguna diferencia, pero **no está verificado**.
+Las pruebas se ejecutan **en la JVM del ordenador**, no en el móvil ni en el emulador: por eso la capa de red **no usa nada de `android.*`**. Hay que dar un mensaje honesto: estas pruebas se han ejecutado con `kotlinc` y JUnit sueltos, **no** bajo el Gradle del equipo (AGP 9.4.1); y la primera ejecución en el Gradle del equipo **sí** mostró una diferencia: una prueba dependía de cómo reacciona el JDK a un cuerpo que termina antes de lo anunciado (ver sección 10).
 
 Dos cosas que pueden confundir:
 
@@ -949,22 +949,52 @@ La prueba que justifica el tercer reloj: **cada lectura sale a tiempo** (100 ms 
 
 Sin `Content-Length` y sin el trozo final: la **librería** lanza `IOException` al leer, y el `catch` de la línea 95 lo convierte en `Incomplete(-1, 5)`.
 
+**Dos pruebas con una conexión falsa (independientes del JDK).** Un cuerpo que termina antes de lo anunciado puede verse de **dos maneras** según el JDK: como un fin limpio (`read` devuelve `-1`) o como una `IOException`. La primera versión de la prueba de compresión suponía la primera y **falló en el Gradle del equipo** (no en el entorno donde se escribió). Por eso estas dos pruebas no usan red: una `HttpURLConnection` falsa responde exactamente lo que se le diga.
+
 ```kotlin
-// HttpUrlConnectionFetcherTest.kt · líneas 205–215
-205  @Test
-206  fun whenTheServerCompressesAnyway_theLengthIsNotComparedBecauseItCountsCompressedBytes() {
-207      // Content-Length would describe the COMPRESSED bytes, which are not the ones we read (on Android the
-208      // library may decompress by itself). So with Content-Encoding present the comparison is skipped.
-209      TestHttpServer { _, s ->
-210          s.respond(body = ByteArray(100) { 'a'.code.toByte() }, lengthHeader = 1_000, extraHeaders = listOf("Content-Encoding: gzip"))
-211      }.use { server ->
-212          val result = fetch(server)
-213          assertTrue("got $result", result is FetchResult.Body)
-214      }
-215  }
+// HttpUrlConnectionFetcherTest.kt · líneas 205–221
+205  /**
+206   * A connection that answers with exactly what a test says, with no network and no JDK in between.
+207   * The JDK decides by itself how a body that ends too early looks (a clean end, or an IOException), so the tests
+208   * about WHAT OUR CODE DOES with the announced length use this one and do not depend on that.
+209   */
+210  private fun fakeConnection(announcedLength: Long, encoding: String?, body: ByteArray) =
+211      HttpUrlConnectionFetcher(open = { url ->
+212          object : HttpURLConnection(url) {
+213              override fun disconnect() {}
+214              override fun usingProxy() = false
+215              override fun connect() {}
+216              override fun getResponseCode() = 200
+217              override fun getContentLengthLong() = announcedLength
+218              override fun getContentEncoding() = encoding
+219              override fun getInputStream() = java.io.ByteArrayInputStream(body)
+220          }
+221      }).fetch("http://example.test/x.cif")
 ```
 
-Fija la regla de la línea 78: con `Content-Encoding` **no se compara** el tamaño. Se anuncian 1 000 bytes, se mandan 100 y el resultado es `Body`, no `Incomplete`. **Documenta una decisión** (aceptar lo que llegue cuando hay compresión), no un deseo.
+```kotlin
+// HttpUrlConnectionFetcherTest.kt · líneas 223–227
+223  @Test
+224  fun aBodyShorterThanAnnouncedIsIncompleteEvenWhenTheStreamEndsCleanly() {
+225      val result = fakeConnection(announcedLength = 1_000, encoding = null, body = ByteArray(100) { 'a'.code.toByte() })
+226      assertEquals(FetchResult.Incomplete(expectedBytes = 1_000, receivedBytes = 100), result)
+227  }
+```
+
+Se anuncian 1 000 bytes, llegan 100 y el flujo termina **sin error**: la línea 99 del descargador debe devolver `Incomplete(1000, 100)`.
+
+```kotlin
+// HttpUrlConnectionFetcherTest.kt · líneas 229–235
+229  @Test
+230  fun whenTheServerCompressesAnyway_theLengthIsNotComparedBecauseItCountsCompressedBytes() {
+231      // Content-Length would describe the COMPRESSED bytes, which are not the ones we read (on Android the
+232      // library may decompress by itself). So with Content-Encoding present the comparison is skipped.
+233      val result = fakeConnection(announcedLength = 1_000, encoding = "gzip", body = ByteArray(100) { 'a'.code.toByte() })
+234      assertTrue("got $result", result is FetchResult.Body)
+235  }
+```
+
+Fija la regla de la línea 78: con `Content-Encoding` **no se compara** el tamaño. Mismo escenario, pero con `gzip`: el resultado es `Body`, no `Incomplete`. **Documenta una decisión** (aceptar lo que llegue cuando hay compresión), no un deseo.
 
 ```kotlin
 // HttpUrlConnectionFetcherTest.kt · líneas 191–196
@@ -987,14 +1017,14 @@ Fija la regla de la línea 78: con `Content-Encoding` **no se compara** el tama�
 ```
 
 ```kotlin
-// HttpUrlConnectionFetcherTest.kt · líneas 217–223
-217  @Test
-218  fun aBodyExactlyAtTheLimitIsAccepted() {
-219      TestHttpServer { _, s -> s.respond(body = ByteArray(1_000) { 'a'.code.toByte() }) }.use { server ->
-220          val result = fetch(server, fetcher(maxBytes = 1_000))
-221          assertTrue("got $result", result is FetchResult.Body && result.text.length == 1_000)
-222      }
-223  }
+// HttpUrlConnectionFetcherTest.kt · líneas 237–243
+237  @Test
+238  fun aBodyExactlyAtTheLimitIsAccepted() {
+239      TestHttpServer { _, s -> s.respond(body = ByteArray(1_000) { 'a'.code.toByte() }) }.use { server ->
+240          val result = fetch(server, fetcher(maxBytes = 1_000))
+241          assertTrue("got $result", result is FetchResult.Body && result.text.length == 1_000)
+242      }
+243  }
 ```
 
 Las tres juntas fijan el límite: lo que **anuncia** que es enorme se rechaza antes de leer; lo que **no anuncia** se corta al pasar el límite; y lo que mide **exactamente** el límite se acepta.
@@ -1002,39 +1032,39 @@ Las tres juntas fijan el límite: lo que **anuncia** que es enorme se rechaza an
 **Cancelación**
 
 ```kotlin
-// HttpUrlConnectionFetcherTest.kt · líneas 227–233
-227  @Test
-228  fun cancellingBeforeStartingNeverTouchesTheServer() {
-229      TestHttpServer { _, s -> s.respond(body = "x".toByteArray()) }.use { server ->
-230          assertEquals(FetchResult.Cancelled, fetch(server, isCancelled = { true }))
-231          assertTrue(server.requests.isEmpty())
-232      }
-233  }
+// HttpUrlConnectionFetcherTest.kt · líneas 247–253
+247  @Test
+248  fun cancellingBeforeStartingNeverTouchesTheServer() {
+249      TestHttpServer { _, s -> s.respond(body = "x".toByteArray()) }.use { server ->
+250          assertEquals(FetchResult.Cancelled, fetch(server, isCancelled = { true }))
+251          assertTrue(server.requests.isEmpty())
+252      }
+253  }
 ```
 
 `server.requests.isEmpty()` demuestra que **no se hizo ninguna conexión**.
 
 ```kotlin
-// HttpUrlConnectionFetcherTest.kt · líneas 235–253
-235  @Test
-236  fun cancellingWhileTheBodyArrivesStopsTheDownload() {
-237      TestHttpServer { _, s ->
-238          val out = s.getOutputStream()
-239          out.write("HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n".toByteArray())
-240          repeat(100) {
-241              out.write('a'.code)
-242              out.flush()
-243              Thread.sleep(50)
-244          }
-245      }.use { server ->
-246          var asked = 0
-247          val started = System.nanoTime()
-248          val result = fetch(server, isCancelled = { ++asked > 3 })
-249          val millis = (System.nanoTime() - started) / 1_000_000
-250          assertEquals(FetchResult.Cancelled, result)
-251          assertTrue("took $millis ms, should be far below the 5 s the full body needs", millis < 2_000)
-252      }
-253  }
+// HttpUrlConnectionFetcherTest.kt · líneas 255–273
+255  @Test
+256  fun cancellingWhileTheBodyArrivesStopsTheDownload() {
+257      TestHttpServer { _, s ->
+258          val out = s.getOutputStream()
+259          out.write("HTTP/1.1 200 OK\r\nContent-Length: 100\r\nConnection: close\r\n\r\n".toByteArray())
+260          repeat(100) {
+261              out.write('a'.code)
+262              out.flush()
+263              Thread.sleep(50)
+264          }
+265      }.use { server ->
+266          var asked = 0
+267          val started = System.nanoTime()
+268          val result = fetch(server, isCancelled = { ++asked > 3 })
+269          val millis = (System.nanoTime() - started) / 1_000_000
+270          assertEquals(FetchResult.Cancelled, result)
+271          assertTrue("took $millis ms, should be far below the 5 s the full body needs", millis < 2_000)
+272      }
+273  }
 ```
 
 El servidor manda 100 bytes a 50 ms cada uno (5 s en total). `isCancelled` responde `true` a partir de la cuarta consulta. La prueba comprueba que se devuelve `Cancelled` y que tardó **menos de 2 s**, es decir, que **no esperó** a que terminara la descarga.
@@ -1257,14 +1287,14 @@ Estropear el código a propósito (una avería cada vez) y ejecutar las pruebas 
 | N4 | Quitar el reloj total | Muere | `aServerThatDripsOneByteAtATimeHitsTheTotalLimit` |
 | N5 | Quitar la consulta de cancelación del bucle de lectura | Muere | `cancellingWhileTheBodyArrivesStopsTheDownload` |
 | N6 | Quitar la consulta de cancelación inicial | Muere | `cancellingBeforeStartingNeverTouchesTheServer` |
-| N7 | `checkLength = false` (nunca comparar el tamaño) | Muere | `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
+| N7 | `checkLength = false` (nunca comparar el tamaño) | Muere | `aBodyShorterThanAnnouncedIsIncompleteEvenWhenTheStreamEndsCleanly`, `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
 | N8 | Quitar la rama `SocketTimeoutException` de la fase 1 | Muere | `aServerThatNeverAnswersIsATimeout`, `networkExceptionsAreTranslated`, `endToEndAServerThatNeverAnswersIsATimeout` |
 | N9 | `UnknownHostException` → `Failed` en lugar de `NoConnection` | Muere | `networkExceptionsAreTranslated` |
 | N10 | `SocketException` → `Failed` en lugar de `NoConnection` | Muere | `aClosedPortIsNoConnection`, `networkExceptionsAreTranslated`, `endToEndNothingListeningIsNoConnection` |
 | N11 | `status !in 200..299` → `status >= 500` (un 404 se lee como éxito) | Muere | `status404IsAnHttpError`, `endToEndAnUnknownLigandIs404` |
 | N12 | Decodificar con `ISO_8859_1` en vez de UTF-8 | Muere | `aSuccessfulResponseGivesItsBodyDecodedAsUtf8` |
 | N13 | La `IOException` al leer el cuerpo → `Failed` en vez de `Incomplete` | Muere | `aChunkedBodyThatIsNeverFinishedIsIncomplete` |
-| N14 | Quitar la comparación con `Content-Length` tras el bucle | Muere | `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
+| N14 | Quitar la comparación con `Content-Length` tras el bucle | Muere | `aBodyShorterThanAnnouncedIsIncompleteEvenWhenTheStreamEndsCleanly`, `aBodyShorterThanItsContentLengthIsIncomplete`, `endToEndAFileCutInTheMiddleIsIncompleteNotCorrupt` |
 | N15 | Quitar `readTimeout` | Muere | `aServerThatStopsHalfWayIsATimeout`, `aServerThatNeverAnswersIsATimeout`, `endToEndAServerThatNeverAnswersIsATimeout` |
 | N16 | `contentEncoding == null` → `true` (comparar también con compresión) | **Sobrevivió la primera vez**; se añadió la prueba y ahora muere | `whenTheServerCompressesAnyway_theLengthIsNotComparedBecauseItCountsCompressedBytes` |
 | N20 | Quitar la rama `IllegalArgumentException` de la conversión a URL | Muere | `aTextThatIsNotAUrlFailsWithoutThrowing` |
@@ -1322,11 +1352,11 @@ añadió la prueba y se repitió la avería: ahora muere. **Una avería que no s
 
 | Afirmación | Estado |
 |------------|--------|
-| Las 129 pruebas (88 + 41) pasan con `kotlinc` y JUnit | **Verificado** |
+| Las 130 pruebas (88 + 42) pasan con `kotlinc` y JUnit (OpenJDK 21.0.12) | **Verificado** |
 | Las averías de la sección 12 | **Verificado** (resultados reales) |
 | La captura de la petición (documento 06, sección 2) | **Verificado en la JVM** |
 | La medición de cortes del `001` (documento 06, sección 5) | **Verificado** (salida real del código) |
-| Las pruebas pasan bajo el Gradle del equipo | **Sin verificar** |
+| Las pruebas pasan bajo el Gradle del equipo | Primera ejecución con 13 fallos (12 por falta de `001.cif`, 1 dependiente del JDK, reescrita); segunda ejecución **pendiente** |
 | Descarga real desde `files.rcsb.org` | **Sin verificar** |
 | Comportamiento en el dispositivo (cabeceras, DNS, tiempos) | **Sin verificar** |
 | Respuesta para `UNL` | **Sin verificar** |
