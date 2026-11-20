@@ -1,10 +1,10 @@
 # 06c · Pegamento con Android: lista, búsqueda, carga y errores en pantalla (código línea a línea)
 
-> Estado: **ESCRITO, SIN COMPILAR CON EL SDK DE ANDROID.** La parte que no toca Android (`LoadErrorText.kt`) tiene **7 pruebas** y pasan en la JVM (junto con las 155 anteriores: **162**).
-> El resto (el `ViewModel`, las pantallas, la actividad) **solo se ha comprobado de tipos** contra unas piezas de relleno (*stubs*) escritas de memoria: eso demuestra que **nuestro** código es coherente consigo mismo,
-> **no** que las firmas reales de Compose sean las que recuerdo. **La primera compilación real es la de Android Studio / Gradle** (sección 15).
+> Estado: **ESCRITO Y COMPROBADO EN EL MÓVIL** (20/11/2026: en el dispositivo funcionaron la lista, la selección, la descarga y la pantalla con el fichero; compiló sin cambios en el código). **Los diálogos de error no se han probado todavía en el móvil** (sección 13). Se escribió sin SDK de Android a mano. La parte que no toca Android (`LoadErrorText.kt`) tiene **7 pruebas** y pasan en la JVM (junto con las 155 anteriores: **162**).
+> El resto (el `ViewModel`, las pantallas, la actividad) se comprobó de tipos contra unas piezas de relleno (*stubs*) escritas de memoria y **después** se compiló y ejecutó en el móvil del equipo (sección 15 tiene el detalle de lo que sigue sin probar).
 > Redactado el 19/11/2026. Viene después de [`06b`](06b-lista-busqueda-y-estado-de-carga.md): usa `LigandCatalog`, `LoadState` y `LigandLoader`.
 > Las citas de código se generan **desde los ficheros reales**.
+> **Actualización (20/11/2026):** la pantalla provisional de la sección 10 (`MoleculeSummaryScreen`, la tabla de átomos) **ya fue sustituida** por la escena 3D del [documento 07](07-escena-3d-de-la-molecula.md); el fichero se ha borrado del repositorio. El resto de este documento sigue vigente.
 
 ## Índice
 
@@ -333,7 +333,7 @@ Hasta ahora `LoadError` decía **por qué** falló (para el programa). Aquí se 
 19  /**
 20   * The root of the screen: decides WHAT to show from the [LoadState] (no navigation library, see D19).
 21   *
-22   *   Loaded                 -> the molecule screen
+22   *   Loaded                 -> the 3D screen of the molecule
 23   *   Idle / Loading / Failed -> the list, with a dialog on top while loading or when it failed
 24   */
 25  @Composable
@@ -353,7 +353,7 @@ Hasta ahora `LoadError` decía **por qué** falló (para el programa). Aquí se 
 39
 40          val current = state   // `state` is a delegated property: copy it to be able to use `is` checks on it
 41          if (current is LoadState.Loaded) {
-42              MoleculeSummaryScreen(
+42              MoleculeScreen(
 43                  molecule = current.molecule,
 44                  onBack = viewModel::cancel,
 45                  modifier = content,
@@ -795,7 +795,8 @@ source = { id, isCancelled ->
   que `when` exhaustivos, nulabilidad, referencias a función y parámetros **de nuestras clases** cuadran.
 
 **NO verificado (honesto):**
-- **Nada de esto se ha compilado con el SDK de Android ni con Compose real.** Las firmas (`AlertDialog`, `OutlinedTextField`, `LazyColumn`, `Scaffold`, `consumeWindowInsets`, `imePadding`, `collectAsStateWithLifecycle`, `viewModels`,
+- **Actualización:** el código **se compiló y se ejecutó en el móvil** (lista, búsqueda, selección y carga funcionaron). Lo que sigue sin probarse: los **cuatro diálogos de error** (sección 13), el giro con el diálogo abierto, el modo oscuro, los márgenes con teclado. Lo que sigue **escrito antes de esa prueba**, sin cambios:
+- **Nada de esto se había compilado con el SDK de Android ni con Compose real al redactar.** Las firmas (`AlertDialog`, `OutlinedTextField`, `LazyColumn`, `Scaffold`, `consumeWindowInsets`, `imePadding`, `collectAsStateWithLifecycle`, `viewModels`,
   `DialogProperties`) están **escritas de memoria**. Si alguna ha cambiado en la versión de Compose del proyecto, el compilador lo dirá: **pégame el error y se corrige** (es lo esperado, no un fallo del enfoque).
 - Que las **versiones** de la sección 4 existan y encajen con AGP 9.4.1 / Kotlin 2.4.21.
 - El comportamiento en el móvil: márgenes con teclado, tema oscuro, rotación, segundo plano, rendimiento en el A33.

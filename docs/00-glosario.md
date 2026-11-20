@@ -13,6 +13,7 @@
 6. [Herramientas usadas solo para analizar](#6-herramientas-usadas-solo-para-analizar)
 7. [Red y HTTP](#7-red-y-http)
 8. [Android y Compose: el pegamento con la pantalla](#8-android-y-compose-el-pegamento-con-la-pantalla)
+9. [La escena 3D de la molécula](#9-la-escena-3d-de-la-molécula)
 
 ---
 
@@ -184,3 +185,22 @@ Desarrollado en [`06c-pegamento-android-lista-y-carga.md`](06c-pegamento-android
 | **Logcat** | Registro de mensajes de la app que se ve en Android Studio (`Log.w`, `Log.e`), con filtro por etiqueta. | Etiqueta `SwiftyProteins`. |
 | **ANR** (*Application Not Responding*) | Aviso de Android cuando el hilo principal está bloqueado varios segundos. | Motivo de no hacer red en el hilo principal. |
 | **Relleno** (*stub*) | Versión mínima y falsa de una librería, escrita solo para que el compilador compruebe **nuestro** código. No prueba que la librería real tenga esa firma. | Comprobación de tipos de `ui/` (06c, sección 15). |
+
+---
+
+## 9. La escena 3D de la molécula
+
+Desarrollado en [`07-escena-3d-de-la-molecula.md`](07-escena-3d-de-la-molecula.md). *(CPK, bolas y varillas, nodo pivote y forma de colisión están en la sección 4.)*
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Tabla de colores de Jmol** | Los colores por elemento del visor Jmol: la versión más usada de «CPK». No es un estándar oficial. | `ElementStyle` (D21); escrita de memoria. |
+| **Ángulo de inclinación (*tilt*) y de giro (*spin*)** | Los dos ángulos con que se pone un cilindro vertical a apuntar de un átomo a otro: se inclina `tilt` alrededor de Z y se gira `spin` alrededor de Y. | `BondGeometry`; demostrado con matrices. |
+| **Malla y detalle (`stacks`, `slices`)** | Una esfera 3D es una malla de triángulos; `stacks` y `slices` dicen en cuántas franjas se corta. Más franjas = más suave y más pesada. | 20 para las bolas, 12 para los hidrógenos (estimación). |
+| **Material (Filament)** | El «color» y el aspecto de la superficie de un objeto 3D. Se crea uno por elemento y se reutiliza. | `createColorInstance`, un `HashMap` por elemento. |
+| **Campo de visión (*field of view*)** | El ángulo que abarca la cámara. Con él se calcula a qué distancia cabe una molécula de un radio dado. | No comprobado en SceneView; de ahí que `DISTANCE_PER_RADIUS` sea una estimación. |
+| **Plano lejano (*far plane*)** | Distancia máxima a la que la cámara dibuja; lo que está más allá se recorta. | Riesgo para `15P` (≈ 230 Å de distancia); sin comprobar. |
+| **`key(...)` en Compose** | Da a un trozo de la interfaz una **identidad** propia, para que Compose no lo confunda con otro cuando cambia la lista de hijos. | `key(i)` por átomo, `key(-k - 1)` por enlace. |
+| **`rememberUpdatedState`** | Guarda siempre **el último valor** de un parámetro para usarlo desde una lambda que se creó una sola vez. | `currentOnSelect` en `MoleculeScene`. |
+| **Selección por rayo (*picking*)** | Averiguar qué objeto se toca lanzando un rayo desde la cámara. | Nombre de nodo `atom N` → índice del átomo. |
+| **Hidrógeno oculto** | Un átomo H que no se dibuja (ni sus varillas), pero **sigue en el `Molecule`** y en el encuadre. | Interruptor «H» (D22). |

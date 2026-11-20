@@ -19,7 +19,7 @@ import kotlinx.coroutines.launch
 /**
  * The root of the screen: decides WHAT to show from the [LoadState] (no navigation library, see D19).
  *
- *   Loaded                 -> the molecule screen
+ *   Loaded                 -> the 3D screen of the molecule
  *   Idle / Loading / Failed -> the list, with a dialog on top while loading or when it failed
  */
 @Composable
@@ -39,7 +39,7 @@ fun SwiftyApp(viewModel: LigandsViewModel) {
 
         val current = state   // `state` is a delegated property: copy it to be able to use `is` checks on it
         if (current is LoadState.Loaded) {
-            MoleculeSummaryScreen(
+            MoleculeScreen(
                 molecule = current.molecule,
                 onBack = viewModel::cancel,
                 modifier = content,
