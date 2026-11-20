@@ -1,5 +1,6 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import android.util.Log
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
@@ -19,6 +20,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -28,21 +31,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
 import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.ElementLegend
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
+import dev.knowledge82.swiftyproteins.share.CaptureException
+import dev.knowledge82.swiftyproteins.share.CaptureFailure
+import dev.knowledge82.swiftyproteins.share.MoleculeSharer
+import dev.knowledge82.swiftyproteins.share.ShareStatus
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 /**
  * The screen of one molecule (design screens 15, 16 and 18): the 3D scene full size, a bar on top (back, name,
  * hydrogens on/off), the colour key and a card at the bottom that says what the tapped atom is.
  *
- * The LOGIC is the same as before the design (selection, hydrogen switch, Back). The Share button of the design
- * comes with the capture stage (H4): a button that does nothing would look like a bug.
+ * The LOGIC is the same as before the design (selection, hydrogen switch, Back). The Share button (document 09)
+ * captures the 3D scene and opens Android's share sheet; a small status line says what it is doing.
  */
 @Composable
 fun MoleculeScreen(
@@ -58,6 +70,39 @@ fun MoleculeScreen(
     var showHydrogens by rememberSaveable { mutableStateOf(true) }
     val hasHydrogens = remember(molecule) { molecule.atoms.any { it.element == "H" } }
     val legend = remember(molecule, showHydrogens) { ElementLegend.of(molecule, showHydrogens) }
+
+    // Share: the state of the button and the job. The job lives in the screen's coroutine scope, so leaving the
+    // screen cancels a capture in progress (nothing is left half done in the background).
+    var share by remember { mutableStateOf<ShareStatus>(ShareStatus.Idle) }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val view = LocalView.current
+    val onShare = {
+        if (share.canStart) {
+            share = ShareStatus.Working
+            scope.launch {
+                share = try {
+                    MoleculeSharer.share(context, view, molecule)
+                    ShareStatus.Done
+                } catch (e: CancellationException) {
+                    throw e   // the screen went away: not a failure, just stop
+                } catch (e: CaptureException) {
+                    Log.w("SwiftyProteins", "share ${molecule.id} failed: ${e.failure}", e.cause)
+                    ShareStatus.Failed(e.failure)
+                } catch (e: Exception) {
+                    Log.w("SwiftyProteins", "share ${molecule.id} failed", e)
+                    ShareStatus.Failed(CaptureFailure.OTHER)
+                }
+            }
+        }
+    }
+    // "Image ready" or an error stays on screen a few seconds, then the line goes away.
+    LaunchedEffect(share) {
+        if (share is ShareStatus.Done || share is ShareStatus.Failed) {
+            delay(3_000)
+            share = ShareStatus.Idle
+        }
+    }
 
     // What is REALLY highlighted: a valid index, and not a hydrogen that is currently hidden.
     val atom = selected
@@ -80,10 +125,16 @@ fun MoleculeScreen(
             showHydrogens = showHydrogens,
             onToggleHydrogens = { showHydrogens = !showHydrogens },
             onBack = onBack,
+            shareEnabled = share.canStart,
+            onShare = onShare,
             modifier = Modifier.align(Alignment.TopCenter),
         )
 
         Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp)) {
+            share.label?.let { text ->
+                ShareStatusLine(text = text, isError = share is ShareStatus.Failed)
+                Spacer(Modifier.height(10.dp))
+            }
             if (legend.isNotEmpty()) {
                 SectionLabel("Elements / CPK")
                 Spacer(Modifier.height(6.dp))
@@ -103,6 +154,8 @@ private fun TopBar(
     showHydrogens: Boolean,
     onToggleHydrogens: () -> Unit,
     onBack: () -> Unit,
+    shareEnabled: Boolean,
+    onShare: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier = modifier.fillMaxWidth()) {
@@ -126,6 +179,13 @@ private fun TopBar(
                     Spacer(Modifier.width(8.dp))
                     HydrogenChip(on = showHydrogens, onToggle = onToggleHydrogens)
                 }
+                Spacer(Modifier.width(8.dp))
+                IconPlateButton(
+                    icon = R.drawable.ic_share,
+                    contentDescription = "Share an image of the molecule",
+                    onClick = onShare,
+                    enabled = shareEnabled,
+                )
             }
         }
         Canvas(Modifier.fillMaxWidth().height(1.dp)) {
@@ -185,4 +245,17 @@ private fun AtomCard(atom: Atom?, hydrogensHidden: Boolean) {
 private fun cpkColor(element: String): Color {
     val rgb = ElementStyle.colorOf(element)
     return Color((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
+}
+
+/** "Preparing image…" / "Image ready" / the reason of a failure: a small plate above the legend. */
+@Composable
+private fun ShareStatusLine(text: String, isError: Boolean) {
+    SwiftyPlate(cut = 6, fill = SwiftyColors.IronOverlay, border = if (isError) SwiftyColors.Error else SwiftyColors.Brass) {
+        Text(
+            text,
+            style = MaterialTheme.typography.bodySmall,
+            color = if (isError) SwiftyColors.Error else SwiftyColors.Bone,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+        )
+    }
 }

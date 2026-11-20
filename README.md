@@ -10,7 +10,7 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > También están escritos y probados en la JVM el **catálogo con búsqueda** (`ligands.txt`, sin distinguir mayúsculas) y el **cargador** que gobierna el estado de carga (`Idle / Loading / Loaded / Failed`, con la garantía de que el indicador siempre desaparece).
 > Está escrito y funciona en el móvil el **pegamento con Android** (lista con buscador, diálogos de carga y de error); 162 pruebas.
 > Se ha escrito la **escena 3D de la molécula** (bolas y varillas con colores CPK, cámara orbital, tocar un átomo, interruptor de hidrógenos): su parte pura tiene 27 pruebas y mutación (198 en total con las de zoom y *splash*);
-> la escena **funciona en el móvil** (confirmado con `001`, `CDL` y `15P`). Se corrigió el **tope de zoom** de los ligandos grandes (D24) y se añadió la **pantalla de inicio de ≥ 1 s** que pide la hoja de evaluación (D25; **sin compilar con la biblioteca real**). La **dirección visual** está definida (D26) y el **diseño del generador ya está aplicado** a la lista, los diálogos, la pantalla de la molécula, el icono y la *splash* (D27–D29; 217 pruebas; **sin compilar con las bibliotecas reales**). Falta: la captura para compartir, el inicio de sesión y la medición en el A33. Documentos:
+> la escena **funciona en el móvil** (confirmado con `001`, `CDL` y `15P`). Se corrigió el **tope de zoom** de los ligandos grandes (D24) y se añadió la **pantalla de inicio de ≥ 1 s** que pide la hoja de evaluación (D25; **sin compilar con la biblioteca real**). La **dirección visual** está definida (D26) y el **diseño del generador ya está aplicado** a la lista, los diálogos, la pantalla de la molécula, el icono y la *splash* (D27–D29; 217 pruebas; **sin compilar con las bibliotecas reales**). Está escrita la **captura de la escena y «compartir»** (H4: `PixelCopy` + `FileProvider`, D30–D31; **sin probar en el móvil**). La v1 del diseño se rechazó en el móvil y se espera la v2 (D26). Falta: el inicio de sesión y la medición en el A33. Documentos:
 > [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (parser),
 > [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red),
 > [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) (lista, búsqueda y estado de carga),
@@ -18,7 +18,8 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md) (escena 3D y límites de zoom),
 > [`docs/07b-icono-y-pantalla-de-inicio.md`](docs/07b-icono-y-pantalla-de-inicio.md) (icono y *splash*),
 > [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) (dirección visual y *prompt*),
-> [`docs/08b-diseno-aplicado.md`](docs/08b-diseno-aplicado.md) (el diseño aplicado).
+> [`docs/08b-diseno-aplicado.md`](docs/08b-diseno-aplicado.md) (el diseño aplicado),
+> [`docs/09-captura-y-compartir.md`](docs/09-captura-y-compartir.md) (captura y compartir).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -71,6 +72,8 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D27 | El diseño se aplica **como piel** (tema de Material 3 + componentes propios finos); **la lógica no se toca** y lo que decide algo va a funciones puras con pruebas | Decidida | Romper lo que funciona es el riesgo real. Documento 08b. |
 | D28 | Fuentes **incluidas** (OFL, licencias en `assets/licenses/fonts/`; **las familias cambiarán** con la v2: **Pirata One** (títulos) + **Silkscreen** (resto), elegidas por el equipo), cortes estáticos de las variables; iconos como **VectorDrawable** generados con un conversor verificado píxel a píxel | Decidida | Sin red para verse bien; compatible con API 24. Documento 08b, 4 y 5. |
 | D29 | El fondo de la escena **se queda negro** (el diseño pedía `#100F10`) | Provisional | Cambiar el cielo sin perder la luz ni arriesgar un cierre requiere más trabajo. Documento 08b, 10. |
+| D30 | La captura es **`PixelCopy` del `SurfaceView` de SceneView** (encontrado recorriendo el árbol de vistas); la imagen es el 3D + una banda con el nombre | Provisional (H4 sin probar) | API 24 sin tocar el dibujo comprobado; plan B: `TextureView`. Documento 09. |
+| D31 | Se comparte con **`FileProvider` desde `cache/shared/`** (solo la última imagen, escritura en dos tiempos) y la **hoja del sistema** | Decidida | Sin permisos de almacenamiento; acceso solo a la app elegida y a ese fichero. Documento 09. |
 
 ---
 
@@ -111,7 +114,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/07b-icono-y-pantalla-de-inicio.md`](docs/07b-icono-y-pantalla-de-inicio.md) | Qué pide la hoja de evaluación (icono y lanzamiento ≥ 1 s), cómo funciona la pantalla de inicio en Android, `core-splashscreen`, `SplashHold` y `MainActivity` línea a línea, línea de tiempo con números, trampas, cómo medirlo, alternativas | **Escrito** (regla del tiempo probada; resto sin compilar) |
 | [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) | Dirección visual «Culto de la Máquina», paleta con **contraste medido**, restricciones técnicas, aviso de propiedad intelectual, **el prompt completo** para el generador y cómo se trasladará a Compose | **Escrito** (generador sin usar) |
 | [`docs/08b-diseno-aplicado.md`](docs/08b-diseno-aplicado.md) | El diseño aplicado (paso A): revisión del kit, fuentes OFL y cortes estáticos, conversión SVG → VectorDrawable verificada píxel a píxel, icono adaptable y de Android 7, tema de Material 3, componentes, pantallas, desvíos conscientes, lista de comprobación en el móvil | **Escrito** (lógica probada; interfaz sin compilar) |
-| 08 · Compartir y acabado | Captura, diseño adaptable, accesibilidad | Pendiente |
+| [`docs/09-captura-y-compartir.md`](docs/09-captura-y-compartir.md) | Captura del 3D y «compartir» (H4): por qué `view.draw()` da negro con un `SurfaceView`, `PixelCopy` como `suspend`, banda con el nombre, escritura atómica en la caché, `FileProvider` y permisos de URI, hoja del sistema, simulación, plan B | **Escrito** (parte pura probada; captura sin probar en el móvil) |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |
 | 10 · Pruebas y defensa | Lista de comprobación en dispositivo real y guion de defensa | Pendiente |
 

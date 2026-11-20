@@ -226,3 +226,19 @@ Desarrollado en [`07b-icono-y-pantalla-de-inicio.md`](07b-icono-y-pantalla-de-in
 | **Color dinámico** | En Android 12+, Material puede tomar los colores del **fondo de pantalla** del usuario. | **Desactivado**: la app tiene un solo aspecto. |
 | **`SystemBarStyle`** | Cómo se pintan la barra de estado y la de navegación con `enableEdgeToEdge`. Por defecto sigue el modo claro/oscuro **del sistema**. | Forzado a oscuro: si no, iconos oscuros sobre fondo oscuro. |
 | **`Dialog` frente a `AlertDialog`** | `AlertDialog` tiene una disposición fija (título, texto, botones a la derecha); `Dialog` es una ventana vacía donde se pone lo que se quiera. | Los diálogos de carga y error usan `Dialog` + panel propio. |
+
+## 11. Captura y compartir
+
+Desarrollado en [`09-captura-y-compartir.md`](09-captura-y-compartir.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **`SurfaceView`** | Una vista con **su propio búfer de GPU**, que el compositor del sistema pone detrás de la ventana. No se dibuja en el `Canvas` de la ventana: `view.draw()` la ve **negra**. | Donde dibuja SceneView (Filament). |
+| **`TextureView`** | Alternativa que sí se dibuja dentro de la ventana (y se puede leer con `getBitmap()`), a costa de una copia extra por fotograma. | Plan B de la captura. |
+| **`PixelCopy`** | API de Android (24+) que copia el último fotograma de una superficie de GPU a un `Bitmap`; responde por *callback*. | `MoleculeSharer.copy`. |
+| **`suspendCancellableCoroutine`** | Convierte una API de *callback* en una función `suspend` que espera la respuesta. | `PixelCopy` con límite de 3 s. |
+| **`FileProvider`** | Componente de AndroidX que da a un fichero privado una dirección `content://` y responde a las lecturas en nombre de la app. | `cache/shared/`, autoridad `<paquete>.fileprovider`. |
+| **Permiso de URI** | `FLAG_GRANT_READ_URI_PERMISSION`: permiso de lectura **de un fichero concreto** para la app que recibe el *intent*. | En el *intent* de compartir, con `ClipData`. |
+| **Escritura atómica** | Escribir en un fichero temporal y **renombrarlo** al terminar: nunca existe un fichero a medias con el nombre bueno. | `ShareImageStore.save` (`.part` → `.png`). |
+| **Hoja de compartir** | La lista de apps que abre `Intent.createChooser(ACTION_SEND)`. | «Share ligand 001». |
+

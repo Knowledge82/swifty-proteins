@@ -242,7 +242,7 @@ Todo lo que **decide** algo (no solo dibuja) se sacó a funciones puras, como en
 | Diseño | Lo hecho | Por qué |
 |--------|----------|---------|
 | Fondo de la escena `#100F10` (carbón cálido) | **Negro** (el de SceneView) | El fondo de SceneView es el **cielo** (*skybox*) del entorno. La vía segura (`environmentLoader.createEnvironment(skybox = …)`, la que usa el propio SceneView) **quita la luz indirecta** → bolas planas. Cambiar solo el cielo obliga a gestionar a mano la **destrucción** de objetos de Filament: riesgo de cierre. La diferencia de color es casi invisible. **Leído en el código de SceneView 4.69.4** |
-| Botón «Share» en la barra | No está | Llega con la captura (paso B) |
+| Botón «Share» en la barra | **Ya está** (documento [`09`](09-captura-y-compartir.md)) | Llegó con la captura (paso B) |
 | Menú «…», rótulo «VIEWPORT / FILAMENT» | No están | Sin función: parecerían fallos |
 | Etiqueta «C01» junto al átomo, dentro de la escena | No está | Necesita proyectar 3D → pantalla en cada fotograma; el nombre ya está en la tarjeta |
 | «CATALOG UNAVAILABLE» en verde, con «Retry» | En **rojo de error**, sin «Retry» | El verde es «dato de máquina», no fallo; y nuestro catálogo es un fichero **de la propia app**: reintentar leerlo no cambia nada (el diseño supuso que venía de la red) |

@@ -136,17 +136,21 @@ fun IconPlateButton(
     contentDescription: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
 ) {
+    // Disabled (e.g. Share while an image is being prepared): ash icon, no clicks. The status line says why.
+    val ink = if (enabled) SwiftyColors.Bone else SwiftyColors.Ash
     Surface(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier.size(48.dp),
         shape = CutCornerShape(5.dp),
         color = SwiftyColors.Plate,
-        contentColor = SwiftyColors.Bone,
+        contentColor = ink,
         border = BorderStroke(1.dp, SwiftyColors.Rivet),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Icon(painterResource(icon), contentDescription = contentDescription, tint = SwiftyColors.Bone, modifier = Modifier.size(22.dp))
+            Icon(painterResource(icon), contentDescription = contentDescription, tint = ink, modifier = Modifier.size(22.dp))
         }
     }
 }

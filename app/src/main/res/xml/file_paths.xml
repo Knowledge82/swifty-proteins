@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The ONLY folder FileProvider may open to other apps: <cacheDir>/shared/ (ShareImageStore.DIRECTORY). -->
+<paths>
+    <cache-path name="shared_images" path="shared/" />
+</paths>
