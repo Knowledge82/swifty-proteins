@@ -17,6 +17,7 @@ import io.github.sceneview.SceneView
 import io.github.sceneview.collision.Sphere
 import io.github.sceneview.math.Position
 import io.github.sceneview.math.Rotation
+import io.github.sceneview.createDefaultCameraManipulator
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberMaterialLoader
@@ -87,6 +88,14 @@ fun MoleculeScene(
         cameraManipulator = rememberCameraManipulator(
             orbitRadius = distance,
             targetPosition = Position(0f, 0f, 0f),
+            // The default manipulator limits the zoom as a fraction of the starting distance, which for a big ligand
+            // means "never closer than 34 angstrom". Here the limits are in angstrom, the same for every molecule.
+            creator = {
+                createDefaultCameraManipulator(orbitRadius = distance, targetPosition = Position(0f, 0f, 0f)).apply {
+                    minZoomDistanceFactor = SceneFraming.minZoomFactor(distance)
+                    maxZoomDistanceFactor = SceneFraming.MAX_ZOOM_OUT_FACTOR
+                }
+            },
         ),
         onGestureListener = rememberOnGestureListener(
             onSingleTapConfirmed = { _, node ->

@@ -34,4 +34,24 @@ object SceneFraming {
 
     /** Where the camera starts, as a distance from the center. */
     fun cameraDistance(radius: Float): Float = max(MIN_DISTANCE, DISTANCE_PER_RADIUS * radius)
+
+    /**
+     * The closest the camera may come to the center when zooming in (angstrom), THE SAME for every ligand.
+     *
+     * Why absolute: SceneView limits the zoom as a FRACTION of the starting distance (default 0.15). The starting
+     * distance grows with the molecule (5.5 x radius), so a big ligand such as 15P (radius 41 -> start 228) could not
+     * get nearer than 34 angstrom, while the small 001 (start ~35) could reach 5. The limit must be about what we want
+     * to SEE (a ball is ~1 angstrom wide; at 4 it fills a good part of the screen), not about how big the molecule is.
+     * ESTIMATED value: to be tuned on the device (document 07).
+     */
+    const val MIN_CLOSE_DISTANCE = 4f
+
+    /** How far the camera may go back, as a multiple of the starting distance. Keeps everything inside the far plane (1000 in SceneView) even for 15P: 3 x 228 + 41 = 725. */
+    const val MAX_ZOOM_OUT_FACTOR = 3f
+
+    /** The fraction of the starting distance that equals [MIN_CLOSE_DISTANCE]; never above 0.5, so zooming in is always possible, even for a tiny molecule whose start is already close. */
+    fun minZoomFactor(startDistance: Float): Float =
+        (MIN_CLOSE_DISTANCE / startDistance).coerceAtMost(MAX_MIN_ZOOM_FACTOR)
+
+    private const val MAX_MIN_ZOOM_FACTOR = 0.5f
 }

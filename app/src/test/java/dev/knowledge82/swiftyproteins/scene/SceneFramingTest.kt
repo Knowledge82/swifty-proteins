@@ -70,4 +70,39 @@ class SceneFramingTest {
         val distance = SceneFraming.cameraDistance(radius)
         assertTrue("distance $distance", distance in 15f..70f)
     }
+
+    // --- zoom limits (the "15P cannot be zoomed in" bug) ---
+
+    /** What SceneView computes: closest = start distance x factor. */
+    private fun closest(start: Float) = start * SceneFraming.minZoomFactor(start)
+
+    @Test
+    fun theClosestZoomIsTheSameInAngstromForALigandOfAnySize() {
+        for (radius in listOf(2f, 6.5f, 12f, 30.9f, 41.4f)) {
+            val start = SceneFraming.cameraDistance(radius)
+            assertEquals("radius $radius", SceneFraming.MIN_CLOSE_DISTANCE, closest(start), 1e-3f)
+        }
+    }
+
+    @Test
+    fun theBiggestLigandCanNowGetMuchCloserThanWithSceneViewsDefault() {
+        val start = SceneFraming.cameraDistance(41.4f)
+        val withDefault = start * 0.15f // SceneView's DEFAULT_MIN_ZOOM_DISTANCE_FACTOR
+        assertTrue("default $withDefault", withDefault > 30f)
+        assertTrue(closest(start) < withDefault / 5)
+    }
+
+    @Test
+    fun aTinyMoleculeCanAlwaysZoomIn() {
+        // start = 6 (the minimum): 4/6 would be 0.67, so the factor is capped at 0.5 and zooming in is possible.
+        assertEquals(0.5f, SceneFraming.minZoomFactor(6f), 0f)
+        for (start in listOf(6f, 7f, 8f, 20f, 228f)) assertTrue(SceneFraming.minZoomFactor(start) <= 0.5f)
+    }
+
+    @Test
+    fun theZoomOutLimitKeepsEvenTheBiggestLigandInsideTheFarPlane() {
+        val radius = 41.4f
+        val farthestPoint = SceneFraming.MAX_ZOOM_OUT_FACTOR * SceneFraming.cameraDistance(radius) + radius
+        assertTrue("$farthestPoint", farthestPoint < 1000f) // SceneView's default far plane
+    }
 }
