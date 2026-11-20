@@ -1,6 +1,6 @@
 # 08a · Dirección visual «Culto de la Máquina» y el prompt para el generador
 
-> **Estado:** brief escrito; **el generador aún no se ha usado**. Este documento explica **qué se pide y por qué**, deja el **prompt completo** (para copiar tal cual) y describe **cómo se traducirá el resultado a Compose**. Nada de esto toca todavía el código de la app.
+> **Estado:** brief escrito **y usado**: el kit que devolvió el generador se revisó y se aplicó en el documento [`08b-diseno-aplicado.md`](08b-diseno-aplicado.md) (qué se tomó, qué no y por qué). Este documento explica **qué se pide y por qué**, deja el **prompt completo** (para copiar tal cual) y describe **cómo se traducirá el resultado a Compose**. Nada de esto toca todavía el código de la app.
 
 ## Índice
 

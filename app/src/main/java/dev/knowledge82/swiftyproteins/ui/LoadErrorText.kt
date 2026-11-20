@@ -47,3 +47,33 @@ fun LoadError.canRetry(): Boolean = when (this) {
     is LoadError.Incomplete, is LoadError.Corrupt, is LoadError.NetworkError,
     is LoadError.Unexpected -> true
 }
+
+/** The short title of the error dialog (the design puts a title above the message). Same exhaustive `when` rule. */
+fun LoadError.title(): String = when (this) {
+    is LoadError.NoConnection -> "No network connection"
+    is LoadError.Timeout -> "Server timeout"
+    is LoadError.NotFound -> "Ligand not found (404)"
+    is LoadError.ServerError -> "Server error"
+    is LoadError.Incomplete -> "Download interrupted"
+    is LoadError.TooLarge -> "File too large"
+    is LoadError.Corrupt -> "Received data is corrupt"
+    is LoadError.InvalidId -> "Invalid ligand ID"
+    is LoadError.NetworkError -> "Network error"
+    is LoadError.Unexpected -> "Something went wrong"
+}
+
+/**
+ * Which picture goes with each error. The design drew five (offline, not found, timeout, corrupt, invalid); our
+ * other five errors get the generic warning sign. Kept as an enum (pure Kotlin) so the choice can be tested; the
+ * screen turns it into a drawable.
+ */
+enum class ErrorGlyph { OFFLINE, NOT_FOUND, TIMEOUT, CORRUPT, INVALID, WARNING }
+
+fun LoadError.glyph(): ErrorGlyph = when (this) {
+    is LoadError.NoConnection, is LoadError.NetworkError -> ErrorGlyph.OFFLINE
+    is LoadError.Timeout -> ErrorGlyph.TIMEOUT
+    is LoadError.NotFound -> ErrorGlyph.NOT_FOUND
+    is LoadError.Corrupt, is LoadError.Incomplete -> ErrorGlyph.CORRUPT
+    is LoadError.InvalidId -> ErrorGlyph.INVALID
+    is LoadError.ServerError, is LoadError.TooLarge, is LoadError.Unexpected -> ErrorGlyph.WARNING
+}

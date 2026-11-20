@@ -3,6 +3,7 @@ package dev.knowledge82.swiftyproteins
 import android.os.Bundle
 import android.os.SystemClock
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
@@ -26,7 +27,12 @@ class MainActivity : ComponentActivity() {
         installSplashScreen().setKeepOnScreenCondition { hold.shouldKeep(SystemClock.uptimeMillis()) }
 
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
+        // The app is always dark (D26): light icons on the system bars, whatever the phone's own theme. With the
+        // default, a phone in LIGHT mode would draw dark icons on our dark background (invisible clock and battery).
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+        )
         setContent {
             SwiftyProteinsTheme {
                 SwiftyApp(viewModel)

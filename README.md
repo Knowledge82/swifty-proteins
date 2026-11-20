@@ -10,14 +10,15 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > También están escritos y probados en la JVM el **catálogo con búsqueda** (`ligands.txt`, sin distinguir mayúsculas) y el **cargador** que gobierna el estado de carga (`Idle / Loading / Loaded / Failed`, con la garantía de que el indicador siempre desaparece).
 > Está escrito y funciona en el móvil el **pegamento con Android** (lista con buscador, diálogos de carga y de error); 162 pruebas.
 > Se ha escrito la **escena 3D de la molécula** (bolas y varillas con colores CPK, cámara orbital, tocar un átomo, interruptor de hidrógenos): su parte pura tiene 27 pruebas y mutación (198 en total con las de zoom y *splash*);
-> la escena **funciona en el móvil** (confirmado con `001`, `CDL` y `15P`). Se corrigió el **tope de zoom** de los ligandos grandes (D24) y se añadió la **pantalla de inicio de ≥ 1 s** que pide la hoja de evaluación (D25; **sin compilar con la biblioteca real**). La **dirección visual** está definida y el *prompt* para el generador, escrito (D26). Falta: la captura para compartir, el inicio de sesión, el diseño visual y la medición en el A33. Documentos:
+> la escena **funciona en el móvil** (confirmado con `001`, `CDL` y `15P`). Se corrigió el **tope de zoom** de los ligandos grandes (D24) y se añadió la **pantalla de inicio de ≥ 1 s** que pide la hoja de evaluación (D25; **sin compilar con la biblioteca real**). La **dirección visual** está definida (D26) y el **diseño del generador ya está aplicado** a la lista, los diálogos, la pantalla de la molécula, el icono y la *splash* (D27–D29; 217 pruebas; **sin compilar con las bibliotecas reales**). Falta: la captura para compartir, el inicio de sesión y la medición en el A33. Documentos:
 > [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (parser),
 > [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red),
 > [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) (lista, búsqueda y estado de carga),
 > [`docs/06c-pegamento-android-lista-y-carga.md`](docs/06c-pegamento-android-lista-y-carga.md) (pegamento con Android),
 > [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md) (escena 3D y límites de zoom),
 > [`docs/07b-icono-y-pantalla-de-inicio.md`](docs/07b-icono-y-pantalla-de-inicio.md) (icono y *splash*),
-> [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) (dirección visual y *prompt*).
+> [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) (dirección visual y *prompt*),
+> [`docs/08b-diseno-aplicado.md`](docs/08b-diseno-aplicado.md) (el diseño aplicado).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -67,6 +68,9 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D24 | Los límites de zoom son **absolutos en ångström** (acercamiento mínimo 4 Å; alejamiento máximo 3 × la distancia inicial), no relativos al tamaño del ligando | Provisional | La causa del tope de `15P` se **leyó en el código de SceneView** (0,15 × la distancia inicial); el valor se ajusta en el móvil. Documento 07, 7.1. |
 | D25 | La pantalla de inicio es la **del sistema** (`core-splashscreen`), **retenida 1500 ms** por una regla que solo mira el reloj | Provisional | Cumple «lanzamiento visible ≥ 1 s» con poco código y sin riesgo de colgarse. Documento 07b. |
 | D26 | Dirección visual **«Culto de la Máquina»** (inspirada en el Adeptus Mechanicus, **sin elementos de marca**), solo tema oscuro, emblema original (engranaje + molécula) | Dirección decidida; valores provisionales | Encaja con un visor 3D; el fondo oscuro realza los colores CPK; la paleta se midió (el rojo solo como relleno). Documento 08a. |
+| D27 | El diseño se aplica **como piel** (tema de Material 3 + componentes propios finos); **la lógica no se toca** y lo que decide algo va a funciones puras con pruebas | Decidida | Romper lo que funciona es el riesgo real. Documento 08b. |
+| D28 | Fuentes **incluidas** (OFL, licencias en `assets/licenses/fonts/`), Cinzel en **dos cortes estáticos**; iconos como **VectorDrawable** generados con un conversor verificado píxel a píxel | Decidida | Sin red para verse bien; compatible con API 24. Documento 08b, 4 y 5. |
+| D29 | El fondo de la escena **se queda negro** (el diseño pedía `#100F10`) | Provisional | Cambiar el cielo sin perder la luz ni arriesgar un cierre requiere más trabajo. Documento 08b, 10. |
 
 ---
 
@@ -106,6 +110,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md) | La escena 3D **línea a línea**: teoría (CPK, bolas y varillas, orientación de cilindros con un ejemplo numérico, cámara, selección), datos del corpus (48 % hidrógenos, máximo 256 átomos), `ElementStyle`, `BondGeometry`, `SceneFraming`, `MoleculeScene`, `MoleculeScreen`; cómo probarlo y qué constantes ajustar; mutación; alternativas | **Escrito** (comprobado en el móvil; límites de zoom en ångström, sección 7.1) |
 | [`docs/07b-icono-y-pantalla-de-inicio.md`](docs/07b-icono-y-pantalla-de-inicio.md) | Qué pide la hoja de evaluación (icono y lanzamiento ≥ 1 s), cómo funciona la pantalla de inicio en Android, `core-splashscreen`, `SplashHold` y `MainActivity` línea a línea, línea de tiempo con números, trampas, cómo medirlo, alternativas | **Escrito** (regla del tiempo probada; resto sin compilar) |
 | [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) | Dirección visual «Culto de la Máquina», paleta con **contraste medido**, restricciones técnicas, aviso de propiedad intelectual, **el prompt completo** para el generador y cómo se trasladará a Compose | **Escrito** (generador sin usar) |
+| [`docs/08b-diseno-aplicado.md`](docs/08b-diseno-aplicado.md) | El diseño aplicado (paso A): revisión del kit, fuentes OFL y cortes estáticos, conversión SVG → VectorDrawable verificada píxel a píxel, icono adaptable y de Android 7, tema de Material 3, componentes, pantallas, desvíos conscientes, lista de comprobación en el móvil | **Escrito** (lógica probada; interfaz sin compilar) |
 | 08 · Compartir y acabado | Captura, diseño adaptable, accesibilidad | Pendiente |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |
 | 10 · Pruebas y defensa | Lista de comprobación en dispositivo real y guion de defensa | Pendiente |

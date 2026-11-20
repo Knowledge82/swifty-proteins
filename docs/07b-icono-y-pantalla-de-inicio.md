@@ -36,8 +36,7 @@ Textualmente: *«Verify that the application has an icon on the home screen and 
 ## 2. Estado del icono
 
 - **Existe** y es un icono **adaptable** (*adaptive icon*): `mipmap-anydpi-v26/ic_launcher.xml` y `ic_launcher_round.xml` dicen «fondo = un color, primer plano = una imagen». Hay imágenes para cinco densidades (`mdpi` … `xxxhdpi`) y el manifiesto lo enlaza (`android:icon`, `android:roundIcon`).
-- El fondo es el color `#001515` (`values/ic_launcher_background.xml`).
-- **Provisional:** es el de la estética anterior. **Se rehará** con la dirección visual nueva (documento 08a), siguiendo las mismas reglas técnicas: lienzo de **108 dp**, lo importante dentro de los **66 dp centrales** (la «zona segura»: el lanzador recorta con círculo, cuadrado redondeado, etc.), y de regalo una capa **monocroma** para los iconos «temáticos» de Android 13+.
+- **Actualización (documento 08b, sección 5):** el icono **ya es el del diseño nuevo**: tres capas **vectoriales** (fondo hierro `#17171A`, emblema, y una capa **monocroma** para los iconos «temáticos» de Android 13+), con el emblema medido dentro de la zona segura (30,7 de 33 dp), e imágenes PNG aparte para Android 7. Las reglas técnicas son las de siempre: lienzo de **108 dp**, lo importante dentro de los **66 dp centrales** (el lanzador recorta con círculo, cuadrado redondeado, etc.).
 - **Un fallo que se corrigió aquí:** en el repositorio había **dos copias** de los recursos: `app/src/main/res/mipmap-*` (las buenas) y `app/src/main/res/res/mipmap-*` (**una carpeta `res` dentro de `res`**, resto de descomprimir un archivo en el sitio equivocado). Se comprobó que los **18 ficheros eran idénticos** y se **borró** la copia anidada. `res/res` **no es un directorio de recursos válido** (los nombres válidos son `drawable`, `mipmap`, `values`, `xml`…); la sesión anterior compiló igualmente, pero es basura que puede dar un aviso o un error con otra versión de las herramientas.
 
 ---
@@ -71,7 +70,7 @@ Esa **ventana de arranque** es la pantalla de inicio. Es **del sistema**: se dib
 | Pieza | Fichero | Qué hace |
 |-------|---------|----------|
 | Dependencia | `gradle/libs.versions.toml`, `app/build.gradle.kts` | `androidx.core:core-splashscreen:1.2.0` (versión estable según la página oficial de versiones de AndroidX; **no se pudo resolver aquí**) |
-| Tema de arranque | `res/values/themes.xml` | `Theme.SwiftyProteins.Starting`: fondo = el del icono, icono = su primer plano, después → `Theme.SwiftyProteins` |
+| Tema de arranque | `res/values/themes.xml` | `Theme.SwiftyProteins.Starting`: fondo = hierro (`swifty_iron`), icono = el emblema vectorial, después → `Theme.SwiftyProteins` (oscuro desde el documento 08b) |
 | Manifiesto | `AndroidManifest.xml` | La **actividad** (no la aplicación) usa el tema de arranque |
 | Lógica y enlace | `splash/SplashHold.kt`, `MainActivity.kt` | «Mantén la pantalla al menos 1500 ms» |
 
@@ -79,8 +78,8 @@ El tema (`themes.xml`):
 
 ```xml
 <style name="Theme.SwiftyProteins.Starting" parent="Theme.SplashScreen">
-    <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
-    <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+    <item name="windowSplashScreenBackground">@color/swifty_iron</item>
+    <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
     <item name="postSplashScreenTheme">@style/Theme.SwiftyProteins</item>
 </style>
 ```
@@ -127,27 +126,32 @@ Y en el manifiesto, dentro de `<activity>`: `android:theme="@style/Theme.SwiftyP
 ### 5.2 El enlace con Android
 
 ```kotlin
-// MainActivity.kt · líneas 22–35
-22  override fun onCreate(savedInstanceState: Bundle?) {
-23      // MUST come before super.onCreate: it swaps the "starting" theme for the normal one and takes over the splash.
-24      // The system removes the splash when the first frame is ready; we ask it to stay at least SplashHold.MIN_VISIBLE_MILLIS.
-25      val hold = SplashHold(startMillis = SystemClock.uptimeMillis())
-26      installSplashScreen().setKeepOnScreenCondition { hold.shouldKeep(SystemClock.uptimeMillis()) }
-27
-28      super.onCreate(savedInstanceState)
-29      enableEdgeToEdge()
-30      setContent {
-31          SwiftyProteinsTheme {
-32              SwiftyApp(viewModel)
-33          }
-34      }
-35  }
+// MainActivity.kt · líneas 23–41
+23  override fun onCreate(savedInstanceState: Bundle?) {
+24      // MUST come before super.onCreate: it swaps the "starting" theme for the normal one and takes over the splash.
+25      // The system removes the splash when the first frame is ready; we ask it to stay at least SplashHold.MIN_VISIBLE_MILLIS.
+26      val hold = SplashHold(startMillis = SystemClock.uptimeMillis())
+27      installSplashScreen().setKeepOnScreenCondition { hold.shouldKeep(SystemClock.uptimeMillis()) }
+28
+29      super.onCreate(savedInstanceState)
+30      // The app is always dark (D26): light icons on the system bars, whatever the phone's own theme. With the
+31      // default, a phone in LIGHT mode would draw dark icons on our dark background (invisible clock and battery).
+32      enableEdgeToEdge(
+33          statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+34          navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
+35      )
+36      setContent {
+37          SwiftyProteinsTheme {
+38              SwiftyApp(viewModel)
+39          }
+40      }
+41  }
 ```
 
-- **Línea 25:** se anota la hora de inicio con `SystemClock.uptimeMillis()` (milisegundos desde el arranque del móvil, **sin saltos** si el usuario cambia la hora).
-- **Línea 26, `installSplashScreen().setKeepOnScreenCondition { ... }`:** la lambda **se evalúa antes de cada fotograma**; devolvemos lo que diga `shouldKeep`. Cuando pasan 1500 ms devuelve `false` y el sistema quita la pantalla.
-- **Orden (líneas 23–28): `installSplashScreen()` va ANTES de `super.onCreate`.** Es el requisito de la biblioteca: ahí es donde cambia el tema de arranque por el normal. Si se llama después, el tema no se cambia bien y puede verse mal o fallar.
-- **Líneas 29–34:** todo lo demás queda **igual**: `enableEdgeToEdge()` y el contenido de Compose. **Mientras la pantalla de inicio está encima, la app ya se está construyendo debajo** (la lista, el `ViewModel`): el segundo extra **no retrasa** nada, solo lo tapa.
+- **Línea 26:** se anota la hora de inicio con `SystemClock.uptimeMillis()` (milisegundos desde el arranque del móvil, **sin saltos** si el usuario cambia la hora).
+- **Línea 27, `installSplashScreen().setKeepOnScreenCondition { ... }`:** la lambda **se evalúa antes de cada fotograma**; devolvemos lo que diga `shouldKeep`. Cuando pasan 1500 ms devuelve `false` y el sistema quita la pantalla.
+- **Orden (líneas 24–29): `installSplashScreen()` va ANTES de `super.onCreate`.** Es el requisito de la biblioteca: ahí es donde cambia el tema de arranque por el normal. Si se llama después, el tema no se cambia bien y puede verse mal o fallar.
+- **Líneas 30–40:** todo lo demás queda **igual**: `enableEdgeToEdge(...)` (desde el documento 08b, con las barras del sistema **siempre oscuras**) y el contenido de Compose. **Mientras la pantalla de inicio está encima, la app ya se está construyendo debajo** (la lista, el `ViewModel`): el segundo extra **no retrasa** nada, solo lo tapa.
 
 ---
 
@@ -182,7 +186,7 @@ Y en el manifiesto, dentro de `<activity>`: `android:theme="@style/Theme.SwiftyP
 3. **El icono se recorta en círculo** en Android 12+: lo importante tiene que estar dentro del círculo central (2/3 del lienzo). El primer plano actual **se dibujó para** respetar la zona segura (66 de 108 dp = 61 %), pero **no se ha visto en el móvil con la pantalla de inicio**.
 4. **Android 12+ ignora el diseño propio de «ventana de arranque»**: solo se pueden poner **color, icono (animado o no) y, según la versión, una imagen de marca**. **Una pantalla de inicio muy elaborada no cabe aquí**; para eso está la alternativa 11.2.
 5. **Cada arranque en frío cuesta 1,5 s** al usuario real. Es el precio de cumplir la hoja; lo ponemos como constante para poder bajarlo.
-6. **El primer plano es una imagen de píxeles** (`.webp`), no un vector: con 288 dp de lienzo se escala ×2,7 y puede verse **blanda**. Se arregla con el icono nuevo (en vector).
+6. ~~El primer plano es una imagen de píxeles~~ **Resuelto en el documento 08b:** ahora es un **vector**, nítido a cualquier tamaño.
 7. **Marca «Swifty Proteins» ausente:** la pantalla de inicio del sistema solo enseña el icono. Si se quiere el nombre y animación, ver 11.2.
 
 ---

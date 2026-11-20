@@ -1,57 +1,57 @@
 package dev.knowledge82.swiftyproteins.ui.theme
 
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.platform.LocalContext
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+// Material 3 roles mapped onto the palette (document 08b). Only a DARK scheme: the app has one look (D26).
+private val SwiftyColorScheme = darkColorScheme(
+    primary = SwiftyColors.MartianRed,
+    onPrimary = SwiftyColors.Bone,
+    primaryContainer = SwiftyColors.MartianRed,
+    onPrimaryContainer = SwiftyColors.Bone,
+    inversePrimary = SwiftyColors.Gold,
+    secondary = SwiftyColors.Brass,
+    onSecondary = SwiftyColors.Void,
+    secondaryContainer = SwiftyColors.Plate,
+    onSecondaryContainer = SwiftyColors.Bone,
+    tertiary = SwiftyColors.Phosphor,
+    onTertiary = SwiftyColors.Void,
+    tertiaryContainer = SwiftyColors.Plate,
+    onTertiaryContainer = SwiftyColors.Phosphor,
+    background = SwiftyColors.Void,
+    onBackground = SwiftyColors.Bone,
+    surface = SwiftyColors.Iron,
+    onSurface = SwiftyColors.Bone,
+    surfaceVariant = SwiftyColors.Plate,
+    onSurfaceVariant = SwiftyColors.Ash,
+    surfaceContainerLowest = SwiftyColors.Void,
+    surfaceContainerLow = SwiftyColors.Iron,
+    surfaceContainer = SwiftyColors.Plate,
+    surfaceContainerHigh = SwiftyColors.Plate,
+    surfaceContainerHighest = SwiftyColors.Plate,
+    outline = SwiftyColors.Brass,
+    outlineVariant = SwiftyColors.Rivet,
+    error = SwiftyColors.Error,
+    onError = SwiftyColors.Void,
+    errorContainer = SwiftyColors.MartianRed,
+    onErrorContainer = SwiftyColors.Bone,
+    inverseSurface = SwiftyColors.Bone,
+    inverseOnSurface = SwiftyColors.Void,
+    surfaceTint = SwiftyColors.Brass,
+    scrim = SwiftyColors.Void,
 )
 
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
-)
-
+/**
+ * The theme of the whole app. Always dark and NEVER "dynamic colour" (Android 12+ would otherwise repaint the app
+ * with the colours of the user's wallpaper, which was the template's default).
+ */
 @Composable
-fun SwiftyProteinsTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
+fun SwiftyProteinsTheme(content: @Composable () -> Unit) {
     MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
+        colorScheme = SwiftyColorScheme,
+        typography = SwiftyTypography,
+        shapes = SwiftyShapes,
+        content = content,
     )
 }

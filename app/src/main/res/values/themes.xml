@@ -1,16 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <!-- The theme of the app once it is running. -->
-    <style name="Theme.SwiftyProteins" parent="android:Theme.Material.Light.NoActionBar" />
+    <!--
+        The theme of the app once it is running. DARK parent and a dark window background: between the splash and the
+        first Compose frame the window itself shows for an instant, and a light theme would flash white (D26).
+    -->
+    <style name="Theme.SwiftyProteins" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/swifty_void</item>
+    </style>
 
     <!--
         The theme of the LAUNCH SCREEN (splash). The system applies it while the app starts; when the activity is ready,
         installSplashScreen() (MainActivity) swaps it for postSplashScreenTheme. It works on every API from 24.
+        Design 01: one emblem over opaque iron.
     -->
     <style name="Theme.SwiftyProteins.Starting" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenBackground">@color/swifty_iron</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
         <item name="postSplashScreenTheme">@style/Theme.SwiftyProteins</item>
     </style>
 </resources>

@@ -71,4 +71,36 @@ class LoadErrorTextTest {
     fun aCorruptFileCanBeRetriedBecauseALoginPageOfAWifiLooksLikeOne() {
         assertTrue(LoadError.Corrupt(CifFailure.NoAtoms).canRetry())
     }
+
+    // --- titles and pictures of the designed error dialog ---
+
+    @Test
+    fun everyErrorHasAShortTitleOnOneLine() {
+        for (error in everyKind()) {
+            val title = error.title()
+            assertTrue("$error", title.isNotBlank() && title.length <= 28 && '\n' !in title)
+        }
+    }
+
+    @Test
+    fun theFourErrorsOfTheTaskHaveDifferentTitlesAndPictures() {
+        val four = listOf(LoadError.NoConnection, LoadError.NotFound, LoadError.Corrupt(CifFailure.NoAtoms), LoadError.Timeout)
+        assertEquals(4, four.map { it.title() }.toSet().size)
+        assertEquals(4, four.map { it.glyph() }.toSet().size)
+    }
+
+    @Test
+    fun theDesignedPicturesGoToTheirErrors() {
+        assertEquals(ErrorGlyph.OFFLINE, LoadError.NoConnection.glyph())
+        assertEquals(ErrorGlyph.NOT_FOUND, LoadError.NotFound.glyph())
+        assertEquals(ErrorGlyph.TIMEOUT, LoadError.Timeout.glyph())
+        assertEquals(ErrorGlyph.CORRUPT, LoadError.Corrupt(CifFailure.NoAtoms).glyph())
+        assertEquals(ErrorGlyph.INVALID, LoadError.InvalidId("a/b").glyph())
+        assertEquals(ErrorGlyph.WARNING, LoadError.ServerError(503).glyph())
+    }
+
+    @Test
+    fun theNotFoundTitleSaysItIsA404() {
+        assertTrue(LoadError.NotFound.title().contains("404"))
+    }
 }

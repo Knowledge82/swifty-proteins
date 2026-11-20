@@ -52,7 +52,7 @@ Del documento 01, para la vista 3D: modelo de **bolas y varillas** con **colores
 | `scene/BondGeometry.kt` | `scene/` | 60 | Dónde y cómo girar un cilindro para unir dos átomos. **Puro, con pruebas.** |
 | `scene/SceneFraming.kt` | `scene/` | 57 | Radio de la molécula y distancia inicial de la cámara. **Puro, con pruebas.** |
 | `ui/MoleculeScene.kt` | `ui/` | 148 | Convierte un `Molecule` en nodos de SceneView y atiende los toques. **Sin compilar.** |
-| `ui/MoleculeScreen.kt` | `ui/` | 105 | Barra superior, interruptor «H», tarjeta del átomo. **Sin compilar.** |
+| `ui/MoleculeScreen.kt` | `ui/` | 188 | Barra superior, interruptor «H», tarjeta del átomo. **Sin compilar.** |
 | `ui/SwiftyApp.kt` | `ui/` | — | **Una línea cambia:** la rama `Loaded` dibuja `MoleculeScreen` en vez de la pantalla provisional. |
 | `ElementStyleTest.kt`, `BondGeometryTest.kt`, `SceneFramingTest.kt` | `app/src/test/.../scene/` | 10 + 8 + 13 pruebas | Ver sección 14. |
 
@@ -524,103 +524,72 @@ Es decir: el tope era **proporcional al tamaño de la molécula**, cuando lo que
 
 ## 9. `MoleculeScreen.kt`: la pantalla
 
+> **Actualizado con el diseño (documento 08b, sección 8).** La **lógica** de esta función es la misma de la primera versión; lo que cambió es el **dibujo**: la barra, el interruptor, la leyenda y la tarjeta son ahora componentes propios (`TopBar`, `HydrogenChip`, `ElementKey`, `AtomCard`), explicados en el documento 08b.
+
 ```kotlin
-// MoleculeScreen.kt · líneas 29–60
-29  /**
-30   * The screen of one molecule: the 3D scene full size, a bar on top (back, name, hydrogens on/off) and, when an atom is
-31   * tapped, a card at the bottom that says what it is.
-32   */
-33  @Composable
-34  fun MoleculeScreen(
-35      molecule: Molecule,
-36      onBack: () -> Unit,
-37      modifier: Modifier = Modifier,
-38  ) {
-39      // The system Back button returns to the list, exactly like the button on screen.
-40      BackHandler(onBack = onBack)
-41
-42      // rememberSaveable: the selection and the switch survive a rotation of the phone.
-43      var selected by rememberSaveable { mutableStateOf<Int?>(null) }
-44      var showHydrogens by rememberSaveable { mutableStateOf(true) }
-45      val hasHydrogens = remember(molecule) { molecule.atoms.any { it.element == "H" } }
-46
-47      // What is REALLY highlighted: a valid index, and not a hydrogen that is currently hidden.
-48      val atom = selected
-49          ?.takeIf { it in molecule.atoms.indices }
-50          ?.let { molecule.atoms[it] }
-51          ?.takeIf { showHydrogens || it.element != "H" }
-52
-53      Box(modifier = modifier.fillMaxSize()) {
-54          MoleculeScene(
-55              molecule = molecule,
-56              showHydrogens = showHydrogens,
-57              selected = if (atom == null) null else selected,
-58              onSelect = { selected = it },
-59              modifier = Modifier.fillMaxSize(),
-60          )
+// MoleculeScreen.kt · líneas 47–96
+47  @Composable
+48  fun MoleculeScreen(
+49      molecule: Molecule,
+50      onBack: () -> Unit,
+51      modifier: Modifier = Modifier,
+52  ) {
+53      // The system Back button returns to the list, exactly like the button on screen.
+54      BackHandler(onBack = onBack)
+55
+56      // rememberSaveable: the selection and the switch survive a rotation of the phone.
+57      var selected by rememberSaveable { mutableStateOf<Int?>(null) }
+58      var showHydrogens by rememberSaveable { mutableStateOf(true) }
+59      val hasHydrogens = remember(molecule) { molecule.atoms.any { it.element == "H" } }
+60      val legend = remember(molecule, showHydrogens) { ElementLegend.of(molecule, showHydrogens) }
+61
+62      // What is REALLY highlighted: a valid index, and not a hydrogen that is currently hidden.
+63      val atom = selected
+64          ?.takeIf { it in molecule.atoms.indices }
+65          ?.let { molecule.atoms[it] }
+66          ?.takeIf { showHydrogens || it.element != "H" }
+67
+68      Box(modifier = modifier.fillMaxSize()) {
+69          MoleculeScene(
+70              molecule = molecule,
+71              showHydrogens = showHydrogens,
+72              selected = if (atom == null) null else selected,
+73              onSelect = { selected = it },
+74              modifier = Modifier.fillMaxSize(),
+75          )
+76
+77          TopBar(
+78              molecule = molecule,
+79              hasHydrogens = hasHydrogens,
+80              showHydrogens = showHydrogens,
+81              onToggleHydrogens = { showHydrogens = !showHydrogens },
+82              onBack = onBack,
+83              modifier = Modifier.align(Alignment.TopCenter),
+84          )
+85
+86          Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp)) {
+87              if (legend.isNotEmpty()) {
+88                  SectionLabel("Elements / CPK")
+89                  Spacer(Modifier.height(6.dp))
+90                  ElementKey(legend)
+91                  Spacer(Modifier.height(10.dp))
+92              }
+93              AtomCard(atom = atom, hydrogensHidden = hasHydrogens && !showHydrogens)
+94          }
+95      }
+96  }
 ```
 
-- **Línea 40, `BackHandler`:** el botón «Atrás» del sistema vuelve a la lista (si no, **cerraría la app**).
-- **Líneas 43–44, `rememberSaveable`:** el átomo seleccionado y el interruptor «H» **sobreviven al giro del móvil**. `mutableStateOf<Int?>(null)` es un estado que puede ser `null` (nada seleccionado).
-- **Línea 45:** ¿tiene hidrógenos? Los 73 ligandos sin ninguno **no muestran** el interruptor.
-- **Líneas 48–51, el átomo REALMENTE resaltado:** se encadenan tres comprobaciones con `?.takeIf` / `?.let`: (1) hay selección, (2) **el índice es válido** (protección contra un estado guardado de otra molécula) y (3) **no es un hidrógeno oculto**
+- **Línea 54, `BackHandler`:** el botón «Atrás» del sistema vuelve a la lista (si no, **cerraría la app**).
+- **Líneas 57–58, `rememberSaveable`:** el átomo seleccionado y el interruptor «H» **sobreviven al giro del móvil**. `mutableStateOf<Int?>(null)` es un estado que puede ser `null` (nada seleccionado).
+- **Línea 59:** ¿tiene hidrógenos? Los 73 ligandos sin ninguno **no muestran** el interruptor.
+- **Línea 60:** la **leyenda de colores** (qué elementos están dibujados, más frecuentes primero): función pura `ElementLegend.of`, con pruebas (documento 08b, sección 9). Se recalcula solo al cambiar la molécula o el interruptor.
+- **Líneas 63–66, el átomo REALMENTE resaltado:** se encadenan tres comprobaciones con `?.takeIf` / `?.let`: (1) hay selección, (2) **el índice es válido** (protección contra un estado guardado de otra molécula) y (3) **no es un hidrógeno oculto**
   (si el usuario oculta los H con uno seleccionado, la tarjeta no debe seguir hablando de un átomo que ya no se ve). Si cualquiera falla, `atom` es `null`.
-- **Línea 57:** a la escena solo se le pasa la selección si `atom` no es `null`.
-
-```kotlin
-// MoleculeScreen.kt · líneas 62–105
- 62          // Semi-transparent so the text is readable on any background and the molecule is still seen behind it.
- 63          Surface(
- 64              modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
- 65              color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
- 66          ) {
- 67              Row(
- 68                  modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
- 69                  verticalAlignment = Alignment.CenterVertically,
- 70              ) {
- 71                  TextButton(onClick = onBack) { Text("Back") }
- 72                  Text(
- 73                      text = "${molecule.id} · ${molecule.atoms.size} atoms · ${molecule.bonds.size} bonds",
- 74                      style = MaterialTheme.typography.titleSmall,
- 75                      modifier = Modifier.weight(1f),
- 76                  )
- 77                  if (hasHydrogens) {
- 78                      FilterChip(
- 79                          selected = showHydrogens,
- 80                          onClick = { showHydrogens = !showHydrogens },
- 81                          label = { Text("H") },
- 82                      )
- 83                  }
- 84              }
- 85          }
- 86
- 87          Card(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp)) {
- 88              Column(modifier = Modifier.padding(16.dp)) {
- 89                  if (atom == null) {
- 90                      Text("Tap an atom to see what it is. Drag to rotate, pinch to zoom.", style = MaterialTheme.typography.bodyMedium)
- 91                  } else {
- 92                      Text(
- 93                          text = "${atom.name} · ${ElementStyle.nameOf(atom.element)} (${atom.element})",
- 94                          style = MaterialTheme.typography.titleMedium,
- 95                      )
- 96                      Text(
- 97                          // Locale.US: always "1.234", never "1,234".
- 98                          text = String.format(Locale.US, "x %.3f   y %.3f   z %.3f  (angstrom)", atom.x, atom.y, atom.z),
- 99                          style = MaterialTheme.typography.bodySmall,
-100                      )
-101                  }
-102              }
-103          }
-104      }
-105  }
-```
-
-- **Líneas 63–66, la barra superior:** un `Surface` **semitransparente** (85 %) sobre la escena; así el texto se lee sobre cualquier fondo y la molécula **se sigue viendo** por detrás.
-- **Línea 71:** botón «Back». **Línea 72–76:** «001 · 87 atoms · 90 bonds»; `weight(1f)` le da **todo el espacio sobrante**, lo que empuja el interruptor a la derecha.
-- **Líneas 77–83:** `FilterChip` (una «pastilla» que se enciende y se apaga) con la letra H. Cambia `showHydrogens`.
-- **Líneas 87–103, la tarjeta de abajo:** sin selección enseña una **ayuda** («Tap an atom…»); con selección, **el nombre del átomo, el elemento en inglés y su símbolo** («C01 · Carbon (C)») y sus tres coordenadas con tres decimales.
-  `Locale.US` hace que el punto decimal sea siempre punto, con el móvil en el idioma que sea.
-- **La ayuda dice «Drag to rotate, pinch to zoom»** y **no** habla de desplazamiento: no se ha comprobado que exista (sección 12).
+- **Línea 72:** a la escena solo se le pasa la selección si `atom` no es `null`.
+- **Líneas 77–84, la barra superior:** semiopaca (hierro al 96 %) sobre la escena, con «atrás», «001 · 87 atoms · 90 bonds» y el interruptor «H ✓/×».
+- **Líneas 86–94, abajo:** la leyenda (si hay algo que mostrar) y la **tarjeta**: sin selección, una **ayuda** (o «Hydrogens hidden» si los H están ocultos); con selección, **«C01 · Carbon (C)»** y las tres coordenadas con tres decimales (`AtomText`, puro y probado: punto decimal y guion ASCII en cualquier idioma del móvil).
+- **La ayuda dice «Drag to rotate, pinch to zoom, tap an atom»** y **no** habla de desplazamiento: no se ha comprobado que exista (sección 12).
 
 ---
 

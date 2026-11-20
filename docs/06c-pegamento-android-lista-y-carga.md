@@ -1,5 +1,7 @@
 # 06c · Pegamento con Android: lista, búsqueda, carga y errores en pantalla (código línea a línea)
 
+> **Nota posterior (documento [`08b-diseno-aplicado.md`](08b-diseno-aplicado.md)):** el **aspecto** de la lista y de los diálogos se rehízo con el diseño «Culto de la Máquina» (los diálogos pasan de `AlertDialog` a `Dialog` con panel propio). **La lógica explicada aquí no cambió** (búsqueda, estado elevado, diálogo modal, qué errores ofrecen «Retry»); el código citado abajo es el de **esta etapa**: para el actual, ver el 08b.
+
 > Estado: **ESCRITO Y COMPROBADO EN EL MÓVIL** (20/11/2026: en el dispositivo funcionaron la lista, la selección, la descarga y la pantalla con el fichero; compiló sin cambios en el código). **Los diálogos de error no se han probado todavía en el móvil** (sección 13). Se escribió sin SDK de Android a mano. La parte que no toca Android (`LoadErrorText.kt`) tiene **7 pruebas** y pasan en la JVM (junto con las 155 anteriores: **162**).
 > El resto (el `ViewModel`, las pantallas, la actividad) se comprobó de tipos contra unas piezas de relleno (*stubs*) escritas de memoria y **después** se compiló y ejecutó en el móvil del equipo (sección 15 tiene el detalle de lo que sigue sin probar).
 > Redactado el 19/11/2026. Viene después de [`06b`](06b-lista-busqueda-y-estado-de-carga.md): usa `LigandCatalog`, `LoadState` y `LigandLoader`.
