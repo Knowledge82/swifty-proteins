@@ -245,7 +245,7 @@ Qué se espera recibir y **dónde aterriza** en el código (**nada de esto está
 
 - **Pide reconocibilidad explícita** («quien vea una captura debe pensar en Warhammer 40k») y lista los motivos: consolas CRT verdes con líneas de barrido, servo-cráneos, servidores conectados a consolas, túnicas rojas, sellos de pureza, arcos góticos, binario en los márgenes.
 - **Arte de mapa de bits permitido** (ilustraciones detalladas en PNG/WebP con transparencia, marcos en **9-slice** para que estiren sin deformar las esquinas, texturas pequeñas repetibles), con un **presupuesto de 4 MB**.
-- **Fuentes nuevas** (comprobadas en el repositorio de Google Fonts; muestra en la sección siguiente): **gótica** para títulos (**Grenze Gotisch**, **UnifrakturMaguntia** o **Pirata One**) y **de terminal CRT** para casi todo lo demás (**VT323**).
+- **Fuentes nuevas** (comprobadas en el repositorio de Google Fonts): **gótica** para títulos y **de píxeles / terminal** para todo lo demás. Elegidas por el equipo: **Pirata One** + **Silkscreen** (sección 12.1).
 - **El verde fósforo pasa a ser el color principal del texto** de la interfaz.
 - **Textos:** título con sabor Mechanicus **más una línea literal** en inglés (el evaluador debe reconocer cada uno de los cuatro errores del enunciado).
 - **Una pantalla de arranque propia** («secuencia de arranque del cogitador») además de la *splash* del sistema: es la alternativa 11.2 del documento 07b.
@@ -256,7 +256,18 @@ Qué se espera recibir y **dónde aterriza** en el código (**nada de esto está
 
 **Qué pasa con el código ya hecho (08b):** **se reaprovecha casi todo**. La estructura (tema de Material 3, componentes propios, funciones puras con pruebas, conversor de iconos, icono adaptable) es la misma; cambian **valores** (colores, fuentes), **recursos** (imágenes, marcos) y el **dibujo** de los componentes. Las 217 pruebas no dependen del aspecto.
 
-### 12.1 El prompt v2 (copiar y pegar)
+### 12.1 Fuentes elegidas por el equipo: Pirata One + Silkscreen
+
+Tras ver las muestras, el equipo eligió **Pirata One** (gótica, títulos) y **Silkscreen** (de píxeles, todo lo demás); VT323 queda descartada. Comprobado con `fontTools`:
+
+| Fuente | `° · Å …` | Signo menos `−` (U+2212) | Licencia | Consecuencia |
+|--------|:--:|:--:|---------|--------------|
+| Pirata One | sí | sí | OFL, **nombre reservado «Pirata»** | Se incluye **sin modificar** (es estática: no hace falta tocarla) |
+| Silkscreen (Regular, Bold) | sí | **no** | OFL, sin nombre reservado | Los negativos van con el guion ASCII `-`; ya es así (`AtomText`, con prueba) |
+
+**Riesgos de legibilidad (vistos en una maqueta a escala real):** Silkscreen **parece todo mayúsculas** y es **ancha**: una frase de 30 caracteres a 14 sp ocupa todo el ancho; nuestros mensajes de error (algunos de 70 caracteres) ocuparán **3–4 líneas**. Por eso el prompt fija tamaños mínimos (14 sp frases, 11 sp datos cortos, 16 sp filas y botones) y pide diseñar los diálogos para textos que se parten. Pirata One solo a partir de 20 sp.
+
+### 12.2 El prompt v2 (copiar y pegar)
 
 ~~~~markdown
 # Brief v2 for a visual-design generator — "Swifty Proteins" as an Adeptus Mechanicus cogitator (Android, Jetpack Compose)
@@ -280,9 +291,12 @@ UI texts are English. Use Mechanicus flavour **in headings and decorative lines*
 - Errors (5 kinds, each its own illustration/icon): **No network connection**, **Ligand not found (404)**, **Server timeout**, **Received data is corrupt**, **Invalid ligand ID**. Flavour title + plain line, e.g. "THE NOOSPHERE IS SILENT" / "No network connection. Check Wi-Fi or mobile data."
 - Buttons stay literal: RETRY, CLOSE, OK, CANCEL, SIGN IN, CREATE ACCOUNT, SHARE.
 
-## 3. Typography (all must be free Google Fonts, they get bundled in the app)
-- **Headings / titles:** a **blackletter** gothic font: **Grenze Gotisch** (bold) or **UnifrakturMaguntia** or **Pirata One** — pick the one that reads best at 20–32 sp and say why.
-- **Console text, data, ids, coordinates, most UI labels:** a **CRT terminal** font: **VT323** (preferred). Optionally **Silkscreen** for tiny all-caps tags.
+## 3. Typography (DECIDED — use exactly these two free Google Fonts, they get bundled in the app)
+- **Headings / titles / flavour lines:** **Pirata One** (blackletter). Use it at **20 sp and larger** only; it is unreadable small.
+- **Everything else** (console lines, list rows, buttons, labels, messages, ids, coordinates): **Silkscreen** (pixel font, Regular and Bold). Keep in mind:
+  - It looks **all-caps** (lowercase is drawn as small capitals) and it is **wide**: a 30-character sentence at 14 sp fills a phone width. Messages **will wrap to 3–4 lines**; design dialogs and cards for that, do not squeeze.
+  - Minimum sizes: **14 sp** for sentences, **11 sp** for short data such as `X 12.184 Å`, **16 sp+** for list rows and buttons.
+  - It has **no typographic minus sign (U+2212)**: always write negative numbers with the plain ASCII hyphen-minus `-` (e.g. `Y -5.006 Å`).
 - No other fonts. Give a type scale (name, font, size in sp, line height, use).
 
 ## 4. Palette (start here, refine if needed)
@@ -332,4 +346,3 @@ Readability rule (keep it): **red is never used as small text on black** (too da
 4. **Assets** from section 6, named for Android (`snake_case`), each with its intended size in dp.
 5. **Implementation notes for Compose**: what is an image, what is 9-slice, what is drawn in code (scanlines, glow, brackets), what animates and how.
 ~~~~
-
