@@ -242,3 +242,21 @@ Desarrollado en [`09-captura-y-compartir.md`](09-captura-y-compartir.md).
 | **Escritura atómica** | Escribir en un fichero temporal y **renombrarlo** al terminar: nunca existe un fichero a medias con el nombre bueno. | `ShareImageStore.save` (`.part` → `.png`). |
 | **Hoja de compartir** | La lista de apps que abre `Intent.createChooser(ACTION_SEND)`. | «Share ligand 001». |
 
+## 12. Diseño v2 «Cogitador»
+
+Desarrollado en [`08c-diseno-v2-cogitador.md`](08c-diseno-v2-cogitador.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Pantalla de arranque (*boot screen*)** | Una pantalla propia de la app que se muestra al arrancar, antes del contenido. | El cogitador «despertando», 1600 ms: es el *launch screen* de la hoja de evaluación (D32). |
+| **9-patch** | PNG con guías de 1 px que dicen qué franjas estiran; las esquinas quedan fijas. | El del kit no se usa (esquinas de 140 px, pixelado); marcos dibujados en código (D33). |
+| **`drawable-nodpi`** | Carpeta de imágenes que Android **no escala** según la densidad de la pantalla. | Ilustraciones y texturas: el tamaño lo decide el código. |
+| **Halo (*fringe*)** | Restos de fondo alrededor de un objeto recortado. | El del kit era **opaco**: se quitó por inundación a través de píxeles grises neutros (D34). |
+| **Relleno por inundación (*flood fill*)** | Recorrer píxeles vecinos desde un punto mientras cumplan una condición. | Limpieza del halo, desde el borde de la imagen. |
+| **Grupo de VectorDrawable** | `<group>` con traslación, escala y rotación para sus hijos. | Cada función de un `transform` de SVG = un grupo anidado (D35). |
+| **Control negativo** | Un caso **deliberadamente erróneo** que la prueba **debe** detectar; demuestra que la prueba distingue. | Radio desviado 0,5: 182/255 frente al peor caso real 10/255. |
+| **`ShaderBrush` / `ImageShader`** | Pincel de Compose que pinta repitiendo una imagen. | Texturas CRT y de hierro. |
+| **Líneas de barrido (*scanlines*)** | Líneas horizontales finas que imitan una pantalla CRT. | Solo dentro de paneles, nunca sobre el 3D. |
+| **`withFrameMillis`** | Suspende hasta el siguiente fotograma y da su hora. | Bucle de la pantalla de arranque sin consumir CPU. |
+| **Movimiento reducido** | Preferencia del sistema (escala de animaciones a 0). | Para el servo-cráneo, el cursor y la escritura del arranque. |
+

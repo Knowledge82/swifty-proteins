@@ -99,26 +99,26 @@ En el manifiesto:
 ### 6.1 La función entera
 
 ```kotlin
-// MoleculeSharer.kt · líneas 50–68
-50  suspend fun share(context: Context, root: View, molecule: Molecule) {
-51      val surface = findSurfaceView(root.rootView) ?: throw CaptureException(CaptureFailure.NO_SCENE)
-52      val scene = copy(surface)
-53      val captioned = withContext(Dispatchers.Default) {
-54          try { addCaption(scene, ShareText.caption(molecule)) } finally { scene.recycle() }
-55      }
-56      val file = withContext(Dispatchers.IO) {
-57          try {
-58              ShareImageStore(File(context.cacheDir, ShareImageStore.DIRECTORY)).save(molecule.id) { out ->
-59                  if (!captioned.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("PNG compression failed")
-60              }
-61          } catch (e: IOException) {
-62              throw CaptureException(CaptureFailure.WRITE_FAILED, e)
-63          } finally {
-64              captioned.recycle()
-65          }
-66      }
-67      openShareSheet(context, file, molecule)
-68  }
+// MoleculeSharer.kt · líneas 52–70
+52  suspend fun share(context: Context, root: View, molecule: Molecule) {
+53      val surface = findSurfaceView(root.rootView) ?: throw CaptureException(CaptureFailure.NO_SCENE)
+54      val scene = copy(surface)
+55      val captioned = withContext(Dispatchers.Default) {
+56          try { addCaption(context, scene, ShareText.caption(molecule)) } finally { scene.recycle() }
+57      }
+58      val file = withContext(Dispatchers.IO) {
+59          try {
+60              ShareImageStore(File(context.cacheDir, ShareImageStore.DIRECTORY)).save(molecule.id) { out ->
+61                  if (!captioned.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("PNG compression failed")
+62              }
+63          } catch (e: IOException) {
+64              throw CaptureException(CaptureFailure.WRITE_FAILED, e)
+65          } finally {
+66              captioned.recycle()
+67          }
+68      }
+69      openShareSheet(context, file, molecule)
+70  }
 ```
 
 Cinco pasos, cada uno **en el hilo que le toca**:
@@ -134,16 +134,16 @@ Cinco pasos, cada uno **en el hilo que le toca**:
 ### 6.2 Encontrar el `SurfaceView`
 
 ```kotlin
-// MoleculeSharer.kt · líneas 71–79
-71  fun findSurfaceView(view: View): SurfaceView? {
-72      if (view is SurfaceView) return view
-73      if (view is ViewGroup) {
-74          for (i in 0 until view.childCount) {
-75              findSurfaceView(view.getChildAt(i))?.let { return it }
-76          }
-77      }
-78      return null
-79  }
+// MoleculeSharer.kt · líneas 73–81
+73  fun findSurfaceView(view: View): SurfaceView? {
+74      if (view is SurfaceView) return view
+75      if (view is ViewGroup) {
+76          for (i in 0 until view.childCount) {
+77              findSurfaceView(view.getChildAt(i))?.let { return it }
+78          }
+79      }
+80      return null
+81  }
 ```
 
 Recorrido **en profundidad** del árbol de vistas desde la raíz de la ventana (`root.rootView`). En esta pantalla hay **exactamente un** `SurfaceView` (el de SceneView); la lista y los diálogos no tienen ninguno. Si un día hubiera dos (p. ej. un vídeo), habría que distinguirlos: está en la sección 8.
@@ -151,32 +151,32 @@ Recorrido **en profundidad** del árbol de vistas desde la raíz de la ventana (
 ### 6.3 `PixelCopy` como función `suspend`
 
 ```kotlin
-// MoleculeSharer.kt · líneas 82–106
- 82  private suspend fun copy(surface: SurfaceView): Bitmap {
- 83      val width = surface.width
- 84      val height = surface.height
- 85      if (width <= 0 || height <= 0) throw CaptureException(CaptureFailure.NOT_READY)
- 86      val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
- 87      val result = withTimeoutOrNull(COPY_TIMEOUT_MILLIS) {
- 88          suspendCancellableCoroutine { continuation ->
- 89              PixelCopy.request(surface, bitmap, { code -> continuation.resume(code) }, Handler(Looper.getMainLooper()))
- 90          }
- 91      }
- 92      if (result != PixelCopy.SUCCESS) {
- 93          // After a TIMEOUT (result == null) PixelCopy may still write into the bitmap later: do not recycle it,
- 94          // let the garbage collector take it. After any real answer it is safe to free it now.
- 95          if (result != null) bitmap.recycle()
- 96          throw CaptureException(
- 97              when (result) {
- 98                  null, PixelCopy.ERROR_TIMEOUT -> CaptureFailure.TIMEOUT
- 99                  PixelCopy.ERROR_SOURCE_NO_DATA -> CaptureFailure.NOT_READY
-100                  PixelCopy.ERROR_SOURCE_INVALID -> CaptureFailure.NO_SCENE
-101                  else -> CaptureFailure.OTHER
-102              }
-103          )
-104      }
-105      return bitmap
-106  }
+// MoleculeSharer.kt · líneas 84–108
+ 84  private suspend fun copy(surface: SurfaceView): Bitmap {
+ 85      val width = surface.width
+ 86      val height = surface.height
+ 87      if (width <= 0 || height <= 0) throw CaptureException(CaptureFailure.NOT_READY)
+ 88      val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+ 89      val result = withTimeoutOrNull(COPY_TIMEOUT_MILLIS) {
+ 90          suspendCancellableCoroutine { continuation ->
+ 91              PixelCopy.request(surface, bitmap, { code -> continuation.resume(code) }, Handler(Looper.getMainLooper()))
+ 92          }
+ 93      }
+ 94      if (result != PixelCopy.SUCCESS) {
+ 95          // After a TIMEOUT (result == null) PixelCopy may still write into the bitmap later: do not recycle it,
+ 96          // let the garbage collector take it. After any real answer it is safe to free it now.
+ 97          if (result != null) bitmap.recycle()
+ 98          throw CaptureException(
+ 99              when (result) {
+100                  null, PixelCopy.ERROR_TIMEOUT -> CaptureFailure.TIMEOUT
+101                  PixelCopy.ERROR_SOURCE_NO_DATA -> CaptureFailure.NOT_READY
+102                  PixelCopy.ERROR_SOURCE_INVALID -> CaptureFailure.NO_SCENE
+103                  else -> CaptureFailure.OTHER
+104              }
+105          )
+106      }
+107      return bitmap
+108  }
 ```
 
 - **`suspendCancellableCoroutine`**: convierte una API de *callback* en una función que **espera**. Se pide la copia; cuando Android llama al *callback* con el código, `continuation.resume(code)` **despierta** la corrutina con ese valor.
@@ -187,7 +187,7 @@ Recorrido **en profundidad** del árbol de vistas desde la raíz de la ventana (
 
 ### 6.4 La banda con el nombre
 
-La captura solo contiene el 3D (sección 2). `addCaption` crea un bitmap **un 9 % más alto**, pinta el fondo `void`, la escena arriba y, en la banda, el texto **«Swifty Proteins · 001 · 87 atoms · 90 bonds»** en verde fósforo y fuente monoespaciada del sistema. Así la imagen compartida **dice qué ligando es**. El texto sale de `ShareText.caption` (puro, probado). *(El aspecto de la banda se ajustará con el diseño v2.)*
+La captura solo contiene el 3D (sección 2). `addCaption` crea un bitmap **un 9 % más alto**, pinta el fondo `void`, la escena arriba y, en la banda, el texto **«Swifty Proteins · 001 · 87 atoms · 90 bonds»** en verde fósforo con la fuente de la app (**Silkscreen**, cargada con `ResourcesCompat.getFont`; si fallara, la monoespaciada del sistema). Así la imagen compartida **dice qué ligando es**. El texto sale de `ShareText.caption` (puro, probado). **Silkscreen es ancha:** medido, la frase ocupa 1008 px de los 1002 disponibles en una captura de 1080 px, así que se **mide** (`measureText`) y, si no cabe, se **reduce** el tamaño en proporción.
 
 ### 6.5 Guardar: escribir aparte y renombrar
 
@@ -242,8 +242,8 @@ Los identificadores ya llegan validados (1–3 letras o cifras, documento 06), p
 | Estado | Línea de estado | Botón |
 |--------|-----------------|-------|
 | `Idle` | (nada) | activo |
-| `Working` | «Preparing image…» | **apagado** (`canStart = false`: un segundo toque no abre dos hojas) |
-| `Done` | «Image ready» (3 s) | activo |
+| `Working` | «Preparing pict-capture…» (diseño v2) | **apagado**, muestra «...» (`canStart = false`: un segundo toque no abre dos hojas) |
+| `Done` | «Pict-capture ready» (3 s) | activo |
 | `Failed(causa)` | el mensaje de la causa, en rojo de error (3 s) | activo (se puede reintentar) |
 
 ### 6.7 En la pantalla
@@ -256,12 +256,12 @@ En `MoleculeScreen`: `rememberCoroutineScope()` da un *scope* **ligado a la pant
 
 | t | Qué pasa | Estado | Pantalla |
 |--:|----------|--------|----------|
-| 0 | Toque | `Idle` → `Working` | «Preparing image…», botón apagado |
+| 0 | Toque | `Idle` → `Working` | «Preparing pict-capture…», tecla «...» apagada |
 | 0 | `findSurfaceView`: decorView → … → `AndroidView` → **`SurfaceView`** 1080×2100 | | |
 | ~5 ms | `PixelCopy` responde `SUCCESS` | | |
 | ~60 ms | Banda dibujada (Default): bitmap 1080×2197 | | |
 | ~250 ms | PNG escrito (IO): `cache/shared/ligand_001.png` (~0,5–2 MB) | | |
-| ~260 ms | `FileProvider` → `content://…/shared_images/ligand_001.png`; se abre la hoja | `Done` | «Image ready» bajo la hoja |
+| ~260 ms | `FileProvider` → `content://…/shared_images/ligand_001.png`; se abre la hoja | `Done` | «Pict-capture ready» bajo la hoja |
 | … | El usuario elige Telegram: Telegram **lee** el fichero con el permiso concedido | | |
 | +3 s | `LaunchedEffect` | `Idle` | la línea desaparece |
 
@@ -305,7 +305,7 @@ En `MoleculeScreen`: `rememberCoroutineScope()` da un *scope* **ligado a la pant
 
 | # | Qué hacer | Qué debe pasar |
 |--:|-----------|----------------|
-| 1 | Abrir `001`, tocar **Share** | «Preparing image…» y, enseguida, la **hoja de compartir** del sistema |
+| 1 | Abrir `001`, tocar **SHR** | «Preparing pict-capture…» y, enseguida, la **hoja de compartir** del sistema |
 | 2 | Elegir **Guardar en Drive / Archivos** o enviarte un mensaje a ti mismo | La imagen: **la molécula** (no un rectángulo negro) y abajo la banda **«Swifty Proteins · 001 · 87 atoms · 90 bonds»** |
 | 3 | Girar la molécula, ocultar «H» y compartir otra vez | La imagen refleja lo que se ve (sin hidrógenos) |
 | 4 | Tocar Share **dos veces** muy rápido | Una sola hoja |

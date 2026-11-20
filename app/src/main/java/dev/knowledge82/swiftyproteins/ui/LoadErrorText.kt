@@ -48,23 +48,40 @@ fun LoadError.canRetry(): Boolean = when (this) {
     is LoadError.Unexpected -> true
 }
 
-/** The short title of the error dialog (the design puts a title above the message). Same exhaustive `when` rule. */
-fun LoadError.title(): String = when (this) {
-    is LoadError.NoConnection -> "No network connection"
-    is LoadError.Timeout -> "Server timeout"
-    is LoadError.NotFound -> "Ligand not found (404)"
-    is LoadError.ServerError -> "Server error"
-    is LoadError.Incomplete -> "Download interrupted"
-    is LoadError.TooLarge -> "File too large"
-    is LoadError.Corrupt -> "Received data is corrupt"
-    is LoadError.InvalidId -> "Invalid ligand ID"
-    is LoadError.NetworkError -> "Network error"
-    is LoadError.Unexpected -> "Something went wrong"
+/**
+ * The flavour title of the error dialog (design v2): a Mechanicus headline ABOVE the plain message
+ * ([userMessage]), never instead of it. Same exhaustive `when` rule.
+ */
+fun LoadError.flavourTitle(): String = when (this) {
+    is LoadError.NoConnection -> "The Noosphere is Silent"
+    is LoadError.Timeout -> "Time Has Forsaken Us"
+    is LoadError.NotFound -> "The Archive is Empty"
+    is LoadError.ServerError -> "The Forge is Troubled"
+    is LoadError.Incomplete -> "The Transmission is Severed"
+    is LoadError.TooLarge -> "A Pattern Too Vast"
+    is LoadError.Corrupt -> "The Data-Slate is Damaged"
+    is LoadError.InvalidId -> "The Rune is Invalid"
+    is LoadError.NetworkError -> "The Noosphere is Disturbed"
+    is LoadError.Unexpected -> "The Machine Spirit is Displeased"
+}
+
+/** The small tab on the dialog frame: the KIND of failure in console style ("NET / OFFLINE", "HTTP / 404"). */
+fun LoadError.panelLabel(): String = when (this) {
+    is LoadError.NoConnection -> "NET / OFFLINE"
+    is LoadError.Timeout -> "NET / TIMEOUT"
+    is LoadError.NotFound -> "HTTP / 404"
+    is LoadError.ServerError -> "HTTP / $code"
+    is LoadError.Incomplete -> "NET / SEVERED"
+    is LoadError.TooLarge -> "DATA / OVERSIZE"
+    is LoadError.Corrupt -> "DATA / CORRUPT"
+    is LoadError.InvalidId -> "INPUT / INVALID"
+    is LoadError.NetworkError -> "NET / FAULT"
+    is LoadError.Unexpected -> "SYSTEM / FAULT"
 }
 
 /**
  * Which picture goes with each error. The design drew five (offline, not found, timeout, corrupt, invalid); our
- * other five errors get the generic warning sign. Kept as an enum (pure Kotlin) so the choice can be tested; the
+ * other five errors get the generic one (WARNING). Kept as an enum (pure Kotlin) so the choice can be tested; the
  * screen turns it into a drawable.
  */
 enum class ErrorGlyph { OFFLINE, NOT_FOUND, TIMEOUT, CORRUPT, INVALID, WARNING }

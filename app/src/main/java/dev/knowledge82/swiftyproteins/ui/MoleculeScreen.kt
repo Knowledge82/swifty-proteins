@@ -2,7 +2,6 @@ package dev.knowledge82.swiftyproteins.ui
 
 import android.util.Log
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -29,12 +28,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.ElementLegend
@@ -50,8 +48,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 /**
- * The screen of one molecule (design screens 15, 16 and 18): the 3D scene full size, a bar on top (back, name,
- * hydrogens on/off), the colour key and a card at the bottom that says what the tapped atom is.
+ * The screen of one molecule, the "Auspex Readout" (design v2, screens 16-22): the 3D scene full size, a panel on
+ * top (back, pattern name, hydrogens, share), targeting brackets around the viewport, the share status, the readout of
+ * the tapped atom and the CPK colour key.
  *
  * The LOGIC is the same as before the design (selection, hydrogen switch, Back). The Share button (document 09)
  * captures the 3D scene and opens Android's share sheet; a small status line says what it is doing.
@@ -119,123 +118,143 @@ fun MoleculeScreen(
             modifier = Modifier.fillMaxSize(),
         )
 
-        TopBar(
-            molecule = molecule,
-            hasHydrogens = hasHydrogens,
-            showHydrogens = showHydrogens,
-            onToggleHydrogens = { showHydrogens = !showHydrogens },
-            onBack = onBack,
-            shareEnabled = share.canStart,
-            onShare = onShare,
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
-
-        Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp)) {
+        // The frame AROUND the scene. Only the panels catch touches (they are Surfaces); the brackets and the empty
+        // middle let every touch through to the molecule.
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+            TopPanel(
+                molecule = molecule,
+                hasHydrogens = hasHydrogens,
+                showHydrogens = showHydrogens,
+                onToggleHydrogens = { showHydrogens = !showHydrogens },
+                onBack = onBack,
+                share = share,
+                onShare = onShare,
+            )
+            CornerBrackets(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 14.dp))
             share.label?.let { text ->
-                ShareStatusLine(text = text, isError = share is ShareStatus.Failed)
-                Spacer(Modifier.height(10.dp))
+                ShareStatusPanel(text = text, status = share)
+                Spacer(Modifier.height(14.dp))
             }
+            ReadoutPanel(atom = atom, hydrogensHidden = hasHydrogens && !showHydrogens)
             if (legend.isNotEmpty()) {
-                SectionLabel("Elements / CPK")
-                Spacer(Modifier.height(6.dp))
-                ElementKey(legend)
                 Spacer(Modifier.height(10.dp))
+                ElementKey(legend)
             }
-            AtomCard(atom = atom, hydrogensHidden = hasHydrogens && !showHydrogens)
         }
     }
 }
 
-/** Semi-opaque iron bar (96 %, no blur: blur cannot reach the GPU surface below) with a brass seam under it. */
+/** "AUSPEX // RUNNING": back, "Pattern 001", "87 ATOMS :: 90 BONDS", the H key and the SHR key. */
 @Composable
-private fun TopBar(
+private fun TopPanel(
     molecule: Molecule,
     hasHydrogens: Boolean,
     showHydrogens: Boolean,
     onToggleHydrogens: () -> Unit,
     onBack: () -> Unit,
-    shareEnabled: Boolean,
+    share: ShareStatus,
     onShare: () -> Unit,
-    modifier: Modifier = Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth()) {
-        Surface(modifier = Modifier.fillMaxWidth(), color = SwiftyColors.IronOverlay) {
-            Row(
-                modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconPlateButton(icon = R.drawable.ic_back, contentDescription = "Back to the list", onClick = onBack)
-                Spacer(Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    SectionLabel("Ligand ${molecule.id}", color = SwiftyColors.Gold)
-                    Text(
-                        text = "${molecule.id} · ${molecule.atoms.size} atoms · ${molecule.bonds.size} bonds",
-                        style = MaterialTheme.typography.titleMedium,
-                        color = SwiftyColors.Bone,
-                        maxLines = 1,
-                    )
-                }
-                if (hasHydrogens) {
-                    Spacer(Modifier.width(8.dp))
-                    HydrogenChip(on = showHydrogens, onToggle = onToggleHydrogens)
-                }
-                Spacer(Modifier.width(8.dp))
-                IconPlateButton(
-                    icon = R.drawable.ic_share,
-                    contentDescription = "Share an image of the molecule",
-                    onClick = onShare,
-                    enabled = shareEnabled,
+    CogitatorPanel(label = "AUSPEX // RUNNING", fill = SwiftyColors.ConsoleOverlay, contentPadding = 8.dp, modifier = Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BackKey(onClick = onBack)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Pattern ${molecule.id}", style = MaterialTheme.typography.displayLarge, color = SwiftyColors.Gold, maxLines = 1)
+                Text(
+                    "${molecule.atoms.size} ATOMS :: ${molecule.bonds.size} BONDS",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = SwiftyColors.Phosphor,
+                    maxLines = 1,
                 )
             }
-        }
-        Canvas(Modifier.fillMaxWidth().height(1.dp)) {
-            drawLine(SwiftyColors.Brass, Offset(0f, 0f), Offset(size.width, 0f), strokeWidth = 1.dp.toPx())
+            if (hasHydrogens) {
+                ConsoleKey(
+                    text = "H",
+                    onClick = onToggleHydrogens,
+                    contentDescription = "Hydrogen atoms",
+                    active = showHydrogens,
+                    stateDescription = if (showHydrogens) "shown" else "hidden",
+                )
+                Spacer(Modifier.width(8.dp))
+            }
+            ConsoleKey(
+                // "SHR" as in the design; "..." while the capture is being prepared (the key is off: no double taps).
+                text = if (share is ShareStatus.Working) "..." else "SHR",
+                onClick = onShare,
+                contentDescription = "Share an image of the molecule",
+                enabled = share.canStart,
+            )
         }
     }
 }
 
-/** "● C   ● N   ● O   ● H": the CPK colour of each element that is drawn. The letter is always written. */
+/** "PICT-CAPTURE ACTIVE" / "SYSTEM MESSAGE": what the Share key is doing. */
 @Composable
-private fun ElementKey(elements: List<String>) {
-    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
-        for (element in elements) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(10.dp).background(cpkColor(element), CircleShape))
-                Spacer(Modifier.width(6.dp))
-                Text(element, style = SwiftyDataText.small, color = SwiftyColors.Bone)
+private fun ShareStatusPanel(text: String, status: ShareStatus) {
+    val failed = status is ShareStatus.Failed
+    CogitatorPanel(
+        label = when (status) {
+            is ShareStatus.Working -> "PICT-CAPTURE ACTIVE"
+            is ShareStatus.Failed -> "PICT-CAPTURE FAILED"
+            else -> "SYSTEM MESSAGE"
+        },
+        accent = if (failed) SwiftyColors.OpticRed else SwiftyColors.Brass,
+        fill = SwiftyColors.ConsoleOverlay,
+        contentPadding = 12.dp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium,
+            color = if (failed) SwiftyColors.OpticRed else SwiftyColors.Phosphor,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+/** "AUSPEX READOUT": help, "hydrogens hidden", or the selected atom with X / Y / Z in two columns. */
+@Composable
+private fun ReadoutPanel(atom: Atom?, hydrogensHidden: Boolean) {
+    CogitatorPanel(label = "AUSPEX READOUT", fill = SwiftyColors.ConsoleOverlay, modifier = Modifier.fillMaxWidth()) {
+        if (atom == null) {
+            Text(
+                if (hydrogensHidden) "Hydrogens hidden" else "No atom selected",
+                style = MaterialTheme.typography.titleMedium,
+                color = SwiftyColors.Bone,
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                if (hydrogensHidden) "Tap an atom to inspect it." else "Drag to rotate. Pinch to zoom. Tap an atom.",
+                style = MaterialTheme.typography.bodySmall,
+                color = SwiftyColors.Phosphor,
+            )
+        } else {
+            Text(AtomText.title(atom), style = MaterialTheme.typography.titleMedium, color = SwiftyColors.Gold)
+            Spacer(Modifier.height(8.dp))
+            for ((axis, value) in listOf("X" to atom.x, "Y" to atom.y, "Z" to atom.z)) {
+                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
+                    Text(axis, style = SwiftyDataText.medium, color = SwiftyColors.Phosphor, modifier = Modifier.weight(1f))
+                    Text(AtomText.value(value), style = SwiftyDataText.medium, color = SwiftyColors.Bone)
+                }
             }
         }
     }
 }
 
-/** The bottom card: help, "hydrogens hidden", or the selected atom with its coordinates. */
+/** "ELEMENTS / CPK KEY": the colour of each element that is drawn. The letter is always written. */
 @Composable
-private fun AtomCard(atom: Atom?, hydrogensHidden: Boolean) {
-    SwiftyPlate(modifier = Modifier.fillMaxWidth(), cut = 12, fill = SwiftyColors.IronOverlay, border = SwiftyColors.Rivet) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            if (atom == null) {
-                SectionLabel("Inspection", color = SwiftyColors.Gold)
-                Spacer(Modifier.height(8.dp))
-                if (hydrogensHidden) {
-                    Text("Hydrogens hidden", style = MaterialTheme.typography.titleMedium, color = SwiftyColors.Bone)
-                    Text("Tap H to show hydrogen atoms again.", style = MaterialTheme.typography.bodySmall, color = SwiftyColors.Ash)
-                } else {
-                    Text("Tap an atom to inspect it", style = MaterialTheme.typography.titleMedium, color = SwiftyColors.Bone)
-                    Text("Drag to rotate, pinch to zoom, tap an atom.", style = MaterialTheme.typography.bodySmall, color = SwiftyColors.Ash)
+private fun ElementKey(elements: List<String>) {
+    CogitatorPanel(fill = SwiftyColors.ConsoleOverlay, contentPadding = 10.dp, scanlines = false, modifier = Modifier.fillMaxWidth()) {
+        Text("Elements / CPK key", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash)
+        Spacer(Modifier.height(6.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            for (element in elements) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(Modifier.size(10.dp).background(cpkColor(element), CircleShape))
+                    Spacer(Modifier.width(6.dp))
+                    Text(element, style = SwiftyDataText.small, color = SwiftyColors.Bone)
                 }
-            } else {
-                SectionLabel("Selected atom", color = SwiftyColors.Gold)
-                Spacer(Modifier.height(4.dp))
-                Text(AtomText.title(atom), style = MaterialTheme.typography.titleLarge, color = SwiftyColors.Bone)
-                SeamDivider()
-                // Machine data: green monospace. Three columns so the numbers do not jump when they change.
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    for ((axis, value) in listOf("X" to atom.x, "Y" to atom.y, "Z" to atom.z)) {
-                        Text(AtomText.coordinate(axis, value), style = SwiftyDataText.small, color = SwiftyColors.Phosphor, modifier = Modifier.weight(1f))
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-                Text("Tap another atom to inspect it.", style = MaterialTheme.typography.bodySmall, color = SwiftyColors.Ash)
             }
         }
     }
@@ -245,17 +264,4 @@ private fun AtomCard(atom: Atom?, hydrogensHidden: Boolean) {
 private fun cpkColor(element: String): Color {
     val rgb = ElementStyle.colorOf(element)
     return Color((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
-}
-
-/** "Preparing image…" / "Image ready" / the reason of a failure: a small plate above the legend. */
-@Composable
-private fun ShareStatusLine(text: String, isError: Boolean) {
-    SwiftyPlate(cut = 6, fill = SwiftyColors.IronOverlay, border = if (isError) SwiftyColors.Error else SwiftyColors.Brass) {
-        Text(
-            text,
-            style = MaterialTheme.typography.bodySmall,
-            color = if (isError) SwiftyColors.Error else SwiftyColors.Bone,
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-        )
-    }
 }

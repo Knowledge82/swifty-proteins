@@ -72,20 +72,22 @@ class LoadErrorTextTest {
         assertTrue(LoadError.Corrupt(CifFailure.NoAtoms).canRetry())
     }
 
-    // --- titles and pictures of the designed error dialog ---
+    // --- flavour titles, panel labels and pictures of the designed error dialog ---
 
     @Test
-    fun everyErrorHasAShortTitleOnOneLine() {
+    fun everyErrorHasAShortFlavourTitleAndAPanelLabel() {
         for (error in everyKind()) {
-            val title = error.title()
-            assertTrue("$error", title.isNotBlank() && title.length <= 28 && '\n' !in title)
+            val title = error.flavourTitle()
+            assertTrue("$error", title.isNotBlank() && title.length <= 34 && '\n' !in title)
+            assertTrue("$error", error.panelLabel().contains(" / "))
         }
     }
 
     @Test
-    fun theFourErrorsOfTheTaskHaveDifferentTitlesAndPictures() {
+    fun theFourErrorsOfTheTaskHaveDifferentTitlesLabelsAndPictures() {
         val four = listOf(LoadError.NoConnection, LoadError.NotFound, LoadError.Corrupt(CifFailure.NoAtoms), LoadError.Timeout)
-        assertEquals(4, four.map { it.title() }.toSet().size)
+        assertEquals(4, four.map { it.flavourTitle() }.toSet().size)
+        assertEquals(4, four.map { it.panelLabel() }.toSet().size)
         assertEquals(4, four.map { it.glyph() }.toSet().size)
     }
 
@@ -100,7 +102,15 @@ class LoadErrorTextTest {
     }
 
     @Test
-    fun theNotFoundTitleSaysItIsA404() {
-        assertTrue(LoadError.NotFound.title().contains("404"))
+    fun theHttpLabelsCarryTheStatusCode() {
+        assertEquals("HTTP / 404", LoadError.NotFound.panelLabel())
+        assertEquals("HTTP / 503", LoadError.ServerError(503).panelLabel())
+    }
+
+    @Test
+    fun theFlavourNeverReplacesThePlainMessage() {
+        // The flavour title is decoration: the plain message must still say what happened, in ordinary words.
+        assertTrue(LoadError.NoConnection.userMessage("001").contains("network", ignoreCase = true))
+        assertTrue(LoadError.NotFound.userMessage("001").contains("404"))
     }
 }

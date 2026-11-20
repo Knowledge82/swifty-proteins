@@ -50,8 +50,8 @@ class ShareTextTest {
     @Test
     fun theStatusLineFollowsTheDesign() {
         assertNull(ShareStatus.Idle.label)
-        assertEquals("Preparing image…", ShareStatus.Working.label)
-        assertEquals("Image ready", ShareStatus.Done.label)
+        assertEquals("Preparing pict-capture…", ShareStatus.Working.label)
+        assertEquals("Pict-capture ready", ShareStatus.Done.label)
         assertEquals(CaptureFailure.NOT_READY.userMessage(), ShareStatus.Failed(CaptureFailure.NOT_READY).label)
     }
 }

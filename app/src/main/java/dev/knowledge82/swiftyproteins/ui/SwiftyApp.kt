@@ -8,6 +8,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -17,9 +18,10 @@ import dev.knowledge82.swiftyproteins.loading.LoadState
 import kotlinx.coroutines.launch
 
 /**
- * The root of the screen: decides WHAT to show from the [LoadState] (no navigation library, see D19).
+ * The root of the screen: decides WHAT to show (no navigation library, see D19).
  *
- *   Loaded                 -> the 3D screen of the molecule
+ *   not booted yet          -> the cogitator boot screen (the launch screen, once per start)
+ *   Loaded                  -> the 3D screen of the molecule
  *   Idle / Loading / Failed -> the list, with a dialog on top while loading or when it failed
  */
 @Composable
@@ -31,6 +33,8 @@ fun SwiftyApp(viewModel: LigandsViewModel) {
     var query by rememberSaveable { mutableStateOf("") }
     val listState = rememberLazyListState()
     val scope = rememberCoroutineScope()
+    // rememberSaveable: rotating the phone does not replay the boot screen; a fresh start does.
+    var booted by rememberSaveable { mutableStateOf(false) }
 
     Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
         // consumeWindowInsets: tells the children "the system bars are already taken into account", so that
@@ -38,7 +42,10 @@ fun SwiftyApp(viewModel: LigandsViewModel) {
         val content = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
 
         val current = state   // `state` is a delegated property: copy it to be able to use `is` checks on it
-        if (current is LoadState.Loaded) {
+        if (!booted) {
+            val size = remember(viewModel) { viewModel.catalog?.search("")?.size }
+            BootScreen(catalogSize = size, onFinished = { booted = true }, modifier = content)
+        } else if (current is LoadState.Loaded) {
             MoleculeScreen(
                 molecule = current.molecule,
                 onBack = viewModel::cancel,

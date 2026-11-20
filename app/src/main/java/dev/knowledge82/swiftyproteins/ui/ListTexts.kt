@@ -2,32 +2,27 @@ package dev.knowledge82.swiftyproteins.ui
 
 import java.util.Locale
 
-/**
- * The small status texts of the ligand list (the green line under the title and the footer). Pure Kotlin, tested.
- *
- * @param available `false` when the list file could not be read (catalog is null)
- * @param total     how many ligands the catalog has
- * @param query     what the user typed
- * @param shown     how many rows the search returned
- */
+/** The status texts of the Data-Vault Index (design v2, screens 06-09). Pure Kotlin, tested. */
 object ListTexts {
 
-    fun status(available: Boolean, total: Int, query: String, shown: Int): String = when {
-        !available -> "CATALOG UNAVAILABLE"
-        query.isBlank() -> plural(total, "ENTRY", "ENTRIES")
-        else -> plural(shown, "RESULT", "RESULTS")
+    /** The tab on the archive panel: "ARCHIVE ACCESS / 1243" (no thousands separator, as in the design). */
+    fun archiveLabel(available: Boolean, total: Int): String =
+        if (available) "ARCHIVE ACCESS / $total" else "ARCHIVE ACCESS / ERROR"
+
+    /**
+     * The green line above the rows: the whole catalog when nothing is typed, the matches otherwise.
+     *
+     * @param available `false` when the list file could not be read (catalog is null)
+     */
+    fun patternsFound(available: Boolean, total: Int, query: String, shown: Int): String = when {
+        !available -> "ARCHIVE UNREADABLE"
+        query.isBlank() -> "PATTERNS FOUND: ${count(total)}"
+        else -> "PATTERNS FOUND: ${count(shown)}"
     }
 
-    fun footer(available: Boolean, total: Int, query: String, shown: Int): String = when {
-        !available -> "CATALOG ERROR // LIST NOT READABLE"
-        total == 0 -> "CATALOG EMPTY"
-        query.isBlank() -> "CATALOG READY // ${count(total)} INDEXED LIGANDS"
-        shown == 0 -> "SEARCH COMPLETE // NO MATCH"
-        else -> "FILTER LIVE // CASE INSENSITIVE"
-    }
+    /** "No pattern matches 'xyz'." (the query trimmed, so spaces typed around it do not show). */
+    fun noMatch(query: String): String = "No pattern matches '${query.trim()}'."
 
-    /** 1243 -> "1,243" always (Locale.US): the design shows a comma, whatever the phone's language. */
+    /** 1243 -> "1,243" always (Locale.US), whatever the phone's language. */
     private fun count(n: Int): String = String.format(Locale.US, "%,d", n)
-
-    private fun plural(n: Int, one: String, many: String) = "${count(n)} ${if (n == 1) one else many}"
 }

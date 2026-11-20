@@ -1,5 +1,7 @@
 # 07b · Icono y pantalla de inicio (*splash*): qué pide la hoja de evaluación y cómo se cumple
 
+> **Nota posterior (documento [`08c-diseno-v2-cogitador.md`](08c-diseno-v2-cogitador.md), decisión D32, que sustituye a D25):** la *splash* del sistema **ya no se retiene**; el *launch screen* de más de un segundo es ahora la **pantalla de arranque del cogitador** (1600 ms, una vez por arranque). `SplashHold` y sus pruebas se **borraron**. El icono es el de la v2. La teoría de este documento (qué es la ventana de arranque, `core-splashscreen`, `installSplashScreen()` antes de `super.onCreate`) **sigue valiendo**; el código citado abajo es el de esta etapa.
+
 > **Estado:** escrito y con la parte pura probada en el ordenador (5 pruebas, con mutación). **El resto no se ha compilado ni visto en el móvil**: la biblioteca nueva no se pudo resolver desde este entorno (sin acceso a Maven). Sección 9.
 
 ## Índice

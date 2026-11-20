@@ -36,4 +36,10 @@ class AtomTextTest {
             Locale.setDefault(before)
         }
     }
+
+    @Test
+    fun theValueAloneIsTheSameNumberWithoutTheAxis() {
+        assertEquals("-5.006 Å", AtomText.value(-5.006f))
+        assertEquals("12.184 Å", AtomText.value(12.1841f))
+    }
 }

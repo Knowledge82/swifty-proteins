@@ -15,6 +15,8 @@ import android.view.SurfaceView
 import android.view.View
 import android.view.ViewGroup
 import androidx.core.content.FileProvider
+import androidx.core.content.res.ResourcesCompat
+import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -51,7 +53,7 @@ object MoleculeSharer {
         val surface = findSurfaceView(root.rootView) ?: throw CaptureException(CaptureFailure.NO_SCENE)
         val scene = copy(surface)
         val captioned = withContext(Dispatchers.Default) {
-            try { addCaption(scene, ShareText.caption(molecule)) } finally { scene.recycle() }
+            try { addCaption(context, scene, ShareText.caption(molecule)) } finally { scene.recycle() }
         }
         val file = withContext(Dispatchers.IO) {
             try {
@@ -106,7 +108,7 @@ object MoleculeSharer {
     }
 
     /** A new bitmap: the scene on top, a dark band with the caption below (so the image says which ligand it is). */
-    private fun addCaption(scene: Bitmap, caption: String): Bitmap {
+    private fun addCaption(context: Context, scene: Bitmap, caption: String): Bitmap {
         val band = (scene.width * 0.09f).toInt().coerceAtLeast(48)
         val out = Bitmap.createBitmap(scene.width, scene.height + band, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
@@ -115,8 +117,13 @@ object MoleculeSharer {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = TEXT_COLOR
             textSize = band * 0.38f
-            typeface = Typeface.MONOSPACE
+            // The app's console font (Silkscreen); if it cannot be loaded, the system monospace: never a failure.
+            typeface = runCatching { ResourcesCompat.getFont(context, R.font.silkscreen_regular) }.getOrNull() ?: Typeface.MONOSPACE
         }
+        // Silkscreen is a WIDE font: shrink the text if the caption would not fit between the margins.
+        val maxWidth = scene.width - band * 0.8f
+        val width = paint.measureText(caption)
+        if (width > maxWidth) paint.textSize = paint.textSize * maxWidth / width
         val baseline = scene.height + band / 2f - (paint.descent() + paint.ascent()) / 2f
         canvas.drawText(caption, band * 0.4f, baseline, paint)
         return out
@@ -146,6 +153,6 @@ object MoleculeSharer {
         }
     }
 
-    private const val BAND_COLOR = 0xFF0A0A0B.toInt()   // SwiftyColors.Void
+    private const val BAND_COLOR = 0xFF050806.toInt()   // SwiftyColors.Abyss
     private const val TEXT_COLOR = 0xFF43E07A.toInt()   // SwiftyColors.Phosphor
 }

@@ -52,7 +52,7 @@ Del documento 01, para la vista 3D: modelo de **bolas y varillas** con **colores
 | `scene/BondGeometry.kt` | `scene/` | 60 | Dónde y cómo girar un cilindro para unir dos átomos. **Puro, con pruebas.** |
 | `scene/SceneFraming.kt` | `scene/` | 57 | Radio de la molécula y distancia inicial de la cámara. **Puro, con pruebas.** |
 | `ui/MoleculeScene.kt` | `ui/` | 148 | Convierte un `Molecule` en nodos de SceneView y atiende los toques. **Sin compilar.** |
-| `ui/MoleculeScreen.kt` | `ui/` | 261 | Barra superior, interruptor «H», tarjeta del átomo. **Sin compilar.** |
+| `ui/MoleculeScreen.kt` | `ui/` | 267 | Barra superior, interruptor «H», tarjeta del átomo. **Sin compilar.** |
 | `ui/SwiftyApp.kt` | `ui/` | — | **Una línea cambia:** la rama `Loaded` dibuja `MoleculeScreen` en vez de la pantalla provisional. |
 | `ElementStyleTest.kt`, `BondGeometryTest.kt`, `SceneFramingTest.kt` | `app/src/test/.../scene/` | 10 + 8 + 13 pruebas | Ver sección 14. |
 
@@ -527,109 +527,107 @@ Es decir: el tope era **proporcional al tamaño de la molécula**, cuando lo que
 > **Actualizado con el diseño (documento 08b, sección 8).** La **lógica** de esta función es la misma de la primera versión; lo que cambió es el **dibujo**: la barra, el interruptor, la leyenda y la tarjeta son ahora componentes propios (`TopBar`, `HydrogenChip`, `ElementKey`, `AtomCard`), explicados en el documento 08b.
 
 ```kotlin
-// MoleculeScreen.kt · líneas 59–147
- 59  @Composable
- 60  fun MoleculeScreen(
- 61      molecule: Molecule,
- 62      onBack: () -> Unit,
- 63      modifier: Modifier = Modifier,
- 64  ) {
- 65      // The system Back button returns to the list, exactly like the button on screen.
- 66      BackHandler(onBack = onBack)
- 67
- 68      // rememberSaveable: the selection and the switch survive a rotation of the phone.
- 69      var selected by rememberSaveable { mutableStateOf<Int?>(null) }
- 70      var showHydrogens by rememberSaveable { mutableStateOf(true) }
- 71      val hasHydrogens = remember(molecule) { molecule.atoms.any { it.element == "H" } }
- 72      val legend = remember(molecule, showHydrogens) { ElementLegend.of(molecule, showHydrogens) }
- 73
- 74      // Share: the state of the button and the job. The job lives in the screen's coroutine scope, so leaving the
- 75      // screen cancels a capture in progress (nothing is left half done in the background).
- 76      var share by remember { mutableStateOf<ShareStatus>(ShareStatus.Idle) }
- 77      val scope = rememberCoroutineScope()
- 78      val context = LocalContext.current
- 79      val view = LocalView.current
- 80      val onShare = {
- 81          if (share.canStart) {
- 82              share = ShareStatus.Working
- 83              scope.launch {
- 84                  share = try {
- 85                      MoleculeSharer.share(context, view, molecule)
- 86                      ShareStatus.Done
- 87                  } catch (e: CancellationException) {
- 88                      throw e   // the screen went away: not a failure, just stop
- 89                  } catch (e: CaptureException) {
- 90                      Log.w("SwiftyProteins", "share ${molecule.id} failed: ${e.failure}", e.cause)
- 91                      ShareStatus.Failed(e.failure)
- 92                  } catch (e: Exception) {
- 93                      Log.w("SwiftyProteins", "share ${molecule.id} failed", e)
- 94                      ShareStatus.Failed(CaptureFailure.OTHER)
- 95                  }
- 96              }
- 97          }
- 98      }
- 99      // "Image ready" or an error stays on screen a few seconds, then the line goes away.
-100      LaunchedEffect(share) {
-101          if (share is ShareStatus.Done || share is ShareStatus.Failed) {
-102              delay(3_000)
-103              share = ShareStatus.Idle
-104          }
-105      }
-106
-107      // What is REALLY highlighted: a valid index, and not a hydrogen that is currently hidden.
-108      val atom = selected
-109          ?.takeIf { it in molecule.atoms.indices }
-110          ?.let { molecule.atoms[it] }
-111          ?.takeIf { showHydrogens || it.element != "H" }
-112
-113      Box(modifier = modifier.fillMaxSize()) {
-114          MoleculeScene(
-115              molecule = molecule,
-116              showHydrogens = showHydrogens,
-117              selected = if (atom == null) null else selected,
-118              onSelect = { selected = it },
-119              modifier = Modifier.fillMaxSize(),
-120          )
-121
-122          TopBar(
-123              molecule = molecule,
-124              hasHydrogens = hasHydrogens,
-125              showHydrogens = showHydrogens,
-126              onToggleHydrogens = { showHydrogens = !showHydrogens },
-127              onBack = onBack,
-128              shareEnabled = share.canStart,
-129              onShare = onShare,
-130              modifier = Modifier.align(Alignment.TopCenter),
-131          )
-132
-133          Column(modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(16.dp)) {
+// MoleculeScreen.kt · líneas 58–145
+ 58  @Composable
+ 59  fun MoleculeScreen(
+ 60      molecule: Molecule,
+ 61      onBack: () -> Unit,
+ 62      modifier: Modifier = Modifier,
+ 63  ) {
+ 64      // The system Back button returns to the list, exactly like the button on screen.
+ 65      BackHandler(onBack = onBack)
+ 66
+ 67      // rememberSaveable: the selection and the switch survive a rotation of the phone.
+ 68      var selected by rememberSaveable { mutableStateOf<Int?>(null) }
+ 69      var showHydrogens by rememberSaveable { mutableStateOf(true) }
+ 70      val hasHydrogens = remember(molecule) { molecule.atoms.any { it.element == "H" } }
+ 71      val legend = remember(molecule, showHydrogens) { ElementLegend.of(molecule, showHydrogens) }
+ 72
+ 73      // Share: the state of the button and the job. The job lives in the screen's coroutine scope, so leaving the
+ 74      // screen cancels a capture in progress (nothing is left half done in the background).
+ 75      var share by remember { mutableStateOf<ShareStatus>(ShareStatus.Idle) }
+ 76      val scope = rememberCoroutineScope()
+ 77      val context = LocalContext.current
+ 78      val view = LocalView.current
+ 79      val onShare = {
+ 80          if (share.canStart) {
+ 81              share = ShareStatus.Working
+ 82              scope.launch {
+ 83                  share = try {
+ 84                      MoleculeSharer.share(context, view, molecule)
+ 85                      ShareStatus.Done
+ 86                  } catch (e: CancellationException) {
+ 87                      throw e   // the screen went away: not a failure, just stop
+ 88                  } catch (e: CaptureException) {
+ 89                      Log.w("SwiftyProteins", "share ${molecule.id} failed: ${e.failure}", e.cause)
+ 90                      ShareStatus.Failed(e.failure)
+ 91                  } catch (e: Exception) {
+ 92                      Log.w("SwiftyProteins", "share ${molecule.id} failed", e)
+ 93                      ShareStatus.Failed(CaptureFailure.OTHER)
+ 94                  }
+ 95              }
+ 96          }
+ 97      }
+ 98      // "Image ready" or an error stays on screen a few seconds, then the line goes away.
+ 99      LaunchedEffect(share) {
+100          if (share is ShareStatus.Done || share is ShareStatus.Failed) {
+101              delay(3_000)
+102              share = ShareStatus.Idle
+103          }
+104      }
+105
+106      // What is REALLY highlighted: a valid index, and not a hydrogen that is currently hidden.
+107      val atom = selected
+108          ?.takeIf { it in molecule.atoms.indices }
+109          ?.let { molecule.atoms[it] }
+110          ?.takeIf { showHydrogens || it.element != "H" }
+111
+112      Box(modifier = modifier.fillMaxSize()) {
+113          MoleculeScene(
+114              molecule = molecule,
+115              showHydrogens = showHydrogens,
+116              selected = if (atom == null) null else selected,
+117              onSelect = { selected = it },
+118              modifier = Modifier.fillMaxSize(),
+119          )
+120
+121          // The frame AROUND the scene. Only the panels catch touches (they are Surfaces); the brackets and the empty
+122          // middle let every touch through to the molecule.
+123          Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+124              TopPanel(
+125                  molecule = molecule,
+126                  hasHydrogens = hasHydrogens,
+127                  showHydrogens = showHydrogens,
+128                  onToggleHydrogens = { showHydrogens = !showHydrogens },
+129                  onBack = onBack,
+130                  share = share,
+131                  onShare = onShare,
+132              )
+133              CornerBrackets(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 14.dp))
 134              share.label?.let { text ->
-135                  ShareStatusLine(text = text, isError = share is ShareStatus.Failed)
-136                  Spacer(Modifier.height(10.dp))
+135                  ShareStatusPanel(text = text, status = share)
+136                  Spacer(Modifier.height(14.dp))
 137              }
-138              if (legend.isNotEmpty()) {
-139                  SectionLabel("Elements / CPK")
-140                  Spacer(Modifier.height(6.dp))
+138              ReadoutPanel(atom = atom, hydrogensHidden = hasHydrogens && !showHydrogens)
+139              if (legend.isNotEmpty()) {
+140                  Spacer(Modifier.height(10.dp))
 141                  ElementKey(legend)
-142                  Spacer(Modifier.height(10.dp))
-143              }
-144              AtomCard(atom = atom, hydrogensHidden = hasHydrogens && !showHydrogens)
-145          }
-146      }
-147  }
+142              }
+143          }
+144      }
+145  }
 ```
 
-- **Línea 66, `BackHandler`:** el botón «Atrás» del sistema vuelve a la lista (si no, **cerraría la app**).
-- **Líneas 69–70, `rememberSaveable`:** el átomo seleccionado y el interruptor «H» **sobreviven al giro del móvil**. `mutableStateOf<Int?>(null)` es un estado que puede ser `null` (nada seleccionado).
-- **Línea 71:** ¿tiene hidrógenos? Los 73 ligandos sin ninguno **no muestran** el interruptor.
-- **Línea 72:** la **leyenda de colores** (qué elementos están dibujados, más frecuentes primero): función pura `ElementLegend.of`, con pruebas (documento 08b, sección 9). Se recalcula solo al cambiar la molécula o el interruptor.
-- **Líneas 74–105, compartir:** el estado del botón «Share» y el trabajo de captura; explicado en el documento [`09-captura-y-compartir.md`](09-captura-y-compartir.md).
-- **Líneas 108–111, el átomo REALMENTE resaltado:** se encadenan tres comprobaciones con `?.takeIf` / `?.let`: (1) hay selección, (2) **el índice es válido** (protección contra un estado guardado de otra molécula) y (3) **no es un hidrógeno oculto**
+- **Línea 65, `BackHandler`:** el botón «Atrás» del sistema vuelve a la lista (si no, **cerraría la app**).
+- **Líneas 68–69, `rememberSaveable`:** el átomo seleccionado y el interruptor «H» **sobreviven al giro del móvil**. `mutableStateOf<Int?>(null)` es un estado que puede ser `null` (nada seleccionado).
+- **Línea 70:** ¿tiene hidrógenos? Los 73 ligandos sin ninguno **no muestran** el interruptor.
+- **Línea 71:** la **leyenda de colores** (qué elementos están dibujados, más frecuentes primero): función pura `ElementLegend.of`, con pruebas (documento 08b, sección 9). Se recalcula solo al cambiar la molécula o el interruptor.
+- **Líneas 73–104, compartir:** el estado del botón «Share» y el trabajo de captura; explicado en el documento [`09-captura-y-compartir.md`](09-captura-y-compartir.md).
+- **Líneas 107–110, el átomo REALMENTE resaltado:** se encadenan tres comprobaciones con `?.takeIf` / `?.let`: (1) hay selección, (2) **el índice es válido** (protección contra un estado guardado de otra molécula) y (3) **no es un hidrógeno oculto**
   (si el usuario oculta los H con uno seleccionado, la tarjeta no debe seguir hablando de un átomo que ya no se ve). Si cualquiera falla, `atom` es `null`.
-- **Línea 117:** a la escena solo se le pasa la selección si `atom` no es `null`.
-- **Líneas 122–131, la barra superior:** semiopaca (hierro al 96 %) sobre la escena, con «atrás», «001 · 87 atoms · 90 bonds» y el interruptor «H ✓/×» y, desde el documento 09, el botón **Share**.
-- **Líneas 133–145, abajo:** la línea de estado de «Share» (si hay algo que decir), la leyenda (si hay algo que mostrar) y la **tarjeta**: sin selección, una **ayuda** (o «Hydrogens hidden» si los H están ocultos); con selección, **«C01 · Carbon (C)»** y las tres coordenadas con tres decimales (`AtomText`, puro y probado: punto decimal y guion ASCII en cualquier idioma del móvil).
-- **La ayuda dice «Drag to rotate, pinch to zoom, tap an atom»** y **no** habla de desplazamiento: no se ha comprobado que exista (sección 12).
+- **Línea 116:** a la escena solo se le pasa la selección si `atom` no es `null`.
+- **Líneas 123–143, el marco alrededor de la escena (diseño v2, documento 08c):** una columna transparente encima de la escena: arriba el panel «AUSPEX // RUNNING» (atrás, «Pattern 001», «87 ATOMS :: 90 BONDS», la tecla «H» y la tecla «SHR» de compartir); en medio, los **soportes de mira** en las esquinas (`CornerBrackets`, con `weight(1f)`: ocupan el hueco y **dejan pasar los toques** a la molécula); abajo, el estado de la captura, la lectura del átomo y la clave de colores. **Solo los paneles capturan toques** (son `Surface`): tocar una tarjeta no gira la molécula.
+- **La ayuda dice «Drag to rotate. Pinch to zoom. Tap an atom.»** y **no** habla de desplazamiento: no se ha comprobado que exista (sección 12).
 
 ---
 

@@ -1,5 +1,7 @@
 # 08b · El diseño aplicado: tema, fuentes, iconos y pantallas (paso A)
 
+> **Nota posterior:** este diseño (v1) **se rechazó en el móvil** y se sustituyó por la v2 «Cogitador» (documento [`08c-diseno-v2-cogitador.md`](08c-diseno-v2-cogitador.md)). Se conserva como historia: la estructura que explica (tema de Material 3, componentes propios, conversor SVG, icono adaptable, PNG para Android 7) es la misma de la v2; cambiaron los valores, los recursos y el dibujo.
+
 > **Estado:** escrito, con la lógica nueva probada en el ordenador (19 pruebas más, 217 en total; 12 mutantes muertos) y el código de interfaz comprobado **contra declaraciones escritas a mano** de la API de Compose. **No compilado con las bibliotecas reales ni visto en el móvil**: es lo primero que hay que hacer (sección 11).
 
 ## Índice

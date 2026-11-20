@@ -50,11 +50,11 @@ sealed interface ShareStatus {
     /** A second tap while working is ignored (double taps would open two share sheets). */
     val canStart: Boolean get() = this !is Working
 
-    /** The status line, or null when nothing is shown. */
+    /** The status line, or null when nothing is shown ("pict-capture": the design's word for a screenshot). */
     val label: String? get() = when (this) {
         Idle -> null
-        Working -> "Preparing image…"
-        Done -> "Image ready"
+        Working -> "Preparing pict-capture…"
+        Done -> "Pict-capture ready"
         is Failed -> failure.userMessage()
     }
 }

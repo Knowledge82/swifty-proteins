@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Only the colours the XML side needs (window and splash). The whole palette lives in Kotlin:
-     ui/theme/Color.kt (SwiftyColors). Same values, document 08b. -->
+     ui/theme/Color.kt (SwiftyColors). Design v2, document 08c. -->
 <resources>
-    <color name="swifty_void">#FF0A0A0B</color>
-    <color name="swifty_iron">#FF17171A</color>
+    <color name="swifty_abyss">#FF050806</color>
 </resources>

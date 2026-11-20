@@ -4,11 +4,11 @@ import androidx.compose.foundation.shape.CutCornerShape
 import androidx.compose.material3.Shapes
 import androidx.compose.ui.unit.dp
 
-/** Chamfered (cut) corners everywhere: the "iron plate" look. Material components pick these up by size. */
+/** Chamfered corners (design v2): controls 7 dp, panels 9 dp, dialogs 11 dp. */
 val SwiftyShapes = Shapes(
-    extraSmall = CutCornerShape(2.dp),
-    small = CutCornerShape(4.dp),
-    medium = CutCornerShape(8.dp),
-    large = CutCornerShape(12.dp),
+    extraSmall = CutCornerShape(4.dp),
+    small = CutCornerShape(7.dp),
+    medium = CutCornerShape(9.dp),
+    large = CutCornerShape(11.dp),
     extraLarge = CutCornerShape(16.dp),
 )
