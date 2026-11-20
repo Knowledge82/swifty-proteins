@@ -35,7 +35,7 @@ Del documento 01, para la vista 3D: modelo de **bolas y varillas** con **colores
 | Requisito | Estado tras esta etapa |
 |---|---|
 | Bolas y varillas con colores CPK | **Escrito** (secciones 5, 6, 8) |
-| Giro y zoom | **Escrito** con la cámara orbital del spike (comprobada en H3). **No se ha comprobado el desplazamiento** (*pan*) con dos dedos: ver sección 12 |
+| Giro y zoom | **Escrito** con la cámara orbital del spike (comprobada en H3) y **límites de zoom en ångström** (sección 7.1). **No se ha comprobado el desplazamiento** (*pan*) con dos dedos: ver sección 12 |
 | Tocar un átomo | **Escrito**: se resalta en amarillo y una tarjeta dice nombre, elemento y coordenadas |
 | Compartir captura | **Pendiente** (hipótesis H4 del spike, sin probar). Es la siguiente etapa |
 | Bonus | Se añade un interruptor «H» para ocultar los hidrógenos. Enlaces dobles/triples dibujados: **pendiente** |
@@ -50,11 +50,11 @@ Del documento 01, para la vista 3D: modelo de **bolas y varillas** con **colores
 |---------|------|-------:|----------|
 | `scene/ElementStyle.kt` | `scene/` | 70 | Color, radio y nombre de cada elemento. **Puro, con pruebas.** |
 | `scene/BondGeometry.kt` | `scene/` | 60 | Dónde y cómo girar un cilindro para unir dos átomos. **Puro, con pruebas.** |
-| `scene/SceneFraming.kt` | `scene/` | 37 | Radio de la molécula y distancia inicial de la cámara. **Puro, con pruebas.** |
-| `ui/MoleculeScene.kt` | `ui/` | 139 | Convierte un `Molecule` en nodos de SceneView y atiende los toques. **Sin compilar.** |
+| `scene/SceneFraming.kt` | `scene/` | 57 | Radio de la molécula y distancia inicial de la cámara. **Puro, con pruebas.** |
+| `ui/MoleculeScene.kt` | `ui/` | 148 | Convierte un `Molecule` en nodos de SceneView y atiende los toques. **Sin compilar.** |
 | `ui/MoleculeScreen.kt` | `ui/` | 105 | Barra superior, interruptor «H», tarjeta del átomo. **Sin compilar.** |
 | `ui/SwiftyApp.kt` | `ui/` | — | **Una línea cambia:** la rama `Loaded` dibuja `MoleculeScreen` en vez de la pantalla provisional. |
-| `ElementStyleTest.kt`, `BondGeometryTest.kt`, `SceneFramingTest.kt` | `app/src/test/.../scene/` | 10 + 8 + 9 pruebas | Ver sección 14. |
+| `ElementStyleTest.kt`, `BondGeometryTest.kt`, `SceneFramingTest.kt` | `app/src/test/.../scene/` | 10 + 8 + 13 pruebas | Ver sección 14. |
 
 **Se borran del repositorio:** `MoleculeScene.kt` de la **raíz del paquete** (el código demostrativo del spike, con átomos fijos; decisión D11) y `ui/MoleculeSummaryScreen.kt` (la pantalla provisional del documento 06c, sección 10).
 
@@ -313,7 +313,7 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 34
 35      /** Where the camera starts, as a distance from the center. */
 36      fun cameraDistance(radius: Float): Float = max(MIN_DISTANCE, DISTANCE_PER_RADIUS * radius)
-37  }
+37
 ```
 
 - **`radiusOf` (líneas 26–33):** el átomo más lejano del origen **más el radio de su bola**: la distancia del centro al borde exterior de la molécula. **Cuenta todos los átomos, también los hidrógenos ocultos**: así, al pulsar «H» **la vista no salta**.
@@ -323,151 +323,201 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
   Si en el móvil la molécula sale **muy pequeña** o **cortada**, **este es el número que hay que tocar** (sección 10).
 - **Línea 16, `MIN_DISTANCE = 6`:** una molécula de un solo átomo o de dos no debe pegar la cámara a la bola.
 - **Línea 36, `cameraDistance`:** `max(6, 5,5 · radio)`.
-- **Riesgo conocido, no comprobado:** para `15P` la distancia sale ≈ 230. **Si el plano lejano de la cámara (*far plane*) está más cerca que eso, parte de la molécula se recortaría.** SceneView lo fija por defecto y no sé a cuánto: **hay que mirar `15P` y `CDL` en el móvil**.
+- **Plano lejano (*far plane*):** para `15P` la distancia sale ≈ 228. **Leído en el código de SceneView 4.69.4** (`CameraNode.kt`): plano cercano **0,01** y lejano **1000**. Con la distancia inicial (228) y la molécula (radio 41) todo cabe; con el límite de alejamiento de 7.1 (3 × 228 + 41 = 725) **también**. Sin ese límite (SceneView permite 8 × la distancia inicial: 1822) **se recortaría**. *Leído, no probado en el móvil.*
+
+### 7.1 Los límites de zoom: por qué `15P` no se dejaba acercar
+
+**El síntoma** (lo vio Valera en el móvil): con `001` se puede acercar la cámara hasta ver cómo se unen bolas y varillas; con `15P`, no: hay un tope de acercamiento que parece depender del tamaño del ligando.
+
+**La causa, leída en el código fuente de SceneView 4.69.4** (`gesture/CameraGestureDetector.kt`, `DefaultCameraManipulator`; no es una suposición):
+
+1. El gestor **mide la distancia inicial** de la cámara al centro («*home*») la primera vez que se usa el zoom.
+2. En cada pellizco calcula la nueva distancia como `distancia · exp(Δ)` y la **recorta** entre `home × minZoomDistanceFactor` y `home × maxZoomDistanceFactor`. **Los valores por defecto** (`DEFAULT_MIN_ZOOM_DISTANCE_FACTOR` y `DEFAULT_MAX_ZOOM_DISTANCE_FACTOR`) son **0,15 y 8**.
+3. Nuestra distancia inicial es **5,5 × radio** (sección 7). Luego el acercamiento máximo era `0,15 × 5,5 × radio ≈ 0,83 × radio`:
+
+| Ligando | Radio (Å) | Distancia inicial | Acercamiento máximo **antes** (0,15 ×) | **Ahora** |
+|---------|----------:|------------------:|--------------------------------------:|----------:|
+| `001` (mediana, radio ≈ 6,5) | 6,5 | ≈ 36 | ≈ **5,4 Å** | 4 Å |
+| `CDL` | 30,9 | ≈ 170 | ≈ **25 Å** | 4 Å |
+| `15P` (el mayor) | 41,4 | ≈ 228 | ≈ **34 Å** | 4 Å |
+
+Es decir: el tope era **proporcional al tamaño de la molécula**, cuando lo que importa para ver el detalle es **cuánto mide una bola** (≈ 1 Å), que es lo mismo en todos los ligandos. **Con `15P` el tope quedaba a 34 Å del centro: las bolas del centro nunca se veían de cerca.**
+
+**La corrección** (`SceneFraming.kt`, más `MoleculeScene.kt`, líneas 88–99):
+
+```kotlin
+// SceneFraming.kt · líneas 38–56
+38  /**
+39   * The closest the camera may come to the center when zooming in (angstrom), THE SAME for every ligand.
+40   *
+41   * Why absolute: SceneView limits the zoom as a FRACTION of the starting distance (default 0.15). The starting
+42   * distance grows with the molecule (5.5 x radius), so a big ligand such as 15P (radius 41 -> start 228) could not
+43   * get nearer than 34 angstrom, while the small 001 (start ~35) could reach 5. The limit must be about what we want
+44   * to SEE (a ball is ~1 angstrom wide; at 4 it fills a good part of the screen), not about how big the molecule is.
+45   * ESTIMATED value: to be tuned on the device (document 07).
+46   */
+47  const val MIN_CLOSE_DISTANCE = 4f
+48
+49  /** How far the camera may go back, as a multiple of the starting distance. Keeps everything inside the far plane (1000 in SceneView) even for 15P: 3 x 228 + 41 = 725. */
+50  const val MAX_ZOOM_OUT_FACTOR = 3f
+51
+52  /** The fraction of the starting distance that equals [MIN_CLOSE_DISTANCE]; never above 0.5, so zooming in is always possible, even for a tiny molecule whose start is already close. */
+53  fun minZoomFactor(startDistance: Float): Float =
+54      (MIN_CLOSE_DISTANCE / startDistance).coerceAtMost(MAX_MIN_ZOOM_FACTOR)
+55
+56  private const val MAX_MIN_ZOOM_FACTOR = 0.5f
+```
+
+- **`MIN_CLOSE_DISTANCE = 4`:** el acercamiento máximo es **el mismo en ångström para todos**. **Es una estimación** (una bola mide ≈ 1 Å de diámetro; a 4 Å del centro llena buena parte de la pantalla): **se ajusta en el móvil**.
+- **`minZoomFactor(start)`:** convierte «4 Å» en la **fracción** que SceneView espera (`4 / distancia inicial`), con un tope de 0,5 para que **siempre** se pueda acercar, incluso con una molécula diminuta cuya distancia inicial (6) ya es corta.
+- **`MAX_ZOOM_OUT_FACTOR = 3`:** se baja de 8 a 3 para que la molécula más grande **no salga del plano lejano** (arriba) y porque alejarse 8 veces no sirve de nada.
+- **Todo es una función pura** y se prueba en el ordenador (cuatro pruebas nuevas, sección 14; cada constante tiene su mutante).
+
+**Lo que esto NO resuelve (honesto):** la cámara **gira siempre alrededor del centro de la molécula**. En `15P` (≈ 80 Å de largo) puedes ver de cerca **lo que está cerca del centro**; para ver de cerca **un extremo** hace falta **desplazar** la escena (*pan*, dos dedos), y eso **no está comprobado en el móvil** (sección 12, punto 2). Si no funciona, la solución de verdad es **cambiar el centro de giro**: p. ej. «doble toque en un átomo → ese átomo pasa a ser el centro» (sección 15).
 
 ---
 
 ## 8. `MoleculeScene.kt`: la escena de SceneView
 
 ```kotlin
-// MoleculeScene.kt · líneas 26–43
-26  // Node names are how a TAP is traced back to what was drawn: "atom 12" is atoms[12]; "bond 3" is a stick.
-27  private const val ATOM_PREFIX = "atom "
-28  private const val BOND_PREFIX = "bond "
-29
-30  private const val BOND_RADIUS = 0.12f
-31
-32  // Mesh detail of a ball (how many bands it is cut into). The spike used 32; with up to 256 atoms (and more than half of
-33  // them hydrogens) a lighter ball is used, and the smaller hydrogens need even less. ESTIMATED, not measured on the A33.
-34  private const val BALL_DETAIL = 20
-35  private const val HYDROGEN_BALL_DETAIL = 12
-36
-37  // A finger is much wider than a hydrogen (radius 0.25): the area that answers to a tap is never smaller than this.
-38  private const val MIN_TOUCH_RADIUS = 0.35f
-39
-40  private fun colorOf(element: String): Color {
-41      val rgb = ElementStyle.colorOf(element)
-42      return Color((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
-43  }
+// MoleculeScene.kt · líneas 27–44
+27  // Node names are how a TAP is traced back to what was drawn: "atom 12" is atoms[12]; "bond 3" is a stick.
+28  private const val ATOM_PREFIX = "atom "
+29  private const val BOND_PREFIX = "bond "
+30
+31  private const val BOND_RADIUS = 0.12f
+32
+33  // Mesh detail of a ball (how many bands it is cut into). The spike used 32; with up to 256 atoms (and more than half of
+34  // them hydrogens) a lighter ball is used, and the smaller hydrogens need even less. ESTIMATED, not measured on the A33.
+35  private const val BALL_DETAIL = 20
+36  private const val HYDROGEN_BALL_DETAIL = 12
+37
+38  // A finger is much wider than a hydrogen (radius 0.25): the area that answers to a tap is never smaller than this.
+39  private const val MIN_TOUCH_RADIUS = 0.35f
+40
+41  private fun colorOf(element: String): Color {
+42      val rgb = ElementStyle.colorOf(element)
+43      return Color((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
+44  }
 ```
 
-- **Líneas 26–28, los nombres de nodo** son el hilo que une **lo dibujado con los datos**: el nodo `"atom 12"` es `molecule.atoms[12]`. Al tocar, SceneView entrega el nodo; de su nombre sale el índice.
-- **Líneas 34–35, el detalle de la malla:** una esfera se corta en `stacks` franjas horizontales y `slices` verticales; con 20×20 salen unos 800 triángulos por bola. El spike usó 32 (unos 2000). Con **256 átomos** la diferencia importa; los hidrógenos (la mitad,
+- **Líneas 27–29, los nombres de nodo** son el hilo que une **lo dibujado con los datos**: el nodo `"atom 12"` es `molecule.atoms[12]`. Al tocar, SceneView entrega el nodo; de su nombre sale el índice.
+- **Líneas 35–36, el detalle de la malla:** una esfera se corta en `stacks` franjas horizontales y `slices` verticales; con 20×20 salen unos 800 triángulos por bola. El spike usó 32 (unos 2000). Con **256 átomos** la diferencia importa; los hidrógenos (la mitad,
   y pequeños) usan 12. **Los valores son una estimación; no se ha medido nada en el A33** (H6).
-- **Línea 38, `MIN_TOUCH_RADIUS = 0,35`:** la zona que responde al toque nunca es menor que esto, aunque la bola dibujada sea más pequeña.
-- **Líneas 40–43, `colorOf`:** convierte el entero `0xRRGGBB` de `ElementStyle` al `Color` de Compose separando los tres bytes con desplazamientos (`shr 16` = rojo, `shr 8` = verde).
+- **Línea 39, `MIN_TOUCH_RADIUS = 0,35`:** la zona que responde al toque nunca es menor que esto, aunque la bola dibujada sea más pequeña.
+- **Líneas 41–44, `colorOf`:** convierte el entero `0xRRGGBB` de `ElementStyle` al `Color` de Compose separando los tres bytes con desplazamientos (`shr 16` = rojo, `shr 8` = verde).
 
 ```kotlin
-// MoleculeScene.kt · líneas 45–82
-45  /**
-46   * The 3D view of a molecule: balls (atoms) and sticks (bonds), colored by element, with a camera that orbits.
-47   *
-48   * It decides NOTHING by itself: colors, radii, where each stick goes and how far the camera starts come from the
-49   * pure classes in `scene/` (tested on the JVM). This function only turns those numbers into SceneView nodes.
-50   *
-51   * @param showHydrogens when `false`, hydrogens and the sticks that touch them are not drawn (the numbering of the rest does not change)
-52   * @param selected      index in `molecule.atoms` of the highlighted atom, or `null`
-53   * @param onSelect      called with the tapped atom, or `null` when the tap hit a stick or empty space
-54   */
-55  @Composable
-56  fun MoleculeScene(
-57      molecule: Molecule,
-58      showHydrogens: Boolean,
-59      selected: Int?,
-60      onSelect: (Int?) -> Unit,
-61      modifier: Modifier = Modifier,
-62  ) {
-63      val engine = rememberEngine()
-64      val materialLoader = rememberMaterialLoader(engine)
-65
-66      // One material per ELEMENT, created the first time it is needed (a ligand has a handful of elements, not 256 colors).
-67      val materials = remember(materialLoader) { HashMap<String, MaterialInstance>() }
-68      fun materialOf(element: String): MaterialInstance =
-69          materials.getOrPut(element) { materialLoader.createColorInstance(colorOf(element)) }
-70
-71      val stick = remember(materialLoader) { materialLoader.createColorInstance(Color(0.7f, 0.7f, 0.7f, 1f)) }
-72      // Selection highlight: yellow stands out against grey, red, blue and white alike.
-73      val highlight = remember(materialLoader) { materialLoader.createColorInstance(Color(1f, 0.9f, 0.1f, 1f)) }
-74
-75      // Both depend only on the molecule: computed once, not at every recomposition (and every tap recomposes).
-76      val distance = remember(molecule) { SceneFraming.cameraDistance(SceneFraming.radiusOf(molecule)) }
-77      val poses = remember(molecule) {
-78          molecule.bonds.map { BondGeometry.poseOf(molecule.atoms[it.from], molecule.atoms[it.to]) }
-79      }
-80
-81      // The gesture listener is created once and remembers the FIRST lambda it receives; this always calls the latest.
-82      val currentOnSelect by rememberUpdatedState(onSelect)
+// MoleculeScene.kt · líneas 46–83
+46  /**
+47   * The 3D view of a molecule: balls (atoms) and sticks (bonds), colored by element, with a camera that orbits.
+48   *
+49   * It decides NOTHING by itself: colors, radii, where each stick goes and how far the camera starts come from the
+50   * pure classes in `scene/` (tested on the JVM). This function only turns those numbers into SceneView nodes.
+51   *
+52   * @param showHydrogens when `false`, hydrogens and the sticks that touch them are not drawn (the numbering of the rest does not change)
+53   * @param selected      index in `molecule.atoms` of the highlighted atom, or `null`
+54   * @param onSelect      called with the tapped atom, or `null` when the tap hit a stick or empty space
+55   */
+56  @Composable
+57  fun MoleculeScene(
+58      molecule: Molecule,
+59      showHydrogens: Boolean,
+60      selected: Int?,
+61      onSelect: (Int?) -> Unit,
+62      modifier: Modifier = Modifier,
+63  ) {
+64      val engine = rememberEngine()
+65      val materialLoader = rememberMaterialLoader(engine)
+66
+67      // One material per ELEMENT, created the first time it is needed (a ligand has a handful of elements, not 256 colors).
+68      val materials = remember(materialLoader) { HashMap<String, MaterialInstance>() }
+69      fun materialOf(element: String): MaterialInstance =
+70          materials.getOrPut(element) { materialLoader.createColorInstance(colorOf(element)) }
+71
+72      val stick = remember(materialLoader) { materialLoader.createColorInstance(Color(0.7f, 0.7f, 0.7f, 1f)) }
+73      // Selection highlight: yellow stands out against grey, red, blue and white alike.
+74      val highlight = remember(materialLoader) { materialLoader.createColorInstance(Color(1f, 0.9f, 0.1f, 1f)) }
+75
+76      // Both depend only on the molecule: computed once, not at every recomposition (and every tap recomposes).
+77      val distance = remember(molecule) { SceneFraming.cameraDistance(SceneFraming.radiusOf(molecule)) }
+78      val poses = remember(molecule) {
+79          molecule.bonds.map { BondGeometry.poseOf(molecule.atoms[it.from], molecule.atoms[it.to]) }
+80      }
+81
+82      // The gesture listener is created once and remembers the FIRST lambda it receives; this always calls the latest.
+83      val currentOnSelect by rememberUpdatedState(onSelect)
 ```
 
-- **Línea 56:** la función recibe **datos** (`Molecule`, qué mostrar, qué está seleccionado) y **avisa** con `onSelect`. No guarda estado: lo guarda `MoleculeScreen` (elevación de estado, documento 06c, sección 3.3).
-- **Líneas 63–64:** el motor gráfico y el cargador de materiales, como en el spike. `rememberEngine()` **destruye el motor** cuando la función sale de la pantalla: **abrir otro ligando crea uno nuevo**. Es el punto delicado de H5 (ciclo de vida), aún sin probar.
-- **Líneas 67–69, un material por ELEMENTO:** un **material** es el «color» de un objeto en Filament. En vez de crear uno por átomo (256), se crea **uno por elemento** y se **reutiliza** (`getOrPut`: lo busca; si no existe, lo crea y lo guarda).
+- **Línea 57:** la función recibe **datos** (`Molecule`, qué mostrar, qué está seleccionado) y **avisa** con `onSelect`. No guarda estado: lo guarda `MoleculeScreen` (elevación de estado, documento 06c, sección 3.3).
+- **Líneas 64–65:** el motor gráfico y el cargador de materiales, como en el spike. `rememberEngine()` **destruye el motor** cuando la función sale de la pantalla: **abrir otro ligando crea uno nuevo**. Es el punto delicado de H5 (ciclo de vida), aún sin probar.
+- **Líneas 68–70, un material por ELEMENTO:** un **material** es el «color» de un objeto en Filament. En vez de crear uno por átomo (256), se crea **uno por elemento** y se **reutiliza** (`getOrPut`: lo busca; si no existe, lo crea y lo guarda).
   Una molécula típica usa 3–6 colores.
-- **Líneas 71–73:** la varilla (gris, el valor del spike) y el **resaltado** (amarillo, que se distingue del gris, el rojo, el azul y el blanco).
-- **Líneas 76–79, `remember(molecule)`:** la distancia de la cámara y **la pose de cada enlace** se calculan **una vez por molécula**, no en cada recomposición. Esto importa porque **cada toque recompone la escena** (cambia `selected`), y repetir 256 cálculos con
+- **Líneas 72–74:** la varilla (gris, el valor del spike) y el **resaltado** (amarillo, que se distingue del gris, el rojo, el azul y el blanco).
+- **Líneas 77–80, `remember(molecule)`:** la distancia de la cámara y **la pose de cada enlace** se calculan **una vez por molécula**, no en cada recomposición. Esto importa porque **cada toque recompone la escena** (cambia `selected`), y repetir 256 cálculos con
   senos y cosenos en cada toque sería gastar a lo tonto.
-- **Línea 82, `rememberUpdatedState(onSelect)`:** `rememberOnGestureListener` **crea el oyente una vez** y se queda con **la primera lambda** que recibe; si `onSelect` cambiara después, el oyente llamaría a la vieja. Con `rememberUpdatedState` se llama
+- **Línea 83, `rememberUpdatedState(onSelect)`:** `rememberOnGestureListener` **crea el oyente una vez** y se queda con **la primera lambda** que recibe; si `onSelect` cambiara después, el oyente llamaría a la vieja. Con `rememberUpdatedState` se llama
   **siempre a la última**. (Hoy `onSelect` es estable y daría igual; es una protección barata.)
-- **Líneas 87–90:** la cámara orbital, con `distance` de `SceneFraming` y el centro en el origen.
-- **Líneas 92–95, el toque:** `onSingleTapConfirmed` (un toque que **no es** el primero de un doble toque) recibe el nodo tocado (o `null`). El nombre `"atom 3"` pierde el prefijo y queda `"3"` → `3`. Un enlace (`"bond 2"`), el vacío o un nodo sin
+- **Líneas 88–99:** la cámara orbital, con `distance` de `SceneFraming` y el centro en el origen. **Desde la sección 7.1** el gestor de cámara se crea a mano (`creator = { ... }`) para **poner los límites de zoom en ångström**: `createDefaultCameraManipulator(...)` devuelve el gestor por defecto de SceneView y `.apply { ... }` cambia sus dos factores (`minZoomDistanceFactor`, `maxZoomDistanceFactor`), que **se leen en cada gesto**, así que basta con fijarlos tras crearlo.
+- **Líneas 101–104, el toque:** `onSingleTapConfirmed` (un toque que **no es** el primero de un doble toque) recibe el nodo tocado (o `null`). El nombre `"atom 3"` pierde el prefijo y queda `"3"` → `3`. Un enlace (`"bond 2"`), el vacío o un nodo sin
   nombre dan `null` (`toIntOrNull` no lanza si no es un número): **se deselecciona**.
 
 ```kotlin
-// MoleculeScene.kt · líneas 97–138
- 97  ) {
- 98      for ((i, atom) in molecule.atoms.withIndex()) {
- 99          if (showHydrogens || atom.element != "H") {
-100              // key(i): each atom keeps its own identity when the list of drawn nodes changes (hydrogens hidden or shown).
-101              key(i) {
-102                  val radius = ElementStyle.radiusOf(atom.element)
-103                  val detail = if (atom.element == "H") HYDROGEN_BALL_DETAIL else BALL_DETAIL
-104                  SphereNode(
-105                      radius = radius, stacks = detail, slices = detail,
-106                      materialInstance = if (selected == i) highlight else materialOf(atom.element),
-107                      position = Position(atom.x, atom.y, atom.z),
-108                      apply = {
-109                          this.name = "$ATOM_PREFIX$i"
-110                          this.collisionShape = Sphere(max(radius, MIN_TOUCH_RADIUS))
-111                      },
-112                  )
-113              }
-114          }
-115      }
-116
-117      for ((k, bond) in molecule.bonds.withIndex()) {
-118          val pose = poses[k]
-119          val touchesHydrogen = molecule.atoms[bond.from].element == "H" || molecule.atoms[bond.to].element == "H"
-120          if (pose != null && (showHydrogens || !touchesHydrogen)) {
-121              key(-k - 1) {   // negative keys: they can never collide with the atoms' keys
-122                  // OUTER node: at the midpoint, turned around the vertical axis. INNER: the cylinder, leaned.
-123                  Node(
-124                      position = Position(pose.x, pose.y, pose.z),
-125                      rotation = Rotation(y = pose.spinDegrees),
-126                  ) {
-127                      CylinderNode(
-128                          radius = BOND_RADIUS,
-129                          height = pose.length,
-130                          rotation = Rotation(z = pose.tiltDegrees),
-131                          materialInstance = stick,
-132                          apply = { this.name = "$BOND_PREFIX$k" },
-133                      )
-134                  }
-135              }
-136          }
-137      }
-138  }
+// MoleculeScene.kt · líneas 106–147
+106  ) {
+107      for ((i, atom) in molecule.atoms.withIndex()) {
+108          if (showHydrogens || atom.element != "H") {
+109              // key(i): each atom keeps its own identity when the list of drawn nodes changes (hydrogens hidden or shown).
+110              key(i) {
+111                  val radius = ElementStyle.radiusOf(atom.element)
+112                  val detail = if (atom.element == "H") HYDROGEN_BALL_DETAIL else BALL_DETAIL
+113                  SphereNode(
+114                      radius = radius, stacks = detail, slices = detail,
+115                      materialInstance = if (selected == i) highlight else materialOf(atom.element),
+116                      position = Position(atom.x, atom.y, atom.z),
+117                      apply = {
+118                          this.name = "$ATOM_PREFIX$i"
+119                          this.collisionShape = Sphere(max(radius, MIN_TOUCH_RADIUS))
+120                      },
+121                  )
+122              }
+123          }
+124      }
+125
+126      for ((k, bond) in molecule.bonds.withIndex()) {
+127          val pose = poses[k]
+128          val touchesHydrogen = molecule.atoms[bond.from].element == "H" || molecule.atoms[bond.to].element == "H"
+129          if (pose != null && (showHydrogens || !touchesHydrogen)) {
+130              key(-k - 1) {   // negative keys: they can never collide with the atoms' keys
+131                  // OUTER node: at the midpoint, turned around the vertical axis. INNER: the cylinder, leaned.
+132                  Node(
+133                      position = Position(pose.x, pose.y, pose.z),
+134                      rotation = Rotation(y = pose.spinDegrees),
+135                  ) {
+136                      CylinderNode(
+137                          radius = BOND_RADIUS,
+138                          height = pose.length,
+139                          rotation = Rotation(z = pose.tiltDegrees),
+140                          materialInstance = stick,
+141                          apply = { this.name = "$BOND_PREFIX$k" },
+142                      )
+143                  }
+144              }
+145          }
+146      }
+147  }
 ```
 
-- **Líneas 98–115, las bolas:** un `SphereNode` por átomo. Si los hidrógenos están ocultos, **no se crean** los nodos de hidrógeno (`if (showHydrogens || ...)`): ocultar es **quitar nodos**, que además alivia el trabajo de la GPU.
-  - **Línea 101, `key(i)`:** da a cada átomo una **identidad estable** igual a su índice. **Es importante.** Al pulsar «H», la lista de nodos dibujados cambia de longitud y de contenido; **sin `key`**, Compose empareja los nodos **por posición** y
+- **Líneas 107–124, las bolas:** un `SphereNode` por átomo. Si los hidrógenos están ocultos, **no se crean** los nodos de hidrógeno (`if (showHydrogens || ...)`): ocultar es **quitar nodos**, que además alivia el trabajo de la GPU.
+  - **Línea 110, `key(i)`:** da a cada átomo una **identidad estable** igual a su índice. **Es importante.** Al pulsar «H», la lista de nodos dibujados cambia de longitud y de contenido; **sin `key`**, Compose empareja los nodos **por posición** y
     reutilizaría «el tercer nodo» para un átomo distinto, cambiando su posición pero **no necesariamente su malla** (el radio y el detalle se fijan al crear la esfera). Con `key(i)` cada átomo conserva **su** nodo, o se crea y se destruye **el suyo**.
-  - **Línea 106:** el material es **el del elemento**, salvo si está seleccionado (amarillo). Cambiar el material de un nodo existente es lo que hizo el spike.
-  - **Líneas 108–111:** el nombre y la **forma de colisión esférica** con el radio mínimo de toque.
-- **Líneas 117–137, las varillas:** una por enlace.
-  - **Línea 118:** la pose ya calculada (puede ser `null` si los dos átomos coinciden: **se salta**).
-  - **Líneas 119–120:** una varilla que toca un hidrógeno **se oculta con él** (dejar varillas sueltas sin bola sería absurdo).
-  - **Línea 121, `key(-k - 1)`:** claves **negativas** para las varillas; no pueden coincidir con las de los átomos (que son 0, 1, 2…).
-  - **Líneas 123–134:** el par de nodos anidados de la sección 3.4: el exterior (`Node`) en el punto medio y girado `spin` alrededor de Y; el interior (`CylinderNode`) de altura `length`, inclinado `tilt` alrededor de Z. **Idéntico al spike.**
+  - **Línea 115:** el material es **el del elemento**, salvo si está seleccionado (amarillo). Cambiar el material de un nodo existente es lo que hizo el spike.
+  - **Líneas 117–120:** el nombre y la **forma de colisión esférica** con el radio mínimo de toque.
+- **Líneas 126–146, las varillas:** una por enlace.
+  - **Línea 127:** la pose ya calculada (puede ser `null` si los dos átomos coinciden: **se salta**).
+  - **Líneas 128–129:** una varilla que toca un hidrógeno **se oculta con él** (dejar varillas sueltas sin bola sería absurdo).
+  - **Línea 130, `key(-k - 1)`:** claves **negativas** para las varillas; no pueden coincidir con las de los átomos (que son 0, 1, 2…).
+  - **Líneas 132–143:** el par de nodos anidados de la sección 3.4: el exterior (`Node`) en el punto medio y girado `spin` alrededor de Y; el interior (`CylinderNode`) de altura `length`, inclinado `tilt` alrededor de Z. **Idéntico al spike.**
 - **No se dibuja una varilla de dos colores** (mitad de cada átomo, como en muchos visores): sería una mejora de aspecto con el doble de cilindros. Pendiente (sección 15).
 
 ---
@@ -583,7 +633,7 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 | 1 | Abrir `001` | Una molécula con **bolas de varios colores unidas por varillas grises**, entera en pantalla | Ver tabla de ajustes abajo |
 | 2 | Contar | 87 átomos; con «H» apagado quedan **45** (87 − 42) | Si «H» no quita 42, hay un fallo en el filtro |
 | 3 | Arrastrar con un dedo | La molécula gira **de forma fluida** y **no se sale** | |
-| 4 | Pellizcar | Acerca y aleja; **si se mete dentro de la molécula, apúntalo** (no hay límite mínimo, sección 12) | |
+| 4 | Pellizcar con `001` y luego con **`15P`** | Acerca y aleja; **el acercamiento máximo es parecido en ambos** (bolas grandes en pantalla), y se **para** antes de entrar en la molécula. Alejarse tiene tope | Si en `15P` aún no se acerca lo bastante: bajar `MIN_CLOSE_DISTANCE` (3, 2,5…); si se mete dentro de una bola o atraviesa: subirla (sección 7.1) |
 | 5 | Tocar una bola | Se pone **amarilla** y la tarjeta dice p. ej. «C01 · Carbon (C)» con sus coordenadas | Si no responde: el radio táctil (`MIN_TOUCH_RADIUS`) |
 | 6 | Tocar una varilla o el vacío | Se **deselecciona** | |
 | 7 | Pulsar «H» con un hidrógeno seleccionado | Desaparecen hidrógenos y varillas; la tarjeta vuelve a la ayuda; **la vista no salta** | |
@@ -597,7 +647,8 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 |---------|-----------|---------|-----------|
 | La molécula sale **diminuta** | `DISTANCE_PER_RADIUS` (5,5) | `SceneFraming.kt` | Bajarla (4, 3,5…) |
 | Sale **cortada por los lados** | `DISTANCE_PER_RADIUS` | `SceneFraming.kt` | Subirla (6, 7…) |
-| Con `15P` **desaparece parte** de la molécula al alejarse | plano lejano de la cámara | (sin localizar) | Apuntarlo; hay que mirar la API de SceneView |
+| Con `15P` **desaparece parte** de la molécula al alejarse | `MAX_ZOOM_OUT_FACTOR` (3) | `SceneFraming.kt` | Bajarlo (2…). El plano lejano de SceneView es 1000 (leído en el código) |
+| No se **acerca lo bastante** / se acerca **demasiado** | `MIN_CLOSE_DISTANCE` (4 Å) | `SceneFraming.kt` | Bajarla / subirla |
 | El giro **va a tirones** con 256 átomos | `BALL_DETAIL`, `HYDROGEN_BALL_DETAIL` | `MoleculeScene.kt` | Bajarlos (12 / 8); y probar con «H» apagado |
 | Las bolas **se tocan y tapan** las varillas | `radiusOf` | `ElementStyle.kt` | Bajar los radios |
 | Cuesta **acertar** un hidrógeno | `MIN_TOUCH_RADIUS` | `MoleculeScene.kt` | Subirlo (0,45…) |
@@ -641,9 +692,9 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 1. **Dobles y triples se dibujan como simples.** El 11 % de los enlaces del corpus son dobles (6061) y hay 29 triples. Es la mejora de aspecto más evidente que queda (varillas paralelas); `BondOrder` ya llega hasta la escena, pero no se usa.
 2. **Desplazamiento (*pan*) sin comprobar.** El spike probó giro y zoom (H3); **no consta** que dos dedos desplacen la escena. Si el enunciado lo exige y no existe, hay que añadirlo (el gestor de cámara de SceneView/Filament admite varios modos;
    **no se ha leído su código en esta etapa**).
-3. **Sin límites de zoom.** Se puede acercar la cámara **hasta dentro** de la molécula. El spike apuntó la necesidad de un mínimo y un máximo (documento 02, 5.2); **no se ha puesto** porque no sé si el gestor lo admite y con qué parámetros.
+3. **Límites de zoom: puestos (sección 7.1), valores sin ajustar.** Mínimo 4 Å y máximo 3 × la distancia inicial; son estimaciones. **El centro de giro sigue siendo el centro de la molécula**: en un ligando grande no se pueden ver de cerca los extremos sin desplazar la escena.
 4. **La cámara vuelve al inicio al girar el móvil.** Su estado no se guarda.
-5. **El plano lejano** puede recortar `15P` y `CDL` (sección 7). Sin comprobar.
+5. **El plano lejano** (1000, leído en SceneView) deja dentro a `15P` con el límite de alejamiento de la sección 7.1. No probado en el móvil.
 6. **Rendimiento sin medir (H6).** 256 bolas + 256 varillas = cientos de nodos. La hipótesis H6 del spike hablaba de ~200 átomos y ~200 enlaces a ~60 FPS; **no se midió**. Si no basta: menos detalle, «H» apagado por defecto en moléculas grandes, o la alternativa de una sola malla (sección 15).
 7. **Ciclo de vida sin probar (H5).** `rememberEngine()` crea un motor por escena y lo destruye al salir. Abrir y cerrar ligandos muchas veces, girar y pasar a segundo plano **no se ha probado**: es lo primero que probar (sección 10, filas 8–9).
 8. **Selección de átomos tapados.** El rayo devuelve **el primer nodo** que corta, que puede ser **una varilla** delante de una bola: tocar justo en una varilla **deselecciona**, aunque detrás haya un átomo.
@@ -670,7 +721,8 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
   más tres cosas nuevas que **no** estaban en el spike: `key(...)` dentro del contenido de `SceneView`, un `HashMap<String, MaterialInstance>` (con `import com.google.android.filament.MaterialInstance`) y `FilterChip`/`Card`/`Surface` de Material 3.
   Si el compilador protesta, pega el error.
 - **El aspecto:** colores, tamaños, encuadre, brillo. Todo son estimaciones hasta verlo.
-- **El rendimiento (H6), el ciclo de vida (H5), la captura (H4)**, el desplazamiento y el plano lejano.
+- **El rendimiento (H6), el ciclo de vida (H5), la captura (H4)**, el desplazamiento con dos dedos y que los nuevos límites de zoom se **sientan** bien (los valores 4 Å y × 3 son estimaciones).
+- **Verificado leyendo el código de SceneView 4.69.4 (no en el móvil):** que el tope de zoom es relativo a la distancia inicial (0,15 × y 8 ×), que los factores se leen en cada gesto, y que el plano lejano es 1000.
 - **Los tonos exactos de la tabla de colores** de los metales raros.
 - Que `key(i)` dentro del contenido de `SceneView` **funcione como espero** con los nodos de SceneView (es el comportamiento estándar de Compose; sobre SceneView no está comprobado).
 
@@ -682,7 +734,7 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 |---------|--------:|---------------|
 | `ElementStyleTest.kt` | 10 | Los 50 elementos del corpus tienen color y no el desconocido; H/C/N/O/S/P tienen sus colores CPK; los cinco más frecuentes se distinguen; `X` y los desconocidos salen rosa; las mayúsculas importan; colores en tres bytes; radios entre 0,2 y 0,6 con H el menor; la bola no se come el enlace más corto; nombres legibles |
 | `BondGeometryTest.kt` | 8 | Seis ejes, siete enlaces del spike y 2000 pares al azar apuntan bien (matrices); cambiar A y B solo invierte el eje; punto medio y longitud; átomos coincidentes → sin pose; enlace corto real sí se dibuja; sin `NaN` |
-| `SceneFramingTest.kt` | 9 | Radio = más lejano + su bola (aunque no sea el último); un átomo solo; hidrógenos ocultos cuentan; distancia mínima; proporcional; nunca decrece; la cámara siempre fuera; el `001` real da un radio y una distancia razonables |
+| `SceneFramingTest.kt` | 13 | Radio = más lejano + su bola (aunque no sea el último); un átomo solo; hidrógenos ocultos cuentan; distancia mínima; proporcional; nunca decrece; la cámara siempre fuera; el `001` real da un radio y una distancia razonables; **límites de zoom**: el acercamiento es 4 Å para ligandos de cualquier tamaño, `15P` se acerca mucho más que con el valor de SceneView, un ligando diminuto puede acercarse (factor ≤ 0,5), y el alejamiento máximo deja `15P` dentro del plano lejano |
 
 **Mutación** (se estropea el código a propósito y se comprueba que alguna prueba **falla**):
 
@@ -725,6 +777,8 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 | Encuadre | Radio × 5,5 | Calcular con el campo de visión real y el formato de la pantalla | Hay que leer la API de la cámara; con el número a mano se ajusta en un minuto |
 | Radios | Tamaño de dibujo (0,25–0,55 Å) | Radios covalentes reales escalados | Más cercano a la química, más trabajo; los valores de dibujo se ven bien en ball-and-stick |
 | Nombre del elemento | Inglés en el código | Recurso traducible | D20 |
+| Centro de giro | Siempre el centro de la molécula | **Doble toque en un átomo → ese átomo es el nuevo centro** (pivote móvil); o un botón «recentrar» | Lo que haría falta si el desplazamiento no funciona; hay que crear el gestor de cámara a mano. Pendiente de medir |
+| Límite de zoom | Absoluto (4 Å) | Proporcional al radio (el de SceneView, 0,15 ×) | **Es la causa del fallo de `15P`** (sección 7.1) |
 | Motor propio | SceneView/Filament | OpenGL ES a mano; o Canvas 2D con proyección | Más trabajo; el spike ya validó SceneView (D7) |
 
 ---
@@ -736,6 +790,7 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 | D21 | La paleta de colores es la tabla **«CPK» de Jmol** (escrita de memoria), con rosa fuerte para lo desconocido; los radios son de **dibujo** (0,25–0,55 Å), no físicos | Provisional | Convención reconocible; cambiar una tabla es trivial. Los tonos de metales raros sin comprobar |
 | D22 | Se dibujan **todos los átomos, hidrógenos incluidos**, con un interruptor «H» para ocultarlos; el encuadre cuenta siempre todos | Decidida | El 48 % de los átomos del corpus son hidrógenos: ocultarlos sin avisar cambiaría la molécula, y dejarlos sin interruptor cargaría la escena |
 | D23 | La escena es **un nodo por átomo y dos por enlace**, con la distancia inicial de la cámara en **5,5 × radio** | Provisional | Lo más simple y con selección gratis; el rendimiento (H6) y el encuadre se miden en el A33 y se ajustan; plan B: una malla |
+| D24 | Los límites de zoom son **absolutos en ångström** (acercamiento mínimo 4 Å; alejamiento máximo 3 × la distancia inicial), no relativos al tamaño del ligando | Provisional | La causa del tope de `15P` se leyó en el código de SceneView; el valor se ajusta en el móvil |
 
 ---
 
@@ -746,5 +801,6 @@ dirección de A a B** (error menor que 0,0001). Lo que **no** demuestra es que S
 - **`key(i)`** da identidad estable a cada átomo; sin él, ocultar los hidrógenos mezclaría nodos.
 - **Casi la mitad de los átomos son hidrógenos**, de ahí el interruptor «H».
 - **Todo lo numérico de aspecto es una estimación** (`DISTANCE_PER_RADIUS`, `BALL_DETAIL`, `MIN_TOUCH_RADIUS`, `radiusOf`): son constantes con nombre, listas para ajustar viendo el móvil.
-- **No se ha comprobado**: desplazamiento con dos dedos, límites de zoom, plano lejano, rendimiento, ciclo de vida, captura.
+- **El zoom de SceneView es relativo** a la distancia inicial (0,15 × .. 8 ×): con ligandos grandes el tope de acercamiento crece con ellos. Lo arreglan dos constantes en ångström (`MIN_CLOSE_DISTANCE`, `MAX_ZOOM_OUT_FACTOR`).
+- **No se ha comprobado en el móvil**: desplazamiento con dos dedos, el *tacto* de los límites nuevos, rendimiento, ciclo de vida, captura.
 - **El código de Compose y SceneView no está compilado:** el primer compilador real puede traer errores de firma.

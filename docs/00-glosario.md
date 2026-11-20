@@ -199,8 +199,22 @@ Desarrollado en [`07-escena-3d-de-la-molecula.md`](07-escena-3d-de-la-molecula.m
 | **Malla y detalle (`stacks`, `slices`)** | Una esfera 3D es una malla de triángulos; `stacks` y `slices` dicen en cuántas franjas se corta. Más franjas = más suave y más pesada. | 20 para las bolas, 12 para los hidrógenos (estimación). |
 | **Material (Filament)** | El «color» y el aspecto de la superficie de un objeto 3D. Se crea uno por elemento y se reutiliza. | `createColorInstance`, un `HashMap` por elemento. |
 | **Campo de visión (*field of view*)** | El ángulo que abarca la cámara. Con él se calcula a qué distancia cabe una molécula de un radio dado. | No comprobado en SceneView; de ahí que `DISTANCE_PER_RADIUS` sea una estimación. |
-| **Plano lejano (*far plane*)** | Distancia máxima a la que la cámara dibuja; lo que está más allá se recorta. | Riesgo para `15P` (≈ 230 Å de distancia); sin comprobar. |
+| **Plano lejano (*far plane*)** | Distancia máxima a la que la cámara dibuja; lo que está más allá se recorta. | En SceneView 4.69.4 vale **1000** (leído en el código); `15P` con los límites de zoom cabe (≈ 725 como máximo). Documento 07, 7 y 7.1. |
 | **`key(...)` en Compose** | Da a un trozo de la interfaz una **identidad** propia, para que Compose no lo confunda con otro cuando cambia la lista de hijos. | `key(i)` por átomo, `key(-k - 1)` por enlace. |
 | **`rememberUpdatedState`** | Guarda siempre **el último valor** de un parámetro para usarlo desde una lambda que se creó una sola vez. | `currentOnSelect` en `MoleculeScene`. |
 | **Selección por rayo (*picking*)** | Averiguar qué objeto se toca lanzando un rayo desde la cámara. | Nombre de nodo `atom N` → índice del átomo. |
 | **Hidrógeno oculto** | Un átomo H que no se dibuja (ni sus varillas), pero **sigue en el `Molecule`** y en el encuadre. | Interruptor «H» (D22). |
+| **Distancia «*home*» y límites de zoom** | SceneView mide la distancia inicial de la cámara y limita el zoom como **múltiplo** de ella (por defecto, de 0,15 × a 8 ×). Con ligandos grandes el tope de acercamiento crece con ellos. | Corregido con límites **absolutos** en ångström (`MIN_CLOSE_DISTANCE`, `MAX_ZOOM_OUT_FACTOR`; D24). Documento 07, 7.1. |
+
+## 10. Icono y pantalla de inicio
+
+Desarrollado en [`07b-icono-y-pantalla-de-inicio.md`](07b-icono-y-pantalla-de-inicio.md) y [`08a-direccion-visual-y-prompt.md`](08a-direccion-visual-y-prompt.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Pantalla de inicio (*splash*)** | Lo que se ve **mientras la app arranca**, antes de que dibuje su primer fotograma. La dibuja **el sistema** con el tema de la actividad. | La hoja de evaluación pide que se vea **≥ 1 s**. Se mantiene 1500 ms (D25). |
+| **`core-splashscreen`** | Biblioteca de AndroidX que ofrece la API de pantalla de inicio de Android 12 en **todas** las versiones. | `installSplashScreen()` + `setKeepOnScreenCondition`. Versión 1.2.0 (sin resolver desde este entorno). |
+| **Ventana de arranque (*starting window*)** | La ventana que el sistema pinta nada más tocar el icono, antes de ejecutar nuestro código. | Su tema: `Theme.SwiftyProteins.Starting`. |
+| **Icono adaptable (*adaptive icon*)** | Icono en **dos capas** (fondo + primer plano) sobre un lienzo de 108 dp; el lanzador lo recorta con la forma que prefiera. La **zona segura** es el círculo central de 66 dp. | `mipmap-anydpi-v26/ic_launcher.xml`. Provisional; se rehará con el diseño nuevo. |
+| **Contraste WCAG** | Cociente de luminancias entre texto y fondo; mínimo **4,5 : 1** (texto normal) o **3 : 1** (grande e iconos). | Se midió toda la paleta (documento 08a, 3); el rojo **solo como relleno**. |
+| **`CutCornerShape`** | Forma de Compose con **esquinas biseladas** (cortadas). | Base del lenguaje de formas «Culto de la Máquina» (D26). |

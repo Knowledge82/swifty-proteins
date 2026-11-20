@@ -1,5 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
+    <!-- The theme of the app once it is running. -->
     <style name="Theme.SwiftyProteins" parent="android:Theme.Material.Light.NoActionBar" />
+
+    <!--
+        The theme of the LAUNCH SCREEN (splash). The system applies it while the app starts; when the activity is ready,
+        installSplashScreen() (MainActivity) swaps it for postSplashScreenTheme. It works on every API from 24.
+    -->
+    <style name="Theme.SwiftyProteins.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="postSplashScreenTheme">@style/Theme.SwiftyProteins</item>
+    </style>
 </resources>

@@ -9,13 +9,15 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > contra los 1242 ligandos presentes en el diccionario) y la **capa de red** (descarga, errores, tiempos, cancelación y conversión a molécula) está **escrita y probada en la JVM** (42 pruebas más; sin probar en dispositivo ni contra RCSB real).
 > También están escritos y probados en la JVM el **catálogo con búsqueda** (`ligands.txt`, sin distinguir mayúsculas) y el **cargador** que gobierna el estado de carga (`Idle / Loading / Loaded / Failed`, con la garantía de que el indicador siempre desaparece).
 > Está escrito y funciona en el móvil el **pegamento con Android** (lista con buscador, diálogos de carga y de error); 162 pruebas.
-> Se ha escrito la **escena 3D de la molécula** (bolas y varillas con colores CPK, cámara orbital, tocar un átomo, interruptor de hidrógenos): su parte pura tiene 27 pruebas y mutación (189 en total);
-> la escena en sí **no está compilada ni probada en el móvil**. Falta: la captura para compartir, el inicio de sesión y la medición en el A33. Documentos:
+> Se ha escrito la **escena 3D de la molécula** (bolas y varillas con colores CPK, cámara orbital, tocar un átomo, interruptor de hidrógenos): su parte pura tiene 27 pruebas y mutación (198 en total con las de zoom y *splash*);
+> la escena **funciona en el móvil** (confirmado con `001`, `CDL` y `15P`). Se corrigió el **tope de zoom** de los ligandos grandes (D24) y se añadió la **pantalla de inicio de ≥ 1 s** que pide la hoja de evaluación (D25; **sin compilar con la biblioteca real**). La **dirección visual** está definida y el *prompt* para el generador, escrito (D26). Falta: la captura para compartir, el inicio de sesión, el diseño visual y la medición en el A33. Documentos:
 > [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (parser),
 > [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red),
 > [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) (lista, búsqueda y estado de carga),
 > [`docs/06c-pegamento-android-lista-y-carga.md`](docs/06c-pegamento-android-lista-y-carga.md) (pegamento con Android),
-> [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md) (escena 3D).
+> [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md) (escena 3D y límites de zoom),
+> [`docs/07b-icono-y-pantalla-de-inicio.md`](docs/07b-icono-y-pantalla-de-inicio.md) (icono y *splash*),
+> [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) (dirección visual y *prompt*).
 > Pendientes con compromiso del spike: H5 con «No conservar actividades», H4 (captura) y H6 (rendimiento).
 
 ---
@@ -62,6 +64,9 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D21 | La paleta de colores es la tabla **«CPK» de Jmol** (escrita de memoria), con rosa fuerte para lo desconocido; los radios de bola son de **dibujo** (0,25–0,55 Å), no físicos | Provisional | Convención reconocible; cambiar una tabla es trivial. Los tonos de metales raros, sin comprobar. Detalle en [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md), 3, 5 y 16. |
 | D22 | Se dibujan **todos los átomos, hidrógenos incluidos**, con un interruptor «H»; el encuadre cuenta siempre todos | Decidida con datos | El 48 % de los átomos del corpus (25 613 de 53 241) son hidrógenos. Detalle en el documento 07, 4 y 16. |
 | D23 | La escena es **un nodo por átomo y dos por enlace**, con la cámara inicial a **5,5 × radio** | Provisional | Lo más simple, con selección gratis; el rendimiento (H6) y el encuadre se miden en el A33; plan B: una malla. Detalle en el documento 07, 7, 12 y 15. |
+| D24 | Los límites de zoom son **absolutos en ångström** (acercamiento mínimo 4 Å; alejamiento máximo 3 × la distancia inicial), no relativos al tamaño del ligando | Provisional | La causa del tope de `15P` se **leyó en el código de SceneView** (0,15 × la distancia inicial); el valor se ajusta en el móvil. Documento 07, 7.1. |
+| D25 | La pantalla de inicio es la **del sistema** (`core-splashscreen`), **retenida 1500 ms** por una regla que solo mira el reloj | Provisional | Cumple «lanzamiento visible ≥ 1 s» con poco código y sin riesgo de colgarse. Documento 07b. |
+| D26 | Dirección visual **«Culto de la Máquina»** (inspirada en el Adeptus Mechanicus, **sin elementos de marca**), solo tema oscuro, emblema original (engranaje + molécula) | Dirección decidida; valores provisionales | Encaja con un visor 3D; el fondo oscuro realza los colores CPK; la paleta se midió (el rojo solo como relleno). Documento 08a. |
 
 ---
 
@@ -98,8 +103,9 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) | El código de la capa de red **línea a línea**: `FetchResult`, `HttpUrlConnectionFetcher`, `LigandLoadResult`, `LigandRepository`, el servidor casero de pruebas y las 42 pruebas una a una, con mutación | **Escrito** |
 | [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) | `LigandCatalog` (lista y búsqueda en tiempo real), `LoadState`, `LigandLoader` (corrutinas, cancelación, la garantía del indicador), simulaciones, 25 pruebas con mutación, qué falta para enchufarlo a Android | **Escrito** (lógica; pegamento con Android, pendiente) |
 | [`docs/06c-pegamento-android-lista-y-carga.md`](docs/06c-pegamento-android-lista-y-carga.md) | El pegamento con Android **línea a línea**: dependencias, `ViewModel` y su fábrica, la raíz (navegar por estado), lista con buscador, diálogos de carga y de error, pantalla provisional; simulaciones, cómo probar los cuatro errores en el móvil, alternativas, qué está verificado y qué no | **Escrito** (comprobado en el móvil: lista, búsqueda, carga) |
-| [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md) | La escena 3D **línea a línea**: teoría (CPK, bolas y varillas, orientación de cilindros con un ejemplo numérico, cámara, selección), datos del corpus (48 % hidrógenos, máximo 256 átomos), `ElementStyle`, `BondGeometry`, `SceneFraming`, `MoleculeScene`, `MoleculeScreen`; cómo probarlo y qué constantes ajustar; mutación; alternativas | **Escrito** (parte pura probada; escena sin compilar) |
-| 07 · Vista 3D | Escena, cámara, gestos, selección de átomos | Pendiente |
+| [`docs/07-escena-3d-de-la-molecula.md`](docs/07-escena-3d-de-la-molecula.md) | La escena 3D **línea a línea**: teoría (CPK, bolas y varillas, orientación de cilindros con un ejemplo numérico, cámara, selección), datos del corpus (48 % hidrógenos, máximo 256 átomos), `ElementStyle`, `BondGeometry`, `SceneFraming`, `MoleculeScene`, `MoleculeScreen`; cómo probarlo y qué constantes ajustar; mutación; alternativas | **Escrito** (comprobado en el móvil; límites de zoom en ångström, sección 7.1) |
+| [`docs/07b-icono-y-pantalla-de-inicio.md`](docs/07b-icono-y-pantalla-de-inicio.md) | Qué pide la hoja de evaluación (icono y lanzamiento ≥ 1 s), cómo funciona la pantalla de inicio en Android, `core-splashscreen`, `SplashHold` y `MainActivity` línea a línea, línea de tiempo con números, trampas, cómo medirlo, alternativas | **Escrito** (regla del tiempo probada; resto sin compilar) |
+| [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) | Dirección visual «Culto de la Máquina», paleta con **contraste medido**, restricciones técnicas, aviso de propiedad intelectual, **el prompt completo** para el generador y cómo se trasladará a Compose | **Escrito** (generador sin usar) |
 | 08 · Compartir y acabado | Captura, diseño adaptable, accesibilidad | Pendiente |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |
 | 10 · Pruebas y defensa | Lista de comprobación en dispositivo real y guion de defensa | Pendiente |
