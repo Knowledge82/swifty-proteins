@@ -1,6 +1,6 @@
 # 08a · Dirección visual «Culto de la Máquina» y el prompt para el generador
 
-> **Estado:** brief escrito **y usado**: el kit que devolvió el generador se revisó y se aplicó en el documento [`08b-diseno-aplicado.md`](08b-diseno-aplicado.md) (qué se tomó, qué no y por qué). Este documento explica **qué se pide y por qué**, deja el **prompt completo** (para copiar tal cual) y describe **cómo se traducirá el resultado a Compose**. Nada de esto toca todavía el código de la app.
+> **Estado:** **versión 2 del prompt** (sección 12). La versión 1 se usó: el kit se aplicó en [`08b-diseno-aplicado.md`](08b-diseno-aplicado.md), pero **visto en el móvil no transmite el Adeptus Mechanicus**; la v2 corrige el brief. Historia de la v1: el kit que devolvió el generador se revisó y se aplicó en el documento [`08b-diseno-aplicado.md`](08b-diseno-aplicado.md) (qué se tomó, qué no y por qué). Este documento explica **qué se pide y por qué**, deja el **prompt completo** (para copiar tal cual) y describe **cómo se traducirá el resultado a Compose**. Nada de esto toca todavía el código de la app.
 
 ## Índice
 
@@ -15,6 +15,7 @@
 9. [Qué está verificado y qué no](#9-qué-está-verificado-y-qué-no)
 10. [Decisiones](#10-decisiones)
 11. [Qué recordar](#11-qué-recordar)
+12. [Versión 2 del prompt: por qué la primera no funcionó](#12-versión-2-del-prompt-por-qué-la-primera-no-funcionó)
 
 ---
 
@@ -223,3 +224,112 @@ Qué se espera recibir y **dónde aterriza** en el código (**nada de esto está
 - **El visor 3D manda:** fondo oscuro y simple, **sin desenfoque encima**, colores CPK intactos.
 - **Inspirado en, no copiado de:** emblema propio, sin marcas ajenas.
 - **Se pide al generador** tokens + SVG + informe de contraste, no solo imágenes: es lo que se puede **implementar**.
+
+---
+
+## 12. Versión 2 del prompt: por qué la primera no funcionó
+
+**El veredicto en el móvil:** el resultado del paso A (documento 08b) **no parece Warhammer 40.000 ni Adeptus Mechanicus**: parece una app oscura moderna con un engranaje. Las fuentes no transmiten nada. Faltan **servidores (*servitors*), calaveras y consolas verdes**.
+
+**La causa está en el brief, no en el generador.** El generador hizo **exactamente** lo que pedía la v1:
+
+| Lo que pedía la v1 | Efecto |
+|--------------------|--------|
+| «Inspirado en, **no copiado**», sin calaveras «literales», sin nombres de la franquicia | Quitó **los símbolos que hacen reconocible** la estética |
+| «Ornamento **periférico**, contenido soberano, sin fondos cargados» | Interfaz **sobria**: lo contrario del barroco gótico-industrial |
+| «**Solo vectores**, sin texturas de mapa de bits» | Imposible pintar servidores, calaveras con detalle, metal gastado |
+| Fuentes Cinzel / Rajdhani | Romana clásica + sans técnica: **ni gótica ni de terminal** |
+| Verde solo para «datos» | La consola verde, que es **el** rasgo del cogitador, quedó en detalle |
+
+**Qué cambia en la v2:**
+
+- **Pide reconocibilidad explícita** («quien vea una captura debe pensar en Warhammer 40k») y lista los motivos: consolas CRT verdes con líneas de barrido, servo-cráneos, servidores conectados a consolas, túnicas rojas, sellos de pureza, arcos góticos, binario en los márgenes.
+- **Arte de mapa de bits permitido** (ilustraciones detalladas en PNG/WebP con transparencia, marcos en **9-slice** para que estiren sin deformar las esquinas, texturas pequeñas repetibles), con un **presupuesto de 4 MB**.
+- **Fuentes nuevas** (comprobadas en el repositorio de Google Fonts; muestra en la sección siguiente): **gótica** para títulos (**Grenze Gotisch**, **UnifrakturMaguntia** o **Pirata One**) y **de terminal CRT** para casi todo lo demás (**VT323**).
+- **El verde fósforo pasa a ser el color principal del texto** de la interfaz.
+- **Textos:** título con sabor Mechanicus **más una línea literal** en inglés (el evaluador debe reconocer cada uno de los cuatro errores del enunciado).
+- **Una pantalla de arranque propia** («secuencia de arranque del cogitador») además de la *splash* del sistema: es la alternativa 11.2 del documento 07b.
+- **Se mantienen** las restricciones técnicas que **no** son de gusto: el visor 3D es una superficie de GPU (sin desenfoque encima, centro despejado, fondo oscuro liso por los colores CPK), objetivos táctiles de 48 dp, legibilidad, texto real (no dentro de imágenes), apaisado.
+- **Lo único que se conserva de la prudencia de la v1:** pedir un **emblema propio** (calavera en engranaje) en vez de **calcar el logotipo oficial**. Todo lo demás de la franquicia se usa como referencia de estilo sin reparos (el proyecto no se publica).
+
+**Fuentes candidatas, comprobadas** (todas OFL en el repositorio de Google Fonts): `VT323-Regular.ttf`, `GrenzeGotisch[wght].ttf` (variable: habría que sacar cortes estáticos como con Cinzel), `UnifrakturMaguntia-Book.ttf`, `PirataOne-Regular.ttf` (declara nombre reservado: se usaría **sin modificar**), `Silkscreen`. **Ojo con la legibilidad:** la gótica solo en títulos grandes; VT323 es de mapa de bits dibujado a 7×9, se lee bien en tamaños medios y grandes, peor por debajo de ~14 sp.
+
+**Qué pasa con el código ya hecho (08b):** **se reaprovecha casi todo**. La estructura (tema de Material 3, componentes propios, funciones puras con pruebas, conversor de iconos, icono adaptable) es la misma; cambian **valores** (colores, fuentes), **recursos** (imágenes, marcos) y el **dibujo** de los componentes. Las 217 pruebas no dependen del aspecto.
+
+### 12.1 El prompt v2 (copiar y pegar)
+
+~~~~markdown
+# Brief v2 for a visual-design generator — "Swifty Proteins" as an Adeptus Mechanicus cogitator (Android, Jetpack Compose)
+
+## 0. What went wrong last time, and what I want now
+The previous round came back as a **clean, modern, restrained dark UI with a gear logo**. That is NOT what I want. I want the app to look like it was **built by the Adeptus Mechanicus of Warhammer 40,000**: an ancient, grimdark, baroque, gothic-industrial **cogitator terminal** of the Cult Mechanicus. When someone sees a screenshot they should immediately think "Warhammer 40k, Mechanicus". **Be bold, dense and ornate.** Detailed, painterly raster artwork is welcome (see section 6). Do not play it safe.
+
+The app: a viewer of 3D molecules ("ligands"). The user picks a ligand from a list of ~1243 ids, the app downloads it and shows it in 3D (balls and sticks). In the lore of the UI: the user is an **Adept** consulting the **data-vaults** of a **Forge World**; the molecules are **sacred patterns of matter**; the cogitator **invokes the machine spirit** to render them.
+
+## 1. Mood and motifs (use them generously)
+- **Cogitator consoles:** black glass CRT screens with **phosphor-green** monochrome text, **scanlines**, slight glow, blinking block cursor, ASCII/box-drawing frames, readouts, hex and **binharic** (binary) "cant" streams in the margins, flickering status lights.
+- **Skulls everywhere:** **servo-skulls** (floating skull drones with lenses, antennae, cables, a lamp or scanner beam), skulls set into **cogs**, skulls on brackets and frame corners, skull-and-wing ornaments.
+- **Servitors:** grim half-machine figures **wired into consoles**, hunched over keyboards, mechadendrites, tubes and cables plugged into the screen frames. Use them in illustrations: sign-in screen, empty states, loading.
+- **Tech-priest iconography:** **red robes** (Martian red cloth), hoods with glowing green or red optics, **brass and bronze** machinery, **gothic arches**, pipes, rivets, gears, pistons, cables, **candles and incense**, **purity seals** (red wax seals with parchment strips bearing small gothic text), **cog halos**.
+- **Gothic cathedral meets factory:** pointed arches as frames, heavy bronze bezels around screens, engraved panels, chains, grilles, worn and stained metal.
+- **Tone:** grimdark, sacred, ancient, oppressive, reverent, mechanical. **Not** steampunk-Victorian (no top hats, no goggles, no sepia leather), **not** clean sci-fi, **not** corporate flat design.
+
+## 2. Copywriting (Mechanicus flavour + clarity)
+UI texts are English. Use Mechanicus flavour **in headings and decorative lines** ("Data-Vault Index", "Invoking the Machine Spirit", "Auspex Readout", "The Machine Spirit is displeased", "Litany of Ignition", "Praise the Omnissiah"). **But** each functional message keeps **one plain-English line** under the flavour, because the app is tested by people who must recognise what happened:
+- Loading: flavour "Invoking the machine spirit…" + plain "Downloading ligand 001".
+- Errors (5 kinds, each its own illustration/icon): **No network connection**, **Ligand not found (404)**, **Server timeout**, **Received data is corrupt**, **Invalid ligand ID**. Flavour title + plain line, e.g. "THE NOOSPHERE IS SILENT" / "No network connection. Check Wi-Fi or mobile data."
+- Buttons stay literal: RETRY, CLOSE, OK, CANCEL, SIGN IN, CREATE ACCOUNT, SHARE.
+
+## 3. Typography (all must be free Google Fonts, they get bundled in the app)
+- **Headings / titles:** a **blackletter** gothic font: **Grenze Gotisch** (bold) or **UnifrakturMaguntia** or **Pirata One** — pick the one that reads best at 20–32 sp and say why.
+- **Console text, data, ids, coordinates, most UI labels:** a **CRT terminal** font: **VT323** (preferred). Optionally **Silkscreen** for tiny all-caps tags.
+- No other fonts. Give a type scale (name, font, size in sp, line height, use).
+
+## 4. Palette (start here, refine if needed)
+| Token | Hex | Use |
+|---|---|---|
+| abyss | #050806 | deepest background, behind the 3D scene |
+| console | #08120B | CRT screen glass |
+| iron | #16161A | metal panels |
+| bronze | #7A5A2E | frames, bezels |
+| brass | #B8893A | engraved lines, icons |
+| gold | #E0B65C | blackletter headings |
+| bone | #E6DCC3 | skulls, parchment, main light text |
+| phosphor | #43E07A | console text and data (main UI text colour!) |
+| phosphor_dim | #1F7A42 | scanlines, secondary console text, grids |
+| mars_red | #8E1B14 | robes, wax seals, primary button FILLS |
+| optic_red | #FF3B2F | warning optics, error accents |
+| amber | #F2A12B | candle glow, warnings |
+Readability rule (keep it): **red is never used as small text on black** (too dark to read); use it as a fill/seal/optic glow. Text on dark = phosphor, bone or gold. Body text ≥ 4.5:1 contrast.
+
+## 5. Screens to design (portrait, 1080×2400 px reference; show every state)
+1. **App icon** (adaptive: 108 dp canvas, key content inside the central 66 dp circle; background layer + foreground layer + monochrome version + 512 px preview): an **original skull-in-cog insignia** (do not trace any existing official logo), bone skull, brass/bronze cog, a small green optic glow.
+2. **Launch / boot screen** (in-app, ~1.5 s): a cogitator **boot sequence**: the insignia, a green console printing lines ("LITANY OF IGNITION… OK", "MACHINE SPIRIT… AWAKE", "DATA-VAULT… 1,243 PATTERNS"), a progress bar of cogs. Plus a minimal **system splash** version (background colour + insignia only).
+3. **Sign-in** ("Noosphere Access — Identify, Adept"): a servitor or tech-priest illustration framing a console; **biometric button** ("Bio-auspex scan" + fingerprint icon, literal sub-label "Fingerprint / face"); password field ("Passphrase"); SIGN IN; link CREATE ACCOUNT. Variants: **create account** (name + password + confirm), **wrong password** error.
+4. **Ligand list** ("Data-Vault Index"): the whole screen is a **cogitator console** inside a bronze gothic bezel; a search field styled as a command prompt (`> search by ligand id_`); a counter ("1,243 PATTERNS"); rows as console lines (`> 001 ........ [ INSPECT ]`), each row ≥ 56 dp tall and tappable; skull/purity-seal ornaments on the frame, binharic streams in the margins; states: **searching**, **no match** (servo-skull illustration with "No pattern matches 'xyz'" + CLEAR SEARCH), **catalog unreadable**.
+5. **Loading dialog** (modal): a **servo-skull** scanning with a green beam (design it so the skull image can bob up and down and the beam can pulse, done in code), flavour + plain line, CANCEL.
+6. **Five error dialogs** (modal), one family, each with its **own illustration**: e.g. broken noosphere antenna (offline), empty archive shelf / skull with question mark (404), hourglass with cog (timeout), corrupted glitching data-slate (corrupt), crossed-out rune (invalid id). Flavour title + plain line + RETRY/CLOSE or OK.
+7. **Molecule screen ("Auspex Readout")**: the 3D molecule fills the screen (it is rendered live by a 3D engine, you only design the frame around it). Top bar: back button, gothic title "Pattern 001", console line "87 ATOMS :: 90 BONDS", an **H toggle** (hydrogens shown/hidden, both states), a **SHARE** button (states: normal, working "Preparing pict-capture…", done "Pict-capture ready", disabled). Corner **targeting brackets** around the viewport. Bottom **auspex readout card** in console style: empty state ("Tap an atom to inspect it"), selected atom ("C01 · Carbon (C)" + `X 12.184 Å  Y -5.006 Å  Z 0.472 Å` in green), "Hydrogens hidden" state. An element colour key (CPK dots + symbols).
+8. **Component sheet:** buttons (primary = red wax/robe fill with bone text; secondary = bronze frame with green text; text button), input (normal/focused/error), list row (normal/pressed), H toggle (on/off), dialog frame, console panel, dividers (skull, cog, binharic), corner brackets, icon set (back, share, search, clear, fingerprint, close, retry, warning, check).
+
+## 6. Art and assets (raster is welcome now)
+- **Illustrations** (servitors, servo-skulls, tech-priest, error pictures, boot screen art): detailed, painterly, grimdark. Deliver as **transparent PNG/WebP**, sized for 1080 px wide screens, **total art budget ≤ 4 MB**.
+- **Frames and bezels:** deliver as **9-slice** PNG (stretchable centre, fixed ornate corners), so they fit any screen size. Say where the stretch lines are.
+- **Textures** (metal, parchment, stained glass): small **tileable** squares.
+- **Icons and the insignia:** **SVG**, single-colour versions too (they get tinted in code).
+- **Scanlines, glow, blinking cursor, cog rotation, skull bobbing:** describe them; they will be done in code (no video, no Lottie).
+
+## 7. Technical constraints (keep them, everything else is free)
+1. Android, Jetpack Compose + Material 3, dark only. Text is real text (not baked into images), so it can change and scale.
+2. **The 3D viewport is a live GPU surface**: nothing can blur or filter it; panels over it are solid or semi-transparent, with frames/brackets **around** it. Keep the centre of the viewport clear. Atom colours are fixed (CPK: H white, C grey, N blue, O red, S yellow, P orange…), so the viewport background must stay very dark and plain (no busy texture behind the molecule).
+3. Touch targets ≥ 48 dp. Body text readable on a phone in daylight (≥ 4.5:1).
+4. Landscape must not break (frames stretch; that is why 9-slice).
+
+## 8. Deliverables
+1. One-paragraph art direction statement.
+2. **Tokens**: colours, type scale, spacing, frame/corner sizes, as a table **and** JSON.
+3. **All screens and states** from section 5 as PNG 1080×2400, plus a contact sheet.
+4. **Assets** from section 6, named for Android (`snake_case`), each with its intended size in dp.
+5. **Implementation notes for Compose**: what is an image, what is 9-slice, what is drawn in code (scanlines, glow, brackets), what animates and how.
+~~~~
+
