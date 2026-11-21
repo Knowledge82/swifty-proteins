@@ -39,6 +39,10 @@ private const val BOND_RADIUS = 0.12f
 private const val BALL_DETAIL = 20
 private const val HYDROGEN_BALL_DETAIL = 12
 
+// The selection shell: 1.5 times the atom, 35 % opaque (the atom inside stays visible with its real colour).
+private const val HALO_SCALE = 1.5f
+private const val HALO_ALPHA = 0.35f
+
 // A finger is much wider than a hydrogen (radius 0.25): the area that answers to a tap is never smaller than this.
 private const val MIN_TOUCH_RADIUS = 0.35f
 
@@ -91,8 +95,10 @@ fun MoleculeScene(
         materials.getOrPut(element) { materialLoader.createColorInstance(colorOf(element)) }
 
     val stick = remember(materialLoader) { materialLoader.createColorInstance(Color(0.7f, 0.7f, 0.7f, 1f)) }
-    // Selection highlight: yellow stands out against grey, red, blue and white alike.
-    val highlight = remember(materialLoader) { materialLoader.createColorInstance(Color(1f, 0.9f, 0.1f, 1f)) }
+    // SELECTION: the atom keeps its CPK colour (recolouring it would lie about the element: yellow is sulfur, green is
+    // chlorine...). Instead a translucent phosphor-green shell is drawn AROUND it. UNLIT: a glow, not an object, so the
+    // lights do not shade it; alpha < 1 makes SceneView pick its transparent material.
+    val halo = remember(materialLoader) { materialLoader.createUnlitColorInstance(Color(0.26f, 0.88f, 0.48f, HALO_ALPHA)) }
 
     // Both depend only on the molecule: computed once, not at every recomposition (and every tap recomposes).
     val distance = remember(molecule) { SceneFraming.cameraDistance(SceneFraming.radiusOf(molecule)) }
@@ -146,7 +152,7 @@ fun MoleculeScene(
                     val detail = if (atom.element == "H") HYDROGEN_BALL_DETAIL else BALL_DETAIL
                     SphereNode(
                         radius = radius, stacks = detail, slices = detail,
-                        materialInstance = if (selected == i) highlight else materialOf(atom.element),
+                        materialInstance = materialOf(atom.element),
                         position = Position(atom.x, atom.y, atom.z),
                         apply = {
                             this.name = "$ATOM_PREFIX$i"
@@ -154,6 +160,22 @@ fun MoleculeScene(
                         },
                     )
                 }
+            }
+        }
+
+        // The halo of the selected atom (same rules as the atom: a hidden hydrogen has no halo).
+        val chosen = selected?.let { molecule.atoms.getOrNull(it) }?.takeIf { showHydrogens || it.element != "H" }
+        if (chosen != null) {
+            key(Int.MIN_VALUE) {   // a key no atom (>= 0) or bond (< 0, but > MIN_VALUE) can have
+                SphereNode(
+                    radius = ElementStyle.radiusOf(chosen.element) * HALO_SCALE,
+                    stacks = BALL_DETAIL, slices = BALL_DETAIL,
+                    materialInstance = halo,
+                    position = Position(chosen.x, chosen.y, chosen.z),
+                    // NOT touchable: it is bigger than the atom, and a tap on it must reach the atom (or the empty
+                    // space) behind, not count as "a tap on nothing" that would clear the selection.
+                    apply = { this.isTouchable = false },
+                )
             }
         }
 

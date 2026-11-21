@@ -3,6 +3,8 @@
 > Estado: **PARTE PURA ESCRITA Y PROBADA EN LA JVM; PARTE DE ANDROID SIN COMPILAR.** Los colores, los radios, la geometría de los enlaces y el encuadre de la cámara (`scene/`, 3 ficheros) tienen **27 pruebas** y **mutación**
 > (todas las averías detectadas salvo una equivalente, sección 14). La escena en sí (`MoleculeScene`, `MoleculeScreen`) usa **las mismas llamadas de SceneView que el spike** (comprobadas en el A33), pero **no se ha compilado ni probado
 > en el móvil**; se ha comprobado de tipos contra piezas de relleno escritas de memoria (como en el documento 06c).
+> **Nota posterior (21-11-2026):** (1) **la selección ya no es amarilla**: el amarillo es el **azufre** en CPK, y recolorear un átomo mentiría sobre su elemento. El átomo conserva su color y se dibuja **alrededor** una envoltura translúcida verde fósforo (`createUnlitColorInstance`, alfa 0,35, 1,5 veces el radio) que **no es tocable** (`isTouchable = false`: SceneView la salta al buscar qué se tocó, línea 909 de su `SceneView.kt`), así que tocar dentro del halo sigue llegando al átomo. (2) La **luz** y el **contador de FPS** están en el documento [`12-luz-y-fps.md`](12-luz-y-fps.md). (3) Tocar **cualquier panel** también quita la ficha del átomo (enunciado VI.4: «al tocar en cualquier otro sitio»). El código citado abajo es el de esta etapa.
+>
 > Redactado el 20/11/2026. Viene después de [`06c`](06c-pegamento-android-lista-y-carga.md): **sustituye** a la pantalla provisional con la tabla de átomos. Reutiliza el trabajo del spike
 > ([`02-spike-3d.md`](02-spike-3d.md), [`02b-spike-seleccion-atomos.md`](02b-spike-seleccion-atomos.md)) y el modelo `Molecule` ([`03a`](03a-codigo-parser.md)).
 
@@ -36,7 +38,7 @@ Del documento 01, para la vista 3D: modelo de **bolas y varillas** con **colores
 |---|---|
 | Bolas y varillas con colores CPK | **Escrito** (secciones 5, 6, 8) |
 | Giro y zoom | **Escrito** con la cámara orbital del spike (comprobada en H3) y **límites de zoom en ångström** (sección 7.1). **No se ha comprobado el desplazamiento** (*pan*) con dos dedos: ver sección 12 |
-| Tocar un átomo | **Escrito**: se resalta en amarillo y una tarjeta dice nombre, elemento y coordenadas |
+| Tocar un átomo | **Escrito**: se resalta con un halo verde translúcido (el átomo conserva su color CPK; nota del principio) y una tarjeta dice nombre, elemento y coordenadas |
 | Compartir captura | **Pendiente** (hipótesis H4 del spike, sin probar). Es la siguiente etapa |
 | Bonus | Se añade un interruptor «H» para ocultar los hidrógenos. Enlaces dobles/triples dibujados: **pendiente** |
 
