@@ -68,6 +68,8 @@ data class PromptRequest(val id: Long, val purpose: Purpose, val username: Strin
 data class AuthUiState(
     val screen: AuthScreen = AuthScreen.LOADING,
     val unlocked: Boolean = false,
+    /** WHO is signed in (the name of the open session), or null while locked. Not the form field [username]. */
+    val signedInAs: String? = null,
     val username: String = "",
     val password: String = "",
     val confirmation: String = "",
@@ -386,6 +388,7 @@ class AuthController(
         mutableState.update {
             it.copy(
                 unlocked = false,
+                signedInAs = null,
                 screen = if (book?.isEmpty == true) AuthScreen.CREATE else AuthScreen.SIGN_IN,
                 username = name,
                 password = "",
@@ -408,6 +411,7 @@ class AuthController(
         mutableState.update {
             it.copy(
                 unlocked = true,
+                signedInAs = account.username,
                 busy = false,
                 password = "",
                 confirmation = "",

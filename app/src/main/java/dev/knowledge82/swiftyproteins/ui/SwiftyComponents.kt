@@ -257,16 +257,42 @@ fun CogitatorBackground(modifier: Modifier = Modifier, content: @Composable BoxS
  * subtitle ("DATA-VAULT INDEX // PRIMARY ARCHIVE").
  */
 @Composable
-fun HeaderPanel(subtitle: String, modifier: Modifier = Modifier, tab: String = "COGITATOR // MK.VII") {
+fun HeaderPanel(
+    subtitle: String,
+    modifier: Modifier = Modifier,
+    tab: String = "COGITATOR // MK.VII",
+    action: (@Composable () -> Unit)? = null,
+) {
     CogitatorPanel(modifier = modifier.fillMaxWidth(), label = tab, contentPadding = 12.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Image(painterResource(R.drawable.emblem), contentDescription = null, modifier = Modifier.size(44.dp))
             Spacer(Modifier.width(10.dp))
-            Column {
+            Column(modifier = Modifier.weight(1f)) {
                 Text("Swifty Proteins", style = MaterialTheme.typography.headlineMedium.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, maxLines = 1)
                 Text(subtitle, style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, maxLines = 1)
             }
+            action?.invoke()
         }
+    }
+}
+
+/**
+ * The favourite star as a 48 dp key (document 16): filled when [on], outlined when not. A vector, not a character:
+ * neither of our fonts has a star glyph. The state is also said in words for TalkBack ([state]).
+ */
+@Composable
+fun StarKey(on: Boolean, onClick: () -> Unit, description: String, state: String, modifier: Modifier = Modifier) {
+    val sounds = LocalSounds.current
+    IconButton(
+        onClick = { sounds.play(SoundCue.KEY); onClick() },
+        modifier = modifier.size(48.dp).semantics { stateDescription = state },
+    ) {
+        Icon(
+            painterResource(if (on) R.drawable.ic_star else R.drawable.ic_star_outline),
+            contentDescription = description,
+            tint = SwiftyColors.Gold,
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 

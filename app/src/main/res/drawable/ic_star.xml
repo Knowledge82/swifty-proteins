@@ -1,0 +1,8 @@
+<!-- A regular five-pointed star, filled (favourite: yes). Computed, not copied: outer radius 10.5, inner radius
+     10.5 x 0.381966 (the ratio of a regular {5/2} star), centre (12, 12.4). Document 16. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp"
+    android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#E0B65C"
+        android:pathData="M12.000,1.900 L14.357,9.155 L21.986,9.155 L15.814,13.639 L18.172,20.895 L12.000,16.411 L5.828,20.895 L8.186,13.639 L2.014,9.155 L9.643,9.155 Z" />
+</vector>

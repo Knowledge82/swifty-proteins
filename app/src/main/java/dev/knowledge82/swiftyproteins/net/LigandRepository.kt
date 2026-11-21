@@ -87,5 +87,8 @@ class LigandRepository(
 
         // Real ids are 1 to 3 letters/digits ("001", "ATP", "HEM"); the dictionary allows up to 5.
         private val ID_PATTERN = Regex("[A-Z0-9]{1,5}")
+
+        /** Is [id] a plausible ligand id? The same rule everywhere an id comes from outside (favourites file: document 16). */
+        fun isValidId(id: String): Boolean = ID_PATTERN.matches(id)
     }
 }

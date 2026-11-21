@@ -46,9 +46,13 @@ interface SoundPlayer {
     /** Stops [cue] if it is still sounding (the loading sweep, when the molecule arrives early). */
     fun stop(cue: SoundCue)
 
+    /** The "Sounds" setting (document 16): muted, nothing plays. */
+    fun setMuted(muted: Boolean)
+
     object Silent : SoundPlayer {
         override fun play(cue: SoundCue) = Unit
         override fun stop(cue: SoundCue) = Unit
+        override fun setMuted(muted: Boolean) = Unit
     }
 }
 

@@ -36,6 +36,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.catalog.LigandCatalog
+import dev.knowledge82.swiftyproteins.prefs.Favorites
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
 import dev.knowledge82.swiftyproteins.ui.theme.glowing
@@ -56,11 +57,18 @@ fun LigandListScreen(
     onQueryChange: (String) -> Unit,
     listState: LazyListState,
     onOpen: (String) -> Unit,
+    favorites: Set<String>,
+    onlyFavorites: Boolean,
+    onToggleOnlyFavorites: () -> Unit,
+    onToggleFavorite: (String) -> Unit,
+    onSettings: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Recomputed ONLY when the catalog or the text change (not on every recomposition). It is the "real time"
-    // search: each keystroke changes `query`, this line runs again and the list below redraws.
-    val results = remember(catalog, query) { catalog?.search(query) ?: emptyList() }
+    // Recomputed ONLY when the catalog, the text or the favourites filter change (not on every recomposition). It is
+    // the "real time" search: each keystroke changes `query`, this line runs again and the list below redraws.
+    val results = remember(catalog, query, favorites, onlyFavorites) {
+        Favorites.filter(catalog?.search(query) ?: emptyList(), favorites, onlyFavorites)
+    }
     val total = remember(catalog) { catalog?.search("")?.size ?: 0 }
     val available = catalog != null
     val focusManager = LocalFocusManager.current
@@ -70,7 +78,12 @@ fun LigandListScreen(
             modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
-            HeaderPanel(subtitle = "DATA-VAULT INDEX // PRIMARY ARCHIVE")
+            HeaderPanel(subtitle = "DATA-VAULT INDEX // PRIMARY ARCHIVE", action = {
+                // The settings (bonus VII.2, document 16): a 48 dp cog in the header.
+                IconButton(onClick = onSettings, modifier = Modifier.size(48.dp)) {
+                    Icon(painterResource(R.drawable.ic_cog), contentDescription = "Settings", tint = SwiftyColors.Gold, modifier = Modifier.size(26.dp))
+                }
+            })
             TitlePlate(title = "Data-Vault Index", subtitle = "// BINHARIC PATTERN REGISTRY //")
 
             CogitatorPanel(
@@ -80,11 +93,20 @@ fun LigandListScreen(
                 fillHeight = true,
             ) {
                 CogitatorPanel(label = "AUSPEX QUERY", contentPadding = 6.dp, scanlines = false) {
-                    QueryField(query = query, onQueryChange = onQueryChange, enabled = available)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.weight(1f)) { QueryField(query = query, onQueryChange = onQueryChange, enabled = available) }
+                        // "Favourites only" (document 16): a star, filled when the filter is on.
+                        StarKey(
+                            on = onlyFavorites,
+                            onClick = onToggleOnlyFavorites,
+                            description = "Show only favourites",
+                            state = if (onlyFavorites) "on" else "off",
+                        )
+                    }
                 }
                 Spacer(Modifier.height(10.dp))
                 Text(
-                    ListTexts.patternsFound(available, total, query, results.size),
+                    ListTexts.patternsFound(available, total, query, results.size, onlyFavorites),
                     style = MaterialTheme.typography.labelMedium.glowing(if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed),
                     color = if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed,
                 )
@@ -97,6 +119,11 @@ fun LigandListScreen(
                         catalog == null -> EmptyState(
                             art = R.drawable.art_corrupt_slate,
                             message = "The ligand list could not be read. Reinstall the app.",
+                        )
+                        results.isEmpty() && onlyFavorites -> EmptyState(
+                            art = R.drawable.art_servo_skull,
+                            message = ListTexts.noFavorites(query),
+                            action = { SecondaryButton("Show all", onClick = onToggleOnlyFavorites) },
                         )
                         results.isEmpty() && query.isBlank() -> EmptyState(
                             art = R.drawable.art_archive_404,
@@ -115,10 +142,15 @@ fun LigandListScreen(
                             // `key`: identifies each row by its id, so Compose can reuse rows when the list changes.
                             // LazyColumn composes ONLY the rows on screen (about 10), never all 1243.
                             items(results, key = { it }) { id ->
-                                PatternRow(id = id, onClick = {
-                                    focusManager.clearFocus()   // hide the keyboard
-                                    onOpen(id)
-                                })
+                                PatternRow(
+                                    id = id,
+                                    favorite = id in favorites,
+                                    onToggleFavorite = { onToggleFavorite(id) },
+                                    onClick = {
+                                        focusManager.clearFocus()   // hide the keyboard
+                                        onOpen(id)
+                                    },
+                                )
                             }
                         }
                     }
@@ -167,9 +199,9 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
     )
 }
 
-/** One ligand as a console line: "> 001 ........ [INSPECT]". 56 dp tall, all of it tappable. */
+/** One ligand as a console line: "> 001 ........ [INSPECT] ☆". 56 dp tall, all of it tappable; the star is its own key. */
 @Composable
-private fun PatternRow(id: String, onClick: () -> Unit) {
+private fun PatternRow(id: String, favorite: Boolean, onToggleFavorite: () -> Unit, onClick: () -> Unit) {
     Column {
         Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
             Row(modifier = Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -178,6 +210,12 @@ private fun PatternRow(id: String, onClick: () -> Unit) {
                 Text(id, style = SwiftyDataText.large.glowing(SwiftyColors.Bone, 0.25f), color = SwiftyColors.Bone, modifier = Modifier.width(72.dp))
                 Text("·······", style = SwiftyDataText.small, color = SwiftyColors.PhosphorDim, modifier = Modifier.weight(1f))
                 Text("[INSPECT]", style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+                StarKey(
+                    on = favorite,
+                    onClick = onToggleFavorite,
+                    description = "Favourite $id",
+                    state = if (favorite) "favourite" else "not favourite",
+                )
             }
         }
         ConsoleRule()

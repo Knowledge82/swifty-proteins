@@ -352,10 +352,10 @@ Un programa de comprobación (fuera de la app) interpreta los 1242 `.cif` del co
 | Superficies (*molecular surface*, SES/SAS) | Requieren calcular una malla (*marching cubes*): mucho más trabajo; espacio lleno da la idea de forma |
 | Doble toque que **conserva el ángulo** de la cámara | Exigiría un manipulador propio (la clase `Manipulator` de Filament es final); el deslizamiento de SceneView basta |
 | Pulsación larga para resaltar el elemento del átomo tocado | La leyenda ya lista los elementos y es accesible; la pulsación larga no se descubre sola |
-| **Medir distancias y ángulos** entre átomos (VII.3) | Siguiente candidato: seleccionar 2 o 3 átomos; la longitud de enlace ya es una distancia |
+| **Medir distancias y ángulos** entre átomos (VII.3) | **Hecho después**: la regla del documento 16 (también la torsión) |
 | **Etiquetas** de átomos en 3D (VII.3) | Texto en 3D con SceneView (`ViewNode` o texturas): coste alto en rendimiento con 256 etiquetas |
-| **Ajustes** (VII.2): modelo por defecto, hidrógenos | Ahora tiene sentido (hay modelos); pendiente |
-| **Favoritos** (VII.5) | Pendiente: una lista por cuenta, guardada junto a las cuentas |
+| **Ajustes** (VII.2): modelo por defecto, hidrógenos | **Hecho después** (documento 16), con los sonidos |
+| **Favoritos** (VII.5) | **Hecho después** (documento 16): por cuenta |
 | Vídeo, comparar dos moléculas, otros formatos (VII.5) | Más trabajo que valor para la defensa |
 
 ---

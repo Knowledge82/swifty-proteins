@@ -49,4 +49,17 @@ class ListTextsTest {
     fun theNoMatchMessageQuotesTheTrimmedQuery() {
         assertEquals("No pattern matches 'xyz'.", ListTexts.noMatch("  xyz "))
     }
+
+    @Test
+    fun withTheFavouritesFilterTheCountSaysFavourites() {
+        assertEquals("FAVOURITES FOUND: 3", ListTexts.patternsFound(true, 1243, "", 3, onlyFavorites = true))
+        assertEquals("FAVOURITES FOUND: 0", ListTexts.patternsFound(true, 1243, "A", 0, onlyFavorites = true))
+        assertEquals("ARCHIVE UNREADABLE", ListTexts.patternsFound(false, 0, "", 0, onlyFavorites = true))
+    }
+
+    @Test
+    fun anEmptyFavouritesListExplainsWhy() {
+        assertEquals("No favourites yet. Tap the star of a ligand to keep it here.", ListTexts.noFavorites("  "))
+        assertEquals("No favourite matches 'AT'.", ListTexts.noFavorites(" AT "))
+    }
 }

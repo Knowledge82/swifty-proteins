@@ -15,6 +15,8 @@ import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.knowledge82.swiftyproteins.auth.toAuthenticationRequest
 import dev.knowledge82.swiftyproteins.auth.toOutcome
+import dev.knowledge82.swiftyproteins.prefs.PreferencesViewModel
+import dev.knowledge82.swiftyproteins.prefs.PreferencesViewModelFactory
 import dev.knowledge82.swiftyproteins.sound.CogitatorSounds
 import dev.knowledge82.swiftyproteins.sound.LocalSounds
 import dev.knowledge82.swiftyproteins.ui.AuthViewModel
@@ -30,6 +32,7 @@ class MainActivity : ComponentActivity() {
     // activity is destroyed and recreated. The lambda builds it only if it does not exist yet.
     private val viewModel: LigandsViewModel by viewModels { LigandsViewModelFactory(applicationContext) }
     private val authViewModel: AuthViewModel by viewModels { AuthViewModelFactory(applicationContext) }
+    private val prefsViewModel: PreferencesViewModel by viewModels { PreferencesViewModelFactory(applicationContext) }
 
     // The system's biometric dialog (androidx.biometric 1.4, document 05). It MUST be registered while the activity
     // is being created (like any "activity result"): a field initializer is the place the library recommends.
@@ -69,7 +72,7 @@ class MainActivity : ComponentActivity() {
                 }
                 // The cogitator's voice (document 14): one player for the whole app, reachable from every screen.
                 CompositionLocalProvider(LocalSounds provides CogitatorSounds.of(this)) {
-                    SwiftyApp(viewModel, auth)
+                    SwiftyApp(viewModel, auth, prefsViewModel.controller)
                 }
             }
         }

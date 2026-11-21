@@ -30,6 +30,7 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.em
 import dev.knowledge82.swiftyproteins.molecule.MolecularFormula
 import dev.knowledge82.swiftyproteins.scene.Drawn
+import dev.knowledge82.swiftyproteins.scene.Measurement
 import dev.knowledge82.swiftyproteins.scene.Representation
 import dev.knowledge82.swiftyproteins.scene.ScenePick
 import androidx.compose.foundation.clickable
@@ -85,6 +86,10 @@ fun MoleculeScreen(
     molecule: Molecule,
     origin: Origin,
     onBack: () -> Unit,
+    startModel: Representation = Representation.BALL_AND_STICK,
+    startWithHydrogens: Boolean = true,
+    favorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // The system Back button returns to the list, exactly like the button on screen.
@@ -93,10 +98,14 @@ fun MoleculeScreen(
     // rememberSaveable: all of this survives a rotation of the phone. At most ONE of selectedAtom / selectedBond is set.
     var selectedAtom by rememberSaveable { mutableStateOf<Int?>(null) }
     var selectedBond by rememberSaveable { mutableStateOf<Int?>(null) }
-    var showHydrogens by rememberSaveable { mutableStateOf(true) }
-    var representation by rememberSaveable { mutableStateOf(Representation.BALL_AND_STICK) }   // bonus VII.1
+    // The settings (document 16) give only the STARTING values: rememberSaveable reads them once, when the molecule opens.
+    var showHydrogens by rememberSaveable { mutableStateOf(startWithHydrogens) }
+    var representation by rememberSaveable { mutableStateOf(startModel) }   // bonus VII.1
     var highlightElement by rememberSaveable { mutableStateOf<String?>(null) }                  // bonus VII.3
     var focus by rememberSaveable { mutableStateOf<Int?>(null) }                                // bonus VII.3
+    // The ruler (bonus VII.3, document 16): on or off, and the tapped atoms (an IntArray: a type a Bundle can hold).
+    var ruler by rememberSaveable { mutableStateOf(false) }
+    var measuredIds by rememberSaveable { mutableStateOf(IntArray(0)) }
     val hasHydrogens = remember(molecule) { molecule.atoms.any { it.element == "H" } }
     val legend = remember(molecule, showHydrogens) { ElementLegend.of(molecule, showHydrogens) }
 
@@ -148,7 +157,9 @@ fun MoleculeScreen(
 
     // What is REALLY highlighted: something that exists AND is drawn now (not a hidden hydrogen, not a bond in
     // space-filling). The remembered index stays: undoing the switch brings the highlight back.
-    val selection = Drawn.selection(molecule, selectedAtom, selectedBond, showHydrogens, representation)
+    // With the ruler on, the ruler owns the taps and the card: no single selection is shown.
+    val selection = if (ruler) null else Drawn.selection(molecule, selectedAtom, selectedBond, showHydrogens, representation)
+    val measured = Measurement.visible(measuredIds.toList(), molecule, showHydrogens)
     fun select(pick: ScenePick?) {
         if (pick != null) sounds.play(SoundCue.SELECT)
         selectedAtom = (pick as? ScenePick.Atom)?.index
@@ -162,9 +173,9 @@ fun MoleculeScreen(
     val deselect = Modifier.clickable(
         interactionSource = remember { MutableInteractionSource() },
         indication = null,
-        enabled = selection != null,
+        enabled = selection != null || measured.isNotEmpty(),
         onClickLabel = "Hide the atom information",
-    ) { select(null) }
+    ) { select(null); measuredIds = IntArray(0) }
 
     Box(modifier = modifier.fillMaxSize()) {
         MoleculeScene(
@@ -174,7 +185,15 @@ fun MoleculeScreen(
             selection = selection,
             highlightElement = highlightElement,
             focus = focus,
-            onTap = ::select,
+            measured = if (ruler) measured else emptyList(),
+            onTap = { pick ->
+                if (!ruler) select(pick)
+                else when (pick) {
+                    is ScenePick.Atom -> { sounds.play(SoundCue.SELECT); measuredIds = Measurement.tap(measured, pick.index).toIntArray() }
+                    null -> measuredIds = IntArray(0)   // a tap on empty space clears the ruler, as it clears a selection
+                    is ScenePick.Bond -> Unit           // the ruler measures between atoms
+                }
+            },
             // Double tap on an atom: orbit around it (and select it). On empty space: back to the whole molecule.
             // On a bond: nothing (a bond has no single point that is "it").
             onDoubleTap = { pick ->
@@ -212,7 +231,15 @@ fun MoleculeScreen(
                 ShareStatusPanel(text = text, status = share, modifier = deselect)
                 Spacer(Modifier.height(14.dp))
             }
-            ReadoutPanel(molecule = molecule, selection = selection, hydrogensHidden = hasHydrogens && !showHydrogens, modifier = deselect)
+            if (ruler) RulerPanel(molecule = molecule, measured = measured, modifier = deselect)
+            else ReadoutPanel(
+                molecule = molecule,
+                selection = selection,
+                hydrogensHidden = hasHydrogens && !showHydrogens,
+                favorite = favorite,
+                onToggleFavorite = onToggleFavorite,
+                modifier = deselect,
+            )
             Spacer(Modifier.height(10.dp))
             ElementKey(
                 elements = legend,
@@ -220,6 +247,12 @@ fun MoleculeScreen(
                 onToggle = { element -> highlightElement = if (highlightElement == element) null else element },
                 representation = representation,
                 onNextRepresentation = { representation = representation.next() },
+                ruler = ruler,
+                onToggleRuler = {
+                    ruler = !ruler
+                    measuredIds = IntArray(0)
+                    select(null)
+                },
                 modifier = deselect,
             )
         }
@@ -327,19 +360,37 @@ private fun ShareStatusPanel(text: String, status: ShareStatus, modifier: Modifi
  * two atoms, its order and its length.
  */
 @Composable
-private fun ReadoutPanel(molecule: Molecule, selection: ScenePick?, hydrogensHidden: Boolean, modifier: Modifier) {
+private fun ReadoutPanel(
+    molecule: Molecule,
+    selection: ScenePick?,
+    hydrogensHidden: Boolean,
+    favorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    modifier: Modifier,
+) {
     CogitatorPanel(label = "AUSPEX READOUT", fill = SwiftyColors.ConsoleOverlay, modifier = modifier.fillMaxWidth()) {
         when (selection) {
             null -> {
-                Text(
-                    molecule.name ?: "Ligand ${molecule.id}",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = SwiftyColors.Bone,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Spacer(Modifier.height(4.dp))
-                Text(formulaText(molecule), style = SwiftyDataText.medium.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            molecule.name ?: "Ligand ${molecule.id}",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = SwiftyColors.Bone,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(formulaText(molecule), style = SwiftyDataText.medium.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold)
+                    }
+                    // The favourite star of this ligand (bonus VII.5, document 16).
+                    StarKey(
+                        on = favorite,
+                        onClick = onToggleFavorite,
+                        description = "Favourite ${molecule.id}",
+                        state = if (favorite) "favourite" else "not favourite",
+                    )
+                }
                 Spacer(Modifier.height(4.dp))
                 Text(
                     if (hydrogensHidden) "Hydrogens hidden. Tap an atom or a bond." else "Drag to rotate. Pinch to zoom. Tap an atom or a bond. Double-tap to orbit it.",
@@ -362,6 +413,16 @@ private fun ReadoutPanel(molecule: Molecule, selection: ScenePick?, hydrogensHid
                 ReadoutRow("Length", BondText.length(molecule, selection.index))
             }
         }
+    }
+}
+
+/** "AUSPEX // RULER": the measured atoms and the distance, angle or torsion (document 16). */
+@Composable
+private fun RulerPanel(molecule: Molecule, measured: List<Int>, modifier: Modifier) {
+    CogitatorPanel(label = "AUSPEX // RULER", fill = SwiftyColors.ConsoleOverlay, modifier = modifier.fillMaxWidth()) {
+        Text(MeasureText.title(molecule, measured), style = MaterialTheme.typography.titleMedium, color = SwiftyColors.Gold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Spacer(Modifier.height(8.dp))
+        for (line in MeasureText.lines(molecule, measured)) ReadoutRow(line.label, line.value)
     }
 }
 
@@ -400,16 +461,29 @@ private fun ElementKey(
     onToggle: (String) -> Unit,
     representation: Representation,
     onNextRepresentation: () -> Unit,
+    ruler: Boolean,
+    onToggleRuler: () -> Unit,
     modifier: Modifier,
 ) {
     val sounds = LocalSounds.current
     CogitatorPanel(fill = SwiftyColors.ConsoleOverlay, contentPadding = 10.dp, scanlines = false, modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("Elements / CPK key", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash, modifier = Modifier.weight(1f))
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Elements / CPK key", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash)
+                Text(representation.label, style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, maxLines = 1)
+            }
             ConsoleKey(
-                text = representation.label.uppercase(),
+                text = "MODEL",
                 onClick = onNextRepresentation,
                 contentDescription = "Model: ${representation.label}. Change the model",
+            )
+            Spacer(Modifier.width(8.dp))
+            ConsoleKey(
+                text = "RULER",
+                onClick = onToggleRuler,
+                contentDescription = "Ruler: measure distances and angles",
+                active = ruler,
+                stateDescription = if (ruler) "on" else "off",
             )
         }
         Spacer(Modifier.height(4.dp))

@@ -129,6 +129,19 @@ class AuthControllerTest {
     }
 
     @Test
+    fun theStateSaysWhoIsSignedInAndForgetsItWhenLocked() {
+        // The favourites (document 16) belong to THIS name; the form field "username" is not it.
+        val c = controller()
+        assertEquals(null, c.state.value.signedInAs)
+        c.typeNewAccount()
+        c.create()
+        assertEquals("adept42", c.state.value.signedInAs)
+        c.lock()
+        assertEquals(null, c.state.value.signedInAs)
+        assertEquals("adept42", c.state.value.username)   // the form keeps the last name, for convenience
+    }
+
+    @Test
     fun noFingerprintOfferWhenThePhoneCannot() {
         bio.availability = BiometricAvailability.NONE_ENROLLED
         val c = controller()

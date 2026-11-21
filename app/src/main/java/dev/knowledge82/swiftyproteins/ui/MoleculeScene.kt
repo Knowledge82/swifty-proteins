@@ -46,6 +46,9 @@ private const val SELECTION_ALPHA = 0.35f
 private const val ELEMENT_ALPHA = 0.28f
 // A bond's halo: a translucent tube around the stick, this many times thicker (and never thinner than an atom's halo).
 private const val BOND_HALO_SCALE = 2.2f
+// The ruler's line between two measured atoms: thin, phosphor green, more opaque than a halo (it is a line, not a glow).
+private const val RULER_LINE_RADIUS = 0.06f
+private const val RULER_LINE_ALPHA = 0.7f
 
 // A finger is much wider than a hydrogen (radius 0.25): the area that answers to a tap is never smaller than this.
 private const val MIN_TOUCH_RADIUS = 0.35f
@@ -81,6 +84,7 @@ private fun colorOf(element: String): Color {
  * @param selection        the highlighted atom or bond (already checked by the screen: it exists and is drawn), or `null`
  * @param highlightElement every drawn atom of this element gets a gold halo, or `null`
  * @param focus            index of the atom the camera orbits around, or `null` for the whole molecule
+ * @param measured         atoms of the ruler (bonus VII.3, document 16), in tap order: halos and a line between each pair
  * @param onTap            what a single tap hit: an atom, a bond, or `null` (empty space)
  * @param onDoubleTap      the same for a double tap
  * @param onFrame          called once per frame that really reached the screen (the FPS counter)
@@ -93,6 +97,7 @@ fun MoleculeScene(
     selection: ScenePick?,
     highlightElement: String?,
     focus: Int?,
+    measured: List<Int>,
     onTap: (ScenePick?) -> Unit,
     onDoubleTap: (ScenePick?) -> Unit,
     modifier: Modifier = Modifier,
@@ -112,6 +117,7 @@ fun MoleculeScene(
     // shade it; alpha < 1 makes SceneView pick its transparent material.
     val selectionHalo = remember(materialLoader) { materialLoader.createUnlitColorInstance(Color(0.26f, 0.88f, 0.48f, SELECTION_ALPHA)) }
     val elementHalo = remember(materialLoader) { materialLoader.createUnlitColorInstance(Color(0.88f, 0.71f, 0.36f, ELEMENT_ALPHA)) }
+    val rulerLine = remember(materialLoader) { materialLoader.createUnlitColorInstance(Color(0.26f, 0.88f, 0.48f, RULER_LINE_ALPHA)) }
 
     // All of this depends only on the molecule (and on the hydrogen switch): computed once, not at every recomposition.
     val wholeDistance = remember(molecule) { SceneFraming.cameraDistance(SceneFraming.radiusOf(molecule)) }
@@ -244,6 +250,34 @@ fun MoleculeScene(
                             height = pose.length,
                             rotation = Rotation(z = pose.tiltDegrees),
                             materialInstance = selectionHalo,
+                            apply = { this.isTouchable = false },
+                        )
+                    }
+                }
+            }
+        }
+
+        // THE RULER: a green halo on each measured atom and a line from each one to the next (A-B, B-C, C-D).
+        for ((n, i) in measured.withIndex()) {
+            val atom = molecule.atoms[i]
+            key("measured", n, i, representation) {
+                SphereNode(
+                    radius = representation.haloRadius(atom.element, bonded[i]),
+                    stacks = BALL_DETAIL, slices = BALL_DETAIL,
+                    materialInstance = selectionHalo,
+                    position = Position(atom.x, atom.y, atom.z),
+                    apply = { this.isTouchable = false },
+                )
+            }
+            if (n > 0) {
+                val pose = BondGeometry.poseOf(molecule.atoms[measured[n - 1]], atom) ?: continue
+                key("ruler line", n, measured[n - 1], i) {
+                    Node(position = Position(pose.x, pose.y, pose.z), rotation = Rotation(y = pose.spinDegrees)) {
+                        CylinderNode(
+                            radius = RULER_LINE_RADIUS,
+                            height = pose.length,
+                            rotation = Rotation(z = pose.tiltDegrees),
+                            materialInstance = rulerLine,
                             apply = { this.isTouchable = false },
                         )
                     }

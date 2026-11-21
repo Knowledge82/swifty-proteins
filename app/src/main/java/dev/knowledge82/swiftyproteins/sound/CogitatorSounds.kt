@@ -53,9 +53,18 @@ class CogitatorSounds private constructor(context: Context) : SoundPlayer {
         soundIds = SoundCue.values().associateWith { pool.load(context, rawOf(it), 1) }
     }
 
+    // The app's own "Sounds" setting (document 16). Volatile: set from the main thread, read wherever play is called.
+    @Volatile private var muted = false
+
+    override fun setMuted(muted: Boolean) {
+        this.muted = muted
+        if (muted) for (cue in streams.keys.toList()) stop(cue)   // the modem must not go on after "off"
+    }
+
     override fun play(cue: SoundCue) {
         // RINGER_MODE_SILENT / VIBRATE: the user asked the phone to be quiet. Checked on every play: it can change.
-        val silent = audio.ringerMode != AudioManager.RINGER_MODE_NORMAL
+        // The app's setting counts the same way: either one is enough to be quiet.
+        val silent = muted || audio.ringerMode != AudioManager.RINGER_MODE_NORMAL
         if (!gate.allow(cue, silent)) return
         val id = soundIds[cue] ?: return
         if (id in ready) start(cue, id) else waiting[id] = cue to SystemClock.elapsedRealtime()

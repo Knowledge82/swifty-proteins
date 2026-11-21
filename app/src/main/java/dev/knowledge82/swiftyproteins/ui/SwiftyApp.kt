@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,6 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.knowledge82.swiftyproteins.auth.AuthController
 import dev.knowledge82.swiftyproteins.loading.LoadState
+import dev.knowledge82.swiftyproteins.prefs.PreferencesController
 import dev.knowledge82.swiftyproteins.sound.LocalSounds
 import dev.knowledge82.swiftyproteins.sound.SoundCue
 import dev.knowledge82.swiftyproteins.sound.SoundOnChange
@@ -34,12 +36,20 @@ import kotlinx.coroutines.launch
  * signing in again the user is back where they were.
  */
 @Composable
-fun SwiftyApp(viewModel: LigandsViewModel, auth: AuthController) {
+fun SwiftyApp(viewModel: LigandsViewModel, auth: AuthController, prefs: PreferencesController) {
     val state by viewModel.loadState.collectAsStateWithLifecycle()
     val authState by auth.state.collectAsStateWithLifecycle()
 
+    // Settings and favourites (document 16). The favourites follow WHO is signed in: a lock empties them at once.
+    val settings by prefs.settings.collectAsStateWithLifecycle()
+    val favorites by prefs.favorites.collectAsStateWithLifecycle()
+    LaunchedEffect(authState.signedInAs) { prefs.onUserChanged(authState.signedInAs) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var onlyFavorites by rememberSaveable { mutableStateOf(false) }
+
     // Sounds of the flows (document 14, 7.4). SoundOnChange, not a bare LaunchedEffect: a rotation must not replay them.
     val sounds = LocalSounds.current
+    LaunchedEffect(settings.sounds) { sounds.setMuted(!settings.sounds) }
     SoundOnChange(if (authState.unlocked) "unlocked" else "locked") { if (it == "unlocked") sounds.play(SoundCue.SIGNED_IN) }
     SoundOnChange(authState.formError.orEmpty()) { if (it.isNotEmpty()) sounds.play(SoundCue.DENIED) }
     val loadNow = state
@@ -72,12 +82,19 @@ fun SwiftyApp(viewModel: LigandsViewModel, auth: AuthController) {
         } else if (!authState.unlocked) {
             AccessScreen(state = authState, controller = auth, modifier = content)
         } else if (current is LoadState.Loaded) {
+            val id = current.molecule.id
             MoleculeScreen(
                 molecule = current.molecule,
                 origin = current.origin,
                 onBack = viewModel::cancel,
+                startModel = settings.defaultModel,
+                startWithHydrogens = settings.showHydrogens,
+                favorite = id in favorites,
+                onToggleFavorite = { prefs.toggleFavorite(id) },
                 modifier = content,
             )
+        } else if (showSettings) {
+            SettingsScreen(settings = settings, onChange = prefs::updateSettings, onBack = { showSettings = false }, modifier = content)
         } else {
             LigandListScreen(
                 catalog = viewModel.catalog,
@@ -89,6 +106,11 @@ fun SwiftyApp(viewModel: LigandsViewModel, auth: AuthController) {
                 },
                 listState = listState,
                 onOpen = viewModel::open,
+                favorites = favorites,
+                onlyFavorites = onlyFavorites,
+                onToggleOnlyFavorites = { onlyFavorites = !onlyFavorites },
+                onToggleFavorite = prefs::toggleFavorite,
+                onSettings = { showSettings = true },
                 modifier = content,
             )
             LoadStateDialogs(
