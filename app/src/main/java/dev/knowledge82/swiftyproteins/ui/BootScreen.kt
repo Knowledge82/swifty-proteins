@@ -1,6 +1,8 @@
 package dev.knowledge82.swiftyproteins.ui
 
 import android.os.SystemClock
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -15,6 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
@@ -30,7 +33,8 @@ import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 /**
  * The cogitator boot screen (design v2, screen 02): the app's launch screen, shown ONCE per start for
- * [BootSequence.DURATION_MILLIS] (over the 1 s of the evaluation sheet), then [onFinished].
+ * [BootSequence.DURATION_MILLIS], then [onFinished]. A TAP anywhere skips it, but not before
+ * [BootSequence.MIN_VISIBLE_MILLIS] (the 1 s of the evaluation sheet): an early tap waits for that second.
  *
  * The timing rule is pure ([BootSequence], tested); this function only reads the clock every frame and draws.
  *
@@ -41,13 +45,14 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
     val reduceMotion = rememberReduceMotion()
     val lines = remember(catalogSize) { BootSequence.lines(catalogSize) }
     var elapsed by remember { mutableLongStateOf(0L) }
+    var skipRequested by remember { mutableStateOf(false) }
     val finish by rememberUpdatedState(onFinished)
 
     // One clock reading per frame (withFrameMillis waits for the next frame: no busy loop). uptimeMillis is
     // monotonic, so the screen always ends.
     LaunchedEffect(Unit) {
         val start = SystemClock.uptimeMillis()
-        while (!BootSequence.isDone(elapsed)) {
+        while (!BootSequence.isDone(elapsed, skipRequested)) {
             withFrameMillis { }
             elapsed = SystemClock.uptimeMillis() - start
         }
@@ -55,7 +60,13 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
     }
 
     val shown = BootSequence.visibleLines(elapsed, lines.size, reduceMotion)
-    CogitatorBackground(modifier) {
+    // The whole screen listens for a tap; no ripple (it is not a button), but TalkBack announces the action.
+    val tap = Modifier.clickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null,
+        onClickLabel = "Skip the boot sequence",
+    ) { skipRequested = true }
+    CogitatorBackground(modifier.then(tap)) {
         Column(
             modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
@@ -76,7 +87,7 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
                             style = if (visible) SwiftyDataText.medium.glowing(SwiftyColors.Phosphor) else SwiftyDataText.medium,
                             color = if (visible) SwiftyColors.Phosphor else SwiftyColors.Console,
                         )
-                        if (visible && i == shown - 1 && !reduceMotion) BlinkingCursor()
+                        if (visible && i == shown - 1 && !reduceMotion && !BootSequence.canSkip(elapsed)) BlinkingCursor()
                     }
                     Spacer(Modifier.height(6.dp))
                 }
@@ -86,6 +97,13 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
                     style = SwiftyDataText.medium.glowing(SwiftyColors.Gold),
                     color = SwiftyColors.Gold,
                 )
+                if (BootSequence.canSkip(elapsed)) {
+                    Spacer(Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("> TAP TO CONTINUE", style = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+                        if (!reduceMotion) BlinkingCursor()
+                    }
+                }
             }
             StatusFooter(line = "BOOT SEQUENCE // INITIALIZED", detail = "01001011 :: FORGE-NET ACTIVE")
         }

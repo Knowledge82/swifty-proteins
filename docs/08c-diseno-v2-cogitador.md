@@ -56,7 +56,12 @@ La v1 («Culto de la Máquina» sobrio, documento 08b) se **rechazó en el móvi
 2. **Componentes conexos:** se eliminan los fragmentos **pequeños que tocan el borde** (el trozo ajeno) y las motas sueltas; las esquirlas de la pizarra rota, que no tocan el borde, **se conservan**.
 3. **Borde suave:** los 2 píxeles junto al nuevo contorno se oscurecen y se hacen semitransparentes (sin recorte dentado).
 
-**Resultado:** halos y fondos fuera, el fragmento fuera, el hueso intacto; quedan **motas aisladas** en el borde de la antena (imperceptibles a 140 dp). Peso total: **~450 KB** para las 8.
+**Resultado de la primera versión:** halos y fondos fuera, el fragmento fuera, el hueso intacto. **Visto en el móvil, no bastaba:** en la pantalla de arranque (calavera a 200 dp) se veía una **orla blanca dentada** a lo largo de los dientes del engranaje, y quedaban **bolsas** de fondo claro encerradas entre piezas (entre cables, tras la aureola del tecnosacerdote, en los agujeros de la antena). Dos pasos más:
+
+4. **Bolsas encerradas:** regiones muy claras y neutras (luminosidad > 0,62, saturación < 0,10) de **25 px o más**, estén donde estén, son fondo: ningún objeto pintado aquí es tan blanco y tan gris en una superficie así. La inundación desde fuera no llegaba a ellas.
+5. **Franja del borde:** a menos de **6 px** del fondo, se quita lo claro y poco saturado (luminosidad > 0,55, saturación < 0,35), **en varias rondas** (al quitar una capa aparece la siguiente). Es la orla de los dientes: píxeles un poco más saturados u opacos que el halo, que la regla 1 no cogía. El bronce (saturación ≥ 0,5) y el pergamino de las cintas (~0,45) quedan fuera del umbral.
+
+**Resultado final:** la orla y las bolsas fuera; la parabólica de la antena intacta (sus grietas claras son textura del dibujo, no fondo). Peso total: **~280 KB** para las 8.
 
 **Dónde viven:** `res/drawable-nodpi/art_*.webp`. **`nodpi`** = «no escalar según la densidad de la pantalla»: el tamaño lo decide el código (`ArtImage(size = 140.dp)`). En `drawable/` normal, Android trataría 424 px como si fueran para `mdpi` y en el A33 (≈ 3×) los **ampliaría tres veces** antes de dibujarlos.
 
@@ -181,37 +186,39 @@ El conversor SVG → VectorDrawable del documento 08b **falló con error** (como
 **Cambio de decisión (D32 sustituye a D25).** Antes, la *splash* del sistema se **retenía** 1500 ms (documento 07b). Con la v2 hay una **pantalla de arranque propia** (el cogitador «despertando»), que es un *launch screen* mucho más rico; retener **además** la del sistema daría **3 s** de espera. Ahora:
 
 - La *splash* del sistema solo enseña el emblema **el tiempo que Android necesite** (`installSplashScreen()` sin condición; `SplashHold` y sus pruebas se **borraron**).
-- La **pantalla de arranque** (`BootScreen`) dura **1600 ms** (> 1 s de la hoja de evaluación): líneas de consola que aparecen una a una, barra de progreso `[##]`, la calavera-engranaje.
+- La **pantalla de arranque** (`BootScreen`) dura **3200 ms** si nadie la toca (primero eran 1600; el equipo pidió el doble): líneas de consola que aparecen una a una (cada 500 ms), barra de progreso `[##]`, la calavera-engranaje.
+- **Un toque la salta**, pero **nunca antes de 1 s** (`MIN_VISIBLE_MILLIS`): un toque más temprano **se recuerda** y surte efecto al llegar al segundo. Así el evaluador ve siempre el segundo que exige la hoja, aunque toque la pantalla nada más abrir. Desde ese segundo aparece «> TAP TO CONTINUE» con el cursor parpadeando. El toque se recoge en toda la pantalla con `clickable(indication = null)`: sin onda (no es un botón), pero TalkBack anuncia la acción («Skip the boot sequence»).
 - Se muestra **una vez por arranque**: `rememberSaveable { booted }` en `SwiftyApp` (girar el móvil no la repite; un arranque nuevo sí).
 
 La regla del tiempo es **pura** (`BootSequence`):
 
 ```kotlin
-// BootSequence.kt · líneas 34–38
-34  fun visibleLines(elapsedMillis: Long, total: Int, reduceMotion: Boolean = false): Int {
-35      if (reduceMotion) return total
-36      if (elapsedMillis < 0) return 1
-37      return (1 + (elapsedMillis / LINE_EVERY_MILLIS).toInt()).coerceAtMost(total)
-38  }
+// BootSequence.kt · líneas 41–45
+41  fun visibleLines(elapsedMillis: Long, total: Int, reduceMotion: Boolean = false): Int {
+42      if (reduceMotion) return total
+43      if (elapsedMillis < 0) return 1
+44      return (1 + (elapsedMillis / LINE_EVERY_MILLIS).toInt()).coerceAtMost(total)
+45  }
 ```
 
-- Una línea más cada 250 ms; nunca más de las que hay; con **movimiento reducido**, todas a la vez (pero la pantalla dura lo mismo: la hoja exige el segundo).
+- Una línea más cada 500 ms; nunca más de las que hay; con **movimiento reducido**, todas a la vez (pero la pantalla dura lo mismo: la hoja exige el segundo).
 - **Reloj hacia atrás:** se protege. La prueba usa **−1000 ms** y no −50: con −50, la división entera ya da 0 y **ocultaría** la falta de la protección (lo descubrió un mutante superviviente; sección 10).
 
 Y el bucle que la conduce:
 
 ```kotlin
-// BootScreen.kt · líneas 48–55
-48  LaunchedEffect(Unit) {
-49      val start = SystemClock.uptimeMillis()
-50      while (!BootSequence.isDone(elapsed)) {
-51          withFrameMillis { }
-52          elapsed = SystemClock.uptimeMillis() - start
-53      }
-54      finish()
-55  }
+// BootScreen.kt · líneas 53–60
+53  LaunchedEffect(Unit) {
+54      val start = SystemClock.uptimeMillis()
+55      while (!BootSequence.isDone(elapsed, skipRequested)) {
+56          withFrameMillis { }
+57          elapsed = SystemClock.uptimeMillis() - start
+58      }
+59      finish()
+60  }
 ```
 
+- El bucle termina con `isDone(elapsed, skipRequested)`: por tiempo, **o** por toque si ya pasó el segundo mínimo (`canSkip`).
 - **`withFrameMillis { }`** espera al **siguiente fotograma** (no es un bucle activo que queme CPU); se lee el reloj una vez por fotograma.
 - **`SystemClock.uptimeMillis()`** es monótono: la pantalla **siempre termina**.
 - `rememberUpdatedState(onFinished)`: el efecto se lanza una vez y llama a la **última** versión de la lambda.
@@ -323,7 +330,7 @@ Todos en `ui/SwiftyComponents.kt`:
 |--:|-----------|----------------|
 | 1 | Compilar | Si falla, pegar el error (firmas de Compose de memoria) |
 | 2 | Icono en el lanzador | Calavera con óptica verde en engranaje dorado |
-| 3 | Abrir la app desde cero | Emblema un instante; luego **arranque del cogitador ~1,6 s** con líneas verdes que aparecen y la barra `[##]`; luego el índice |
+| 3 | Abrir la app desde cero | Emblema un instante; luego **arranque del cogitador ~3,2 s** con líneas verdes que aparecen y la barra `[##]`; desde el segundo 1, «> TAP TO CONTINUE»; un toque pasa al índice. Un toque **antes** del segundo 1 espera a ese segundo |
 | 4 | Girar el móvil en la lista | El arranque **no** se repite |
 | 5 | Índice: escribir «at», luego «xyz», luego la X y «CLEAR SEARCH» | Recuento verde; servo-cráneo y mensaje; vuelve la lista |
 | 6 | Modo avión, abrir `001` | Servo-cráneo **flotando**; luego antena rota + «The Noosphere is Silent» + mensaje llano + RETRY/CLOSE |
@@ -375,7 +382,7 @@ Todos en `ui/SwiftyComponents.kt`:
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D32 | El *launch screen* es la **pantalla de arranque propia** (1600 ms, una vez por arranque); la *splash* del sistema ya no se retiene. **Sustituye a D25** | Decidida | Cumple la hoja con un arranque temático y sin sumar 3 s |
+| D32 | El *launch screen* es la **pantalla de arranque propia** (3200 ms, **un toque la salta tras 1 s**, una vez por arranque); la *splash* del sistema ya no se retiene. **Sustituye a D25** | Decidida | Cumple la hoja (siempre ≥ 1 s) con un arranque temático; el toque evita esperar |
 | D33 | Marcos **dibujados en código** (`cogitatorFrame`); el 9-patch del kit no se usa | Decidida | Nítido a cualquier densidad, admite etiquetas |
 | D34 | El arte del kit se **limpia** (halo, restos, fragmentos) con un algoritmo medido y se guarda en `drawable-nodpi` | Decidida | El halo opaco ensuciaba la consola; `nodpi` evita el triple escalado |
 | D36 | **Share Tech Mono** sustituye a Silkscreen; pasada de «luz»: brillo de fósforo en el texto, metal con degradado, cristal con resplandor, barrido al 5 % | Decidida | Silkscreen (fuente de píxeles) daba aspecto de consola de 8 bits; sección 17 |

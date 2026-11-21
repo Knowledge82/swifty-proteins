@@ -9,11 +9,26 @@ import java.util.Locale
 class BootSequenceTest {
 
     @Test
-    fun theLaunchScreenLastsMoreThanTheOneSecondOfTheEvaluationSheet() {
-        assertTrue(BootSequence.DURATION_MILLIS >= 1_200)
+    fun withoutATapTheBootScreenLastsItsFullTime() {
+        assertEquals(3_200L, BootSequence.DURATION_MILLIS)
         assertFalse(BootSequence.isDone(999))
         assertFalse(BootSequence.isDone(BootSequence.DURATION_MILLIS - 1))
         assertTrue(BootSequence.isDone(BootSequence.DURATION_MILLIS))
+    }
+
+    @Test
+    fun aTapEndsItButNeverBeforeTheSecondOfTheEvaluationSheet() {
+        assertTrue(BootSequence.MIN_VISIBLE_MILLIS >= 1_000)
+        assertFalse(BootSequence.isDone(0, skipRequested = true))
+        assertFalse(BootSequence.isDone(BootSequence.MIN_VISIBLE_MILLIS - 1, skipRequested = true))
+        assertTrue(BootSequence.isDone(BootSequence.MIN_VISIBLE_MILLIS, skipRequested = true))
+        assertFalse(BootSequence.isDone(2_000, skipRequested = false))
+    }
+
+    @Test
+    fun theTapHintAppearsWhenATapIsAllowed() {
+        assertFalse(BootSequence.canSkip(BootSequence.MIN_VISIBLE_MILLIS - 1))
+        assertTrue(BootSequence.canSkip(BootSequence.MIN_VISIBLE_MILLIS))
     }
 
     @Test
@@ -41,9 +56,9 @@ class BootSequenceTest {
     @Test
     fun linesAppearOneByOneAndAllAreVisibleBeforeTheEnd() {
         assertEquals(1, BootSequence.visibleLines(0, 5))
-        assertEquals(1, BootSequence.visibleLines(249, 5))
-        assertEquals(2, BootSequence.visibleLines(250, 5))
-        assertEquals(5, BootSequence.visibleLines(1_000, 5))
+        assertEquals(1, BootSequence.visibleLines(499, 5))
+        assertEquals(2, BootSequence.visibleLines(500, 5))
+        assertEquals(5, BootSequence.visibleLines(2_000, 5))
         assertEquals(5, BootSequence.visibleLines(BootSequence.DURATION_MILLIS - 1, 5))
         assertEquals(5, BootSequence.visibleLines(60_000, 5))   // never more than there are
     }

@@ -7,13 +7,19 @@ import java.util.Locale
  *
  * The evaluation sheet asks for a launch screen visible at least 1 second (document 07b). With design v2 that job
  * moves from the system splash (now only the emblem, for as long as Android needs) to this in-app screen: console
- * lines appear one by one, a progress bar fills, and after [DURATION_MILLIS] the app goes on. It depends ONLY on
- * time, so it always ends.
+ * lines appear one by one, a progress bar fills, and after [DURATION_MILLIS] the app goes on.
+ *
+ * A TAP skips it, but never before [MIN_VISIBLE_MILLIS]: an early tap is remembered and takes effect at 1 s, so
+ * the launch screen is ALWAYS visible for the second the evaluation sheet asks for. It depends ONLY on time and on
+ * that tap, so it always ends.
  */
 object BootSequence {
 
-    /** How long the boot screen stays. 1600 ms: over the required 1000, with margin. */
-    const val DURATION_MILLIS = 1_600L
+    /** How long the boot screen stays if nobody taps: 3200 ms (twice the first version, asked by the team). */
+    const val DURATION_MILLIS = 3_200L
+
+    /** The minimum it is shown, even with a tap: the 1 s of the evaluation sheet. */
+    const val MIN_VISIBLE_MILLIS = 1_000L
 
     /** Number of "[##]" blocks of the progress bar when full. */
     const val PROGRESS_BLOCKS = 5
@@ -28,7 +34,8 @@ object BootSequence {
     )
 
     /**
-     * How many lines are visible after [elapsedMillis]: one more every 250 ms, starting with the first at 0.
+     * How many lines are visible after [elapsedMillis]: one more every 500 ms, starting with the first at 0 (all five
+     * at 2 s, well before the end).
      * With [reduceMotion] everything is shown at once (no typing effect), but the screen still lasts as long.
      */
     fun visibleLines(elapsedMillis: Long, total: Int, reduceMotion: Boolean = false): Int {
@@ -46,8 +53,12 @@ object BootSequence {
     /** "[##][##][  ][  ][  ]". */
     fun progressBar(filled: Int): String = (0 until PROGRESS_BLOCKS).joinToString("") { if (it < filled) "[##]" else "[  ]" }
 
-    /** The screen ends exactly when the time is over. */
-    fun isDone(elapsedMillis: Long): Boolean = elapsedMillis >= DURATION_MILLIS
+    /** A tap is allowed to end the screen from this moment on (the "TAP TO CONTINUE" hint appears then). */
+    fun canSkip(elapsedMillis: Long): Boolean = elapsedMillis >= MIN_VISIBLE_MILLIS
 
-    private const val LINE_EVERY_MILLIS = 250L
+    /** The screen ends when the time is over, or when the user tapped and the minimum second has passed. */
+    fun isDone(elapsedMillis: Long, skipRequested: Boolean = false): Boolean =
+        elapsedMillis >= DURATION_MILLIS || (skipRequested && canSkip(elapsedMillis))
+
+    private const val LINE_EVERY_MILLIS = 500L
 }
