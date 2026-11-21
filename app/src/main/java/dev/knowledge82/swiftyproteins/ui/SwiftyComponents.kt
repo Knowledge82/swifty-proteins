@@ -42,7 +42,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.FilterQuality
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.ImageShader
 import androidx.compose.ui.graphics.Path
@@ -64,6 +66,7 @@ import androidx.compose.ui.unit.dp
 import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
+import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 /*
  * The building blocks of the cogitator look (design v2, document 08c).
@@ -99,31 +102,51 @@ private fun chamfer(width: Float, height: Float, cut: Float, inset: Float = 0f):
     lineTo(r - c, b); lineTo(l + c, b); lineTo(l, b - c); lineTo(l, t + c); close()
 }
 
+/** Light from above on the bronze: a highlight at the top, the plain bronze, a shadow at the bottom. */
+private val MetalHighlight = Color(0xFFD6AA60)
+private val MetalShadow = Color(0xFF4A361B)
+
 /**
- * The frame of a cogitator panel: fill (optionally the CRT texture), faint scanlines, a heavy bronze outer edge, a
- * thin brass inner line, and a rivet in each corner.
+ * The frame of a cogitator panel (refined against the "8-bit" look, document 08c section 17):
+ * - the glass: fill, the CRT texture, and a soft radial GLOW in the middle (a lit tube is brighter at the centre);
+ * - very faint scanlines (5 %: felt, not seen);
+ * - a bronze edge painted with a vertical GRADIENT (lit from above) instead of one flat colour, and a thin inner line;
+ * - rivets with a small highlight.
+ * Smooth gradients and soft light are what separate "aged metal and glass" from flat 8-bit blocks.
  */
 private fun DrawScope.cogitatorFrame(cut: Dp, fill: Color, texture: ShaderBrush?, scanlines: Boolean, accent: Color) {
     val c = cut.toPx()
     val outer = chamfer(size.width, size.height, c)
     drawPath(outer, fill)
     if (texture != null) drawPath(outer, texture, alpha = 0.55f)
+    drawPath(
+        outer,
+        Brush.radialGradient(
+            colors = listOf(SwiftyColors.Phosphor.copy(alpha = 0.07f), Color.Transparent),
+            center = Offset(size.width / 2, size.height / 2),
+            radius = maxOf(size.width, size.height) * 0.7f,
+        ),
+    )
     if (scanlines) {
-        // CRT scanlines: a 1 px dim line every 3 dp. ONLY inside panels, never over the 3D scene.
+        // CRT scanlines: a 1 px line every 3 dp, barely visible. ONLY inside panels, never over the 3D scene.
         val step = 3.dp.toPx()
         var y = c * 0.5f
         while (y < size.height - c * 0.5f) {
-            drawLine(SwiftyColors.PhosphorDim.copy(alpha = 0.10f), Offset(c * 0.3f, y), Offset(size.width - c * 0.3f, y), strokeWidth = 1f)
+            drawLine(SwiftyColors.PhosphorDim.copy(alpha = 0.05f), Offset(c * 0.3f, y), Offset(size.width - c * 0.3f, y), strokeWidth = 1f)
             y += step
         }
     }
-    drawPath(outer, SwiftyColors.Bronze, style = Stroke(width = 2.dp.toPx()))
-    drawPath(chamfer(size.width, size.height, c, inset = 4.dp.toPx()), accent, style = Stroke(width = 1.dp.toPx()))
+    drawPath(
+        outer,
+        Brush.verticalGradient(listOf(MetalHighlight, SwiftyColors.Bronze, MetalShadow)),
+        style = Stroke(width = 2.5.dp.toPx()),
+    )
+    drawPath(chamfer(size.width, size.height, c, inset = 4.dp.toPx()), accent.copy(alpha = 0.6f), style = Stroke(width = 1.dp.toPx()))
     val r = 2.5.dp.toPx()
     val d = 8.dp.toPx() + c * 0.3f
     for ((x, y) in listOf(d to d, size.width - d to d, d to size.height - d, size.width - d to size.height - d)) {
-        drawCircle(SwiftyColors.Brass, radius = r, center = Offset(x, y))
-        drawCircle(SwiftyColors.Abyss, radius = r * 0.45f, center = Offset(x, y))
+        drawCircle(SwiftyColors.Bronze, radius = r, center = Offset(x, y))
+        drawCircle(MetalHighlight, radius = r * 0.45f, center = Offset(x - r * 0.3f, y - r * 0.3f))
     }
 }
 
@@ -238,8 +261,8 @@ fun HeaderPanel(subtitle: String, modifier: Modifier = Modifier, tab: String = "
             Image(painterResource(R.drawable.emblem), contentDescription = null, modifier = Modifier.size(44.dp))
             Spacer(Modifier.width(10.dp))
             Column {
-                Text("Swifty Proteins", style = MaterialTheme.typography.headlineMedium, color = SwiftyColors.Gold, maxLines = 1)
-                Text(subtitle, style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Phosphor, maxLines = 1)
+                Text("Swifty Proteins", style = MaterialTheme.typography.headlineMedium.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, maxLines = 1)
+                Text(subtitle, style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, maxLines = 1)
             }
         }
     }
@@ -250,10 +273,11 @@ fun HeaderPanel(subtitle: String, modifier: Modifier = Modifier, tab: String = "
 fun StatusFooter(line: String, detail: String, modifier: Modifier = Modifier) {
     CogitatorPanel(modifier = modifier.fillMaxWidth(), contentPadding = 10.dp, scanlines = false) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.size(8.dp).background(SwiftyColors.Phosphor, CircleShape))
+            // The status lamp: a green dot with a soft halo (radial gradient), like a lit indicator.
+            Box(Modifier.size(16.dp).background(Brush.radialGradient(listOf(SwiftyColors.Phosphor, SwiftyColors.Phosphor.copy(alpha = 0.25f), Color.Transparent)), CircleShape))
             Spacer(Modifier.width(10.dp))
             Column {
-                Text(line, style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Phosphor, maxLines = 1)
+                Text(line, style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, maxLines = 1)
                 Text(detail, style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash, maxLines = 1)
             }
         }
@@ -271,14 +295,14 @@ fun TitlePlate(title: String, subtitle: String?, modifier: Modifier = Modifier) 
         ) {
             Text(
                 title,
-                style = MaterialTheme.typography.headlineMedium,
+                style = MaterialTheme.typography.headlineMedium.glowing(SwiftyColors.Gold, 0.3f),
                 color = SwiftyColors.Gold,
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 2.dp),
             )
         }
         if (subtitle != null) {
             Spacer(Modifier.height(4.dp))
-            Text(subtitle, style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Phosphor)
+            Text(subtitle, style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
         }
     }
 }
@@ -378,7 +402,7 @@ fun ConsoleKey(
         border = BorderStroke(if (active) 2.dp else 1.5.dp, if (active) SwiftyColors.Phosphor else SwiftyColors.Brass),
     ) {
         Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp)) {
-            Text(text, style = SwiftyDataText.large, color = ink)
+            Text(text, style = if (active) SwiftyDataText.large.glowing(ink) else SwiftyDataText.large, color = ink)
         }
     }
 }
@@ -401,6 +425,8 @@ fun ArtImage(@DrawableRes art: Int, modifier: Modifier = Modifier, size: Dp = 15
         painter = painterResource(art),
         contentDescription = null,
         contentScale = ContentScale.Fit,
+        // The paintings are ~424 px and get scaled: the high-quality filter keeps them smooth instead of blocky.
+        filterQuality = FilterQuality.High,
         modifier = modifier.size(size),
     )
 }
@@ -433,7 +459,7 @@ fun BlinkingCursor(color: Color = SwiftyColors.Phosphor) {
         animationSpec = infiniteRepeatable(tween(durationMillis = 700, easing = LinearEasing), RepeatMode.Reverse),
         label = "cursor alpha",
     )
-    Text("_", style = SwiftyDataText.medium, color = color.copy(alpha = if (reduce) 1f else if (alpha > 0.5f) 1f else 0f))
+    Text("_", style = SwiftyDataText.medium.glowing(color), color = color.copy(alpha = if (reduce) 1f else if (alpha > 0.5f) 1f else 0f))
 }
 
 /** Centred column helper for dialogs and empty states. */

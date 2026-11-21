@@ -20,12 +20,13 @@
 14. [Alternativas](#14-alternativas)
 15. [Decisiones](#15-decisiones)
 16. [Qué recordar](#16-qué-recordar)
+17. [Corrección: «demasiado pixelado»](#17-corrección-demasiado-pixelado)
 
 ---
 
 ## 1. De dónde viene la v2
 
-La v1 («Culto de la Máquina» sobrio, documento 08b) se **rechazó en el móvil**: no parecía Warhammer 40k. El documento 08a, sección 12, explica por qué (el brief v1 prohibía los símbolos, el arte de mapa de bits y la densidad) y contiene el **prompt v2**. Con él, el generador devolvió el **kit v2** (91 ficheros): consolas CRT verdes, marcos de bronce, calaveras, servidor, servo-cráneo, tecnosacerdote. Fuentes elegidas por el equipo: **Pirata One** (títulos) y **Silkscreen** (todo lo demás).
+La v1 («Culto de la Máquina» sobrio, documento 08b) se **rechazó en el móvil**: no parecía Warhammer 40k. El documento 08a, sección 12, explica por qué (el brief v1 prohibía los símbolos, el arte de mapa de bits y la densidad) y contiene el **prompt v2**. Con él, el generador devolvió el **kit v2** (91 ficheros): consolas CRT verdes, marcos de bronce, calaveras, servidor, servo-cráneo, tecnosacerdote. Fuentes elegidas por el equipo: **Pirata One** (títulos) y **Silkscreen** (todo lo demás); Silkscreen se **sustituyó** después por **Share Tech Mono** (sección 17).
 
 ---
 
@@ -76,36 +77,61 @@ La v1 («Culto de la Máquina» sobrio, documento 08b) se **rechazó en el móvi
 **Lo hecho:** `cogitatorFrame`, un dibujo en `drawBehind` con **la misma estética** (borde exterior de bronce, línea interior de latón, remaches en las esquinas, esquinas biseladas) y **nítido a cualquier densidad**:
 
 ```kotlin
-// SwiftyComponents.kt · líneas 106–128
-106  private fun DrawScope.cogitatorFrame(cut: Dp, fill: Color, texture: ShaderBrush?, scanlines: Boolean, accent: Color) {
-107      val c = cut.toPx()
-108      val outer = chamfer(size.width, size.height, c)
-109      drawPath(outer, fill)
-110      if (texture != null) drawPath(outer, texture, alpha = 0.55f)
-111      if (scanlines) {
-112          // CRT scanlines: a 1 px dim line every 3 dp. ONLY inside panels, never over the 3D scene.
-113          val step = 3.dp.toPx()
-114          var y = c * 0.5f
-115          while (y < size.height - c * 0.5f) {
-116              drawLine(SwiftyColors.PhosphorDim.copy(alpha = 0.10f), Offset(c * 0.3f, y), Offset(size.width - c * 0.3f, y), strokeWidth = 1f)
-117              y += step
-118          }
-119      }
-120      drawPath(outer, SwiftyColors.Bronze, style = Stroke(width = 2.dp.toPx()))
-121      drawPath(chamfer(size.width, size.height, c, inset = 4.dp.toPx()), accent, style = Stroke(width = 1.dp.toPx()))
-122      val r = 2.5.dp.toPx()
-123      val d = 8.dp.toPx() + c * 0.3f
-124      for ((x, y) in listOf(d to d, size.width - d to d, d to size.height - d, size.width - d to size.height - d)) {
-125          drawCircle(SwiftyColors.Brass, radius = r, center = Offset(x, y))
-126          drawCircle(SwiftyColors.Abyss, radius = r * 0.45f, center = Offset(x, y))
-127      }
-128  }
+// SwiftyComponents.kt · líneas 105–151
+105  /** Light from above on the bronze: a highlight at the top, the plain bronze, a shadow at the bottom. */
+106  private val MetalHighlight = Color(0xFFD6AA60)
+107  private val MetalShadow = Color(0xFF4A361B)
+108
+109  /**
+110   * The frame of a cogitator panel (refined against the "8-bit" look, document 08c section 17):
+111   * - the glass: fill, the CRT texture, and a soft radial GLOW in the middle (a lit tube is brighter at the centre);
+112   * - very faint scanlines (5 %: felt, not seen);
+113   * - a bronze edge painted with a vertical GRADIENT (lit from above) instead of one flat colour, and a thin inner line;
+114   * - rivets with a small highlight.
+115   * Smooth gradients and soft light are what separate "aged metal and glass" from flat 8-bit blocks.
+116   */
+117  private fun DrawScope.cogitatorFrame(cut: Dp, fill: Color, texture: ShaderBrush?, scanlines: Boolean, accent: Color) {
+118      val c = cut.toPx()
+119      val outer = chamfer(size.width, size.height, c)
+120      drawPath(outer, fill)
+121      if (texture != null) drawPath(outer, texture, alpha = 0.55f)
+122      drawPath(
+123          outer,
+124          Brush.radialGradient(
+125              colors = listOf(SwiftyColors.Phosphor.copy(alpha = 0.07f), Color.Transparent),
+126              center = Offset(size.width / 2, size.height / 2),
+127              radius = maxOf(size.width, size.height) * 0.7f,
+128          ),
+129      )
+130      if (scanlines) {
+131          // CRT scanlines: a 1 px line every 3 dp, barely visible. ONLY inside panels, never over the 3D scene.
+132          val step = 3.dp.toPx()
+133          var y = c * 0.5f
+134          while (y < size.height - c * 0.5f) {
+135              drawLine(SwiftyColors.PhosphorDim.copy(alpha = 0.05f), Offset(c * 0.3f, y), Offset(size.width - c * 0.3f, y), strokeWidth = 1f)
+136              y += step
+137          }
+138      }
+139      drawPath(
+140          outer,
+141          Brush.verticalGradient(listOf(MetalHighlight, SwiftyColors.Bronze, MetalShadow)),
+142          style = Stroke(width = 2.5.dp.toPx()),
+143      )
+144      drawPath(chamfer(size.width, size.height, c, inset = 4.dp.toPx()), accent.copy(alpha = 0.6f), style = Stroke(width = 1.dp.toPx()))
+145      val r = 2.5.dp.toPx()
+146      val d = 8.dp.toPx() + c * 0.3f
+147      for ((x, y) in listOf(d to d, size.width - d to d, d to size.height - d, size.width - d to size.height - d)) {
+148          drawCircle(SwiftyColors.Bronze, radius = r, center = Offset(x, y))
+149          drawCircle(MetalHighlight, radius = r * 0.45f, center = Offset(x - r * 0.3f, y - r * 0.3f))
+150      }
+151  }
 ```
 
 - **`chamfer(...)`** construye el rectángulo de esquinas cortadas a 45° como un `Path` de 8 lados.
-- **Relleno** con el color del cristal y, encima, la **textura CRT** del kit al 55 % (un `ShaderBrush` que repite el azulejo de 128 px).
-- **Líneas de barrido** (*scanlines*): 1 px cada 3 dp, verde tenue al 10 %. **Solo dentro de paneles**, nunca sobre la escena 3D (regla del kit y del documento 08a).
-- **Bronce** 2 dp fuera, **latón** 1 dp dentro (4 dp hacia adentro), **remaches**: un círculo de latón con un punto oscuro.
+- **Relleno** con el color del cristal y, encima, la **textura CRT** del kit al 55 % (un `ShaderBrush` que repite el azulejo de 128 px) y un **resplandor radial** verde muy tenue en el centro (un tubo encendido brilla más en el centro).
+- **Líneas de barrido** (*scanlines*): 1 px cada 3 dp, verde al **5 %** (se intuyen, no se ven). **Solo dentro de paneles**, nunca sobre la escena 3D (regla del kit y del documento 08a).
+- **Bronce con degradado vertical** (brillo arriba, sombra abajo: «luz desde arriba») de 2,5 dp fuera y una línea interior fina; **remaches** de bronce con un punto de brillo.
+- *(Versión refinada en la sección 17: la primera usaba colores planos y barrido al 10 %.)*
 
 ---
 
@@ -131,7 +157,7 @@ El conversor SVG → VectorDrawable del documento 08b **falló con error** (como
 
 ## 6. Fuentes, paleta y contraste
 
-**Fuentes** (`res/font`, licencias en `assets/licenses/fonts`): `pirata_one_regular.ttf` (**nombre reservado «Pirata»** → sin modificar), `silkscreen_regular.ttf`, `silkscreen_bold.ttf`. Se borraron Cinzel, Rajdhani y Share Tech Mono. **Silkscreen no tiene el signo menos U+2212** → los negativos van con `-` ASCII (`AtomText`, con prueba).
+**Fuentes** (`res/font`, licencias en `assets/licenses/fonts`): `pirata_one_regular.ttf` (**nombre reservado «Pirata»** → sin modificar) y `share_tech_mono_regular.ttf` (nombre reservado «Share» → sin modificar). **Silkscreen se probó y se retiró** (sección 17). Los negativos van con `-` ASCII (`AtomText`, con prueba).
 
 **Contraste, recalculado** (no copiado del informe del kit), sobre el cristal `console #08120B`:
 
@@ -175,15 +201,15 @@ La regla del tiempo es **pura** (`BootSequence`):
 Y el bucle que la conduce:
 
 ```kotlin
-// BootScreen.kt · líneas 47–54
-47  LaunchedEffect(Unit) {
-48      val start = SystemClock.uptimeMillis()
-49      while (!BootSequence.isDone(elapsed)) {
-50          withFrameMillis { }
-51          elapsed = SystemClock.uptimeMillis() - start
-52      }
-53      finish()
-54  }
+// BootScreen.kt · líneas 48–55
+48  LaunchedEffect(Unit) {
+49      val start = SystemClock.uptimeMillis()
+50      while (!BootSequence.isDone(elapsed)) {
+51          withFrameMillis { }
+52          elapsed = SystemClock.uptimeMillis() - start
+53      }
+54      finish()
+55  }
 ```
 
 - **`withFrameMillis { }`** espera al **siguiente fotograma** (no es un bucle activo que queme CPU); se lee el reloj una vez por fotograma.
@@ -211,41 +237,41 @@ Todos en `ui/SwiftyComponents.kt`:
 | `rememberReduceMotion()` | Lee la escala de animaciones del sistema: a 0, todo lo decorativo se para |
 
 ```kotlin
-// SwiftyComponents.kt · líneas 351–384
-351  @Composable
-352  fun ConsoleKey(
-353      text: String,
-354      onClick: () -> Unit,
-355      contentDescription: String,
-356      modifier: Modifier = Modifier,
-357      active: Boolean = false,
-358      enabled: Boolean = true,
-359      stateDescription: String? = null,
-360  ) {
-361      val ink = when {
-362          !enabled -> SwiftyColors.Disabled
-363          active -> SwiftyColors.Phosphor
-364          else -> SwiftyColors.Gold
-365      }
-366      Surface(
-367          onClick = onClick,
-368          enabled = enabled,
-369          modifier = modifier
-370              .sizeIn(minWidth = 52.dp, minHeight = 52.dp)
-371              .semantics {
-372                  this.contentDescription = contentDescription
-373                  if (stateDescription != null) this.stateDescription = stateDescription
-374              },
-375          shape = CutCornerShape(6.dp),
-376          color = SwiftyColors.Console,
-377          contentColor = ink,
-378          border = BorderStroke(if (active) 2.dp else 1.5.dp, if (active) SwiftyColors.Phosphor else SwiftyColors.Brass),
-379      ) {
-380          Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp)) {
-381              Text(text, style = SwiftyDataText.large, color = ink)
-382          }
-383      }
-384  }
+// SwiftyComponents.kt · líneas 375–408
+375  @Composable
+376  fun ConsoleKey(
+377      text: String,
+378      onClick: () -> Unit,
+379      contentDescription: String,
+380      modifier: Modifier = Modifier,
+381      active: Boolean = false,
+382      enabled: Boolean = true,
+383      stateDescription: String? = null,
+384  ) {
+385      val ink = when {
+386          !enabled -> SwiftyColors.Disabled
+387          active -> SwiftyColors.Phosphor
+388          else -> SwiftyColors.Gold
+389      }
+390      Surface(
+391          onClick = onClick,
+392          enabled = enabled,
+393          modifier = modifier
+394              .sizeIn(minWidth = 52.dp, minHeight = 52.dp)
+395              .semantics {
+396                  this.contentDescription = contentDescription
+397                  if (stateDescription != null) this.stateDescription = stateDescription
+398              },
+399          shape = CutCornerShape(6.dp),
+400          color = SwiftyColors.Console,
+401          contentColor = ink,
+402          border = BorderStroke(if (active) 2.dp else 1.5.dp, if (active) SwiftyColors.Phosphor else SwiftyColors.Brass),
+403      ) {
+404          Box(contentAlignment = Alignment.Center, modifier = Modifier.padding(horizontal = 10.dp)) {
+405              Text(text, style = if (active) SwiftyDataText.large.glowing(ink) else SwiftyDataText.large, color = ink)
+406          }
+407      }
+408  }
 ```
 
 ---
@@ -305,7 +331,8 @@ Todos en `ui/SwiftyComponents.kt`:
 | 8 | Tocar **sobre la tarjeta** de abajo y arrastrar | La molécula **no** gira (los paneles bloquean toques) |
 | 9 | Tocar un átomo; «H»; «SHR» | Lectura con X/Y/Z; «Hydrogens hidden»; «PREPARING PICT-CAPTURE…» y la hoja de compartir |
 | 10 | Opciones de desarrollador → animaciones a 0 | El servo-cráneo y el cursor quietos |
-| 11 | Fuente grande del sistema | Textos que se parten en varias líneas sin cortarse (Silkscreen es ancha) |
+| 11 | Fuente grande del sistema | Textos que se parten en varias líneas sin cortarse |
+| 12 | Mirar de cerca los textos verdes | **Letras nítidas con un halo verde suave**, no bloques de píxeles (sección 17) |
 
 ---
 
@@ -340,7 +367,7 @@ Todos en `ui/SwiftyComponents.kt`:
 | Halo del arte | Script propio | Pedir al generador **PNG con transparencia real** a 800 px (lo ideal) |
 | Arranque | Pantalla propia de 1,6 s | Retener la *splash* del sistema (D25) — más simple, menos vistoso |
 | Líneas de barrido | Dibujadas por panel | Un único `Canvas` por pantalla (menos dibujo repetido) si se nota lentitud |
-| Fuente de la lista | Silkscreen | VT323 (más estrecha y legible), descartada por el equipo |
+| Fuente de consola | Share Tech Mono (tras retirar Silkscreen) | VT323 (estilo CRT más marcado, pero de mapa de bits: riesgo de volver a «8 bits») |
 
 ---
 
@@ -351,6 +378,7 @@ Todos en `ui/SwiftyComponents.kt`:
 | D32 | El *launch screen* es la **pantalla de arranque propia** (1600 ms, una vez por arranque); la *splash* del sistema ya no se retiene. **Sustituye a D25** | Decidida | Cumple la hoja con un arranque temático y sin sumar 3 s |
 | D33 | Marcos **dibujados en código** (`cogitatorFrame`); el 9-patch del kit no se usa | Decidida | Nítido a cualquier densidad, admite etiquetas |
 | D34 | El arte del kit se **limpia** (halo, restos, fragmentos) con un algoritmo medido y se guarda en `drawable-nodpi` | Decidida | El halo opaco ensuciaba la consola; `nodpi` evita el triple escalado |
+| D36 | **Share Tech Mono** sustituye a Silkscreen; pasada de «luz»: brillo de fósforo en el texto, metal con degradado, cristal con resplandor, barrido al 5 % | Decidida | Silkscreen (fuente de píxeles) daba aspecto de consola de 8 bits; sección 17 |
 | D35 | El conversor de iconos admite `transform` (grupos anidados) y círculos por defecto; verificación con **control negativo** | Decidida | El emblema del kit los usa; la comparación píxel a píxel exacta no sirve con arcos frente a círculos |
 
 ---
@@ -365,3 +393,42 @@ Todos en `ui/SwiftyComponents.kt`:
 - **Comparar imágenes:** exactitud de píxel no sirve siempre; una métrica con **control negativo** demuestra que distingue lo correcto de lo incorrecto.
 - **Mutantes supervivientes** a menudo delatan **pruebas débiles**: −50 frente a −1000, mismo número en dos ramas.
 - **Una `Surface`** bloquea los toques: es lo que separa los paneles de la escena 3D.
+
+---
+
+## 17. Corrección: «demasiado pixelado»
+
+**El veredicto en el móvil:** la estética es la buena, pero **demasiado pixelada**: recuerda a una consola de 8 bits y **abarata** la impresión. Se buscó la **causa** antes de tocar nada, con una maqueta a la escala real del A33 (3 px por dp), el diseño actual frente a uno corregido:
+
+![Antes (Silkscreen, colores planos, barrido al 10 %) y después (Share Tech Mono, brillo de fósforo, metal con degradado)](img_08c_pixel_fix.png)
+
+**Diagnóstico:**
+1. **La causa principal es la fuente.** Silkscreen es una fuente **de píxeles**: cada letra está dibujada en una rejilla de 5×7 cuadrados. A 14 sp, cada «píxel» de la letra mide **~5 píxeles reales**: bloques visibles. Además la `Å` se dibuja con el anillo **separado** de la letra. Eso es exactamente «8 bits».
+2. **Lo refuerzan** los bordes de **un solo color plano** y el barrido al 10 % (rayas visibles): todo es plano, sin luz.
+3. **No es el arte:** las ilustraciones se escalan ×1,4 con filtro bilineal (algo blandas, no pixeladas). Aun así se pide filtrado de **alta calidad**.
+
+**Lo hecho:**
+- **Fuente:** vuelve **Share Tech Mono** (terminal limpia; la del diseño v1). **Silkscreen se borra.** Share Tech Mono tiene **un solo grosor**: ningún estilo pide negrita (una negrita *sintética* de una monoespaciada se ve emborronada); el énfasis sale del tamaño, el color y el brillo. Escala ajustada (es más estrecha): cuerpo 15 sp, botones 17 sp con espaciado, identificadores 19 sp.
+- **Brillo de fósforo** (`TextStyle.glowing`): una **sombra del mismo color, desenfocada y sin desplazamiento** detrás de las letras verdes (y, más suave, de los títulos dorados). Convierte «texto verde» en «tubo encendido». Al 45 %: las letras siguen nítidas.
+
+```kotlin
+// Type.kt · líneas 47–52
+47  /**
+48   * The CRT phosphor glow: the same colour, blurred, behind the letters (a text shadow with no offset). It is what
+49   * turns "green text" into "a lit tube". Kept faint (45 %) so the letters stay sharp.
+50   */
+51  fun TextStyle.glowing(color: Color, strength: Float = 0.45f): TextStyle =
+52      copy(shadow = Shadow(color = color.copy(alpha = strength), offset = Offset.Zero, blurRadius = 10f))
+```
+
+- **Metal con luz:** el borde de bronce pasa de un color plano a un **degradado vertical** (brillo arriba, sombra abajo) y los remaches llevan un punto de brillo.
+- **Cristal con profundidad:** **resplandor radial** verde muy tenue en el centro de cada panel.
+- **Barrido** del 10 % al **5 %**.
+- **Ilustraciones** con `filterQuality = FilterQuality.High`.
+- **Lámpara de estado** con halo (degradado radial) en vez de un punto plano.
+- **La banda de la captura compartida** usa Share Tech Mono.
+
+**Coste:** el brillo es una sombra de texto: Android la dibuja con la GPU en las versiones recientes; en las antiguas puede ir por software (más lento). Hay unas decenas de textos con brillo por pantalla: **se debe notar poco**, pero **no está medido**.
+
+**Decisión D36:** Share Tech Mono en lugar de Silkscreen, y una pasada de «luz» (brillo de fósforo, metal con degradado, cristal con resplandor, barrido más tenue). **Lección:** ante una queja estética, **buscar la causa con una maqueta a escala real** antes de cambiar cosas al azar; aquí una sola decisión (la fuente) explicaba casi todo.
+

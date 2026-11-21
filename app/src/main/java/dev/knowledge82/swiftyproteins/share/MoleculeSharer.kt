@@ -117,10 +117,11 @@ object MoleculeSharer {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = TEXT_COLOR
             textSize = band * 0.38f
-            // The app's console font (Silkscreen); if it cannot be loaded, the system monospace: never a failure.
-            typeface = runCatching { ResourcesCompat.getFont(context, R.font.silkscreen_regular) }.getOrNull() ?: Typeface.MONOSPACE
+            // The app's console font (Share Tech Mono); if it cannot be loaded, the system monospace: never a failure.
+            typeface = runCatching { ResourcesCompat.getFont(context, R.font.share_tech_mono_regular) }.getOrNull() ?: Typeface.MONOSPACE
         }
-        // Silkscreen is a WIDE font: shrink the text if the caption would not fit between the margins.
+        // Shrink the text if the caption would not fit between the margins (it did not, with the wide pixel font tried
+        // before; Share Tech Mono is narrower, but a long ligand id or a small capture can still need it).
         val maxWidth = scene.width - band * 0.8f
         val width = paint.measureText(caption)
         if (width > maxWidth) paint.textSize = paint.textSize * maxWidth / width

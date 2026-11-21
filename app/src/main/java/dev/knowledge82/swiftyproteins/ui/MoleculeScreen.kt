@@ -43,6 +43,7 @@ import dev.knowledge82.swiftyproteins.share.MoleculeSharer
 import dev.knowledge82.swiftyproteins.share.ShareStatus
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
+import dev.knowledge82.swiftyproteins.ui.theme.glowing
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -159,10 +160,10 @@ private fun TopPanel(
         Row(verticalAlignment = Alignment.CenterVertically) {
             BackKey(onClick = onBack)
             Column(modifier = Modifier.weight(1f)) {
-                Text("Pattern ${molecule.id}", style = MaterialTheme.typography.displayLarge, color = SwiftyColors.Gold, maxLines = 1)
+                Text("Pattern ${molecule.id}", style = MaterialTheme.typography.displayLarge.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, maxLines = 1)
                 Text(
                     "${molecule.atoms.size} ATOMS :: ${molecule.bonds.size} BONDS",
-                    style = MaterialTheme.typography.labelSmall,
+                    style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor),
                     color = SwiftyColors.Phosphor,
                     maxLines = 1,
                 )
@@ -205,7 +206,7 @@ private fun ShareStatusPanel(text: String, status: ShareStatus) {
     ) {
         Text(
             text,
-            style = MaterialTheme.typography.labelMedium,
+            style = MaterialTheme.typography.labelMedium.glowing(if (failed) SwiftyColors.OpticRed else SwiftyColors.Phosphor),
             color = if (failed) SwiftyColors.OpticRed else SwiftyColors.Phosphor,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
@@ -226,7 +227,7 @@ private fun ReadoutPanel(atom: Atom?, hydrogensHidden: Boolean) {
             Spacer(Modifier.height(4.dp))
             Text(
                 if (hydrogensHidden) "Tap an atom to inspect it." else "Drag to rotate. Pinch to zoom. Tap an atom.",
-                style = MaterialTheme.typography.bodySmall,
+                style = MaterialTheme.typography.bodySmall.glowing(SwiftyColors.Phosphor),
                 color = SwiftyColors.Phosphor,
             )
         } else {
@@ -234,7 +235,7 @@ private fun ReadoutPanel(atom: Atom?, hydrogensHidden: Boolean) {
             Spacer(Modifier.height(8.dp))
             for ((axis, value) in listOf("X" to atom.x, "Y" to atom.y, "Z" to atom.z)) {
                 Row(modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)) {
-                    Text(axis, style = SwiftyDataText.medium, color = SwiftyColors.Phosphor, modifier = Modifier.weight(1f))
+                    Text(axis, style = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, modifier = Modifier.weight(1f))
                     Text(AtomText.value(value), style = SwiftyDataText.medium, color = SwiftyColors.Bone)
                 }
             }

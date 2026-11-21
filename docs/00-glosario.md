@@ -259,4 +259,18 @@ Desarrollado en [`08c-diseno-v2-cogitador.md`](08c-diseno-v2-cogitador.md).
 | **Líneas de barrido (*scanlines*)** | Líneas horizontales finas que imitan una pantalla CRT. | Solo dentro de paneles, nunca sobre el 3D. |
 | **`withFrameMillis`** | Suspende hasta el siguiente fotograma y da su hora. | Bucle de la pantalla de arranque sin consumir CPU. |
 | **Movimiento reducido** | Preferencia del sistema (escala de animaciones a 0). | Para el servo-cráneo, el cursor y la escritura del arranque. |
+| **Brillo de fósforo (*glow*)** | Una sombra de texto del **mismo color**, desenfocada y sin desplazamiento: el texto parece un tubo encendido. | `TextStyle.glowing` (D36). |
+| **Fuente de píxeles** | Fuente dibujada en una rejilla de cuadrados (Silkscreen): a tamaño de lectura los cuadrados se ven. | Retirada: daba aspecto de 8 bits (D36). |
+
+## 13. Firma de la app
+
+Desarrollado en [`11-firma-de-depuracion.md`](11-firma-de-depuracion.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Firma de un APK** | Huella criptográfica con una clave privada; el APK lleva el certificado. «Misma app» = mismo paquete + mismo certificado. | Una actualización con otra firma se rechaza (`INSTALL_FAILED_UPDATE_INCOMPATIBLE`). |
+| **Clave de depuración (*debug keystore*)** | La que el SDK crea sola en `~/.android/debug.keystore`, **una por máquina**, para firmar las compilaciones debug. | Sustituida por una **común** en `app/debug.keystore` (D37). |
+| **`signingConfigs`** | Bloque de Gradle que dice con qué clave se firma cada tipo de compilación. | `getByName("debug")` apunta a la clave del repositorio. |
+| **PKCS12** | Formato estándar de almacén de claves (desde Java 9); la contraseña del almacén y la de la clave coinciden. | Formato de `app/debug.keystore`. |
+| **Clave de publicación (*release*)** | La que firmaría las versiones oficiales; **nunca** en el repositorio. | No existe: el proyecto no se publica. |
 

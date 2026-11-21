@@ -38,6 +38,7 @@ import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.catalog.LigandCatalog
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
+import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 /**
  * The Data-Vault Index: the list of ligands with the search box (design v2, screens 06-09).
@@ -84,7 +85,7 @@ fun LigandListScreen(
                 Spacer(Modifier.height(10.dp))
                 Text(
                     ListTexts.patternsFound(available, total, query, results.size),
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.labelMedium.glowing(if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed),
                     color = if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed,
                 )
                 Text(":: COGITATOR SEARCH/ACCESS ::", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash)
@@ -138,9 +139,9 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
         enabled = enabled,
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
-        textStyle = SwiftyDataText.medium,
+        textStyle = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor),
         placeholder = { Text("Search by ligand ID", style = SwiftyDataText.medium) },
-        leadingIcon = { Text(">", style = SwiftyDataText.large, color = SwiftyColors.Phosphor) },
+        leadingIcon = { Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor) },
         trailingIcon = if (query.isEmpty()) null else {
             {
                 IconButton(onClick = { onQueryChange("") }) {
@@ -172,11 +173,11 @@ private fun PatternRow(id: String, onClick: () -> Unit) {
     Column {
         Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
             Row(modifier = Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(">", style = SwiftyDataText.large, color = SwiftyColors.Phosphor)
+                Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
                 Spacer(Modifier.width(16.dp))
-                Text(id, style = SwiftyDataText.large, color = SwiftyColors.Bone, modifier = Modifier.width(72.dp))
+                Text(id, style = SwiftyDataText.large.glowing(SwiftyColors.Bone, 0.25f), color = SwiftyColors.Bone, modifier = Modifier.width(72.dp))
                 Text("·······", style = SwiftyDataText.small, color = SwiftyColors.PhosphorDim, modifier = Modifier.weight(1f))
-                Text("[INSPECT]", style = SwiftyDataText.small, color = SwiftyColors.Phosphor)
+                Text("[INSPECT]", style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
             }
         }
         ConsoleRule()

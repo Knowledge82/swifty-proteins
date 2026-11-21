@@ -19,6 +19,19 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // ONE debug signing key for every machine (document 11). By default each computer signs debug builds with its own
+    // ~/.android/debug.keystore, so installing over a build made on ANOTHER machine fails with
+    // INSTALL_FAILED_UPDATE_INCOMPATIBLE. This key is for debugging only (standard public password "android");
+    // it must never sign a release.
+    signingConfigs {
+        getByName("debug") {
+            storeFile = file("debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     testOptions {
         unitTests.all {
             it.testLogging {

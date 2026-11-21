@@ -10,7 +10,7 @@ Proyecto en pareja del bloque **Mobile** de 42 Barcelona.
 > También están escritos y probados en la JVM el **catálogo con búsqueda** (`ligands.txt`, sin distinguir mayúsculas) y el **cargador** que gobierna el estado de carga (`Idle / Loading / Loaded / Failed`, con la garantía de que el indicador siempre desaparece).
 > Está escrito y funciona en el móvil el **pegamento con Android** (lista con buscador, diálogos de carga y de error); 162 pruebas.
 > Se ha escrito la **escena 3D de la molécula** (bolas y varillas con colores CPK, cámara orbital, tocar un átomo, interruptor de hidrógenos): su parte pura tiene 27 pruebas y mutación (198 en total con las de zoom y *splash*);
-> la escena **funciona en el móvil** (confirmado con `001`, `CDL` y `15P`). Se corrigió el **tope de zoom** de los ligandos grandes (D24) y se añadió la **pantalla de inicio de ≥ 1 s** que pide la hoja de evaluación (D25; **sin compilar con la biblioteca real**). La **dirección visual** está definida (D26) y el **diseño del generador ya está aplicado** a la lista, los diálogos, la pantalla de la molécula, el icono y la *splash* (D27–D29; 217 pruebas; **sin compilar con las bibliotecas reales**). Está escrita la **captura de la escena y «compartir»** (H4: `PixelCopy` + `FileProvider`, D30–D31; **sin probar en el móvil**). El **diseño v2 «Cogitador»** (consolas CRT verdes, calaveras, servidor, servo-cráneo; Pirata One + Silkscreen) está **aplicado**, con una **pantalla de arranque** propia como *launch screen* (D32–D35; **sin compilar con las bibliotecas reales**). Falta: el inicio de sesión y la medición en el A33. Documentos:
+> la escena **funciona en el móvil** (confirmado con `001`, `CDL` y `15P`). Se corrigió el **tope de zoom** de los ligandos grandes (D24) y se añadió la **pantalla de inicio de ≥ 1 s** que pide la hoja de evaluación (D25; **sin compilar con la biblioteca real**). La **dirección visual** está definida (D26) y el **diseño del generador ya está aplicado** a la lista, los diálogos, la pantalla de la molécula, el icono y la *splash* (D27–D29; 217 pruebas; **sin compilar con las bibliotecas reales**). Está escrita la **captura de la escena y «compartir»** (H4: `PixelCopy` + `FileProvider`, D30–D31; **sin probar en el móvil**). El **diseño v2 «Cogitador»** (consolas CRT verdes, calaveras, servidor, servo-cráneo; Pirata One + Share Tech Mono con brillo de fósforo) está **aplicado**, con una **pantalla de arranque** propia como *launch screen* (D32–D36; **sin compilar con las bibliotecas reales**). Falta: el inicio de sesión y la medición en el A33. Documentos:
 > [`docs/03-formato-cif-y-parser.md`](docs/03-formato-cif-y-parser.md) y [`docs/03a-codigo-parser.md`](docs/03a-codigo-parser.md) (parser),
 > [`docs/06-red-y-carga-de-ligandos.md`](docs/06-red-y-carga-de-ligandos.md) y [`docs/06a-codigo-red.md`](docs/06a-codigo-red.md) (red),
 > [`docs/06b-lista-busqueda-y-estado-de-carga.md`](docs/06b-lista-busqueda-y-estado-de-carga.md) (lista, búsqueda y estado de carga),
@@ -79,6 +79,8 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D33 | Marcos **dibujados en código**; el 9-patch del kit no se usa | Decidida | Nítido a cualquier densidad y admite etiquetas. Documento 08c, 4. |
 | D34 | El arte del kit se **limpia** (halo, restos, fragmentos) y va en `drawable-nodpi` | Decidida | El halo opaco ensuciaba la consola; `nodpi` evita el triple escalado. Documento 08c, 3. |
 | D35 | El conversor de iconos admite `transform` y círculos por defecto; verificación con **control negativo** | Decidida | El emblema del kit los usa. Documento 08c, 5. |
+| D36 | **Share Tech Mono** sustituye a Silkscreen; pasada de «luz»: brillo de fósforo, metal con degradado, cristal con resplandor, barrido tenue | Decidida | Silkscreen (fuente de píxeles) daba aspecto de consola de 8 bits. Documento 08c, 17. |
+| D37 | Las compilaciones debug se firman con **una clave de depuración común en el repositorio** (`app/debug.keystore`) | Decidida | Instalar desde cualquier máquina sin desinstalar. Documento 11. |
 
 ---
 
@@ -120,6 +122,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/08a-direccion-visual-y-prompt.md`](docs/08a-direccion-visual-y-prompt.md) | Dirección visual «Culto de la Máquina», paleta con **contraste medido**, restricciones técnicas, aviso de propiedad intelectual, **el prompt completo** para el generador y cómo se trasladará a Compose | **Escrito** (generador sin usar) |
 | [`docs/08b-diseno-aplicado.md`](docs/08b-diseno-aplicado.md) | El diseño aplicado (paso A): revisión del kit, fuentes OFL y cortes estáticos, conversión SVG → VectorDrawable verificada píxel a píxel, icono adaptable y de Android 7, tema de Material 3, componentes, pantallas, desvíos conscientes, lista de comprobación en el móvil | **Escrito** (lógica probada; interfaz sin compilar) |
 | [`docs/08c-diseno-v2-cogitador.md`](docs/08c-diseno-v2-cogitador.md) | Diseño v2 «Cogitador»: revisión del kit, limpieza del arte (halo medido, algoritmo), marcos dibujados en código frente al 9-patch, conversor con `transform` y control negativo, fuentes Pirata One + Silkscreen, contraste recalculado, pantalla de arranque como *launch screen*, componentes, pantallas, mutantes supervivientes que delataron pruebas débiles | **Escrito** (lógica probada; interfaz sin compilar) |
+| [`docs/11-firma-de-depuracion.md`](docs/11-firma-de-depuracion.md) | Firma de APK y por qué Android rechaza una actualización con otra firma; la clave de depuración por máquina; una clave común en el repositorio (`signingConfigs`); seguridad, migración, cómo comprobarlo | **Escrito** (clave comprobada con `keytool`; instalación sin probar) |
 | [`docs/09-captura-y-compartir.md`](docs/09-captura-y-compartir.md) | Captura del 3D y «compartir» (H4): por qué `view.draw()` da negro con un `SurfaceView`, `PixelCopy` como `suspend`, banda con el nombre, escritura atómica en la caché, `FileProvider` y permisos de URI, hoja del sistema, simulación, plan B | **Escrito** (parte pura probada; captura sin probar en el móvil) |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |
 | 10 · Pruebas y defensa | Lista de comprobación en dispositivo real y guion de defensa | Pendiente |
@@ -155,6 +158,20 @@ Versiones del spike (detalle y motivos en [`docs/02a-spike-gradle-dependencias.m
 
 Prueba en dispositivo real: Samsung Galaxy A33 (con lector de huellas), conectado por USB.
 Versión de Android del dispositivo: `<pendiente de anotar>`.
+
+### Compilar e instalar sin Android Studio
+
+El *wrapper* de Gradle (`./gradlew`) descarga la versión de Gradle del proyecto y compila desde la terminal. Hace falta un **JDK 21** (`JAVA_HOME`; sirve el `jbr` que trae Android Studio) y el **Android SDK** (`sdk.dir` en `local.properties` o `ANDROID_HOME`). En el campus, el SDK, el JDK y la caché de Gradle (`GRADLE_USER_HOME`) van en `~/goinfre` (la carpeta personal es pequeña).
+
+```bash
+./gradlew :app:testDebugUnitTest                              # pruebas en la JVM
+./gradlew :app:testDebugUnitTest --tests '*BootSequenceTest'  # una clase
+./gradlew :app:installDebug                                   # compilar e instalar en el móvil (USB)
+adb shell am start -n dev.knowledge82.swiftyproteins/.MainActivity
+adb logcat -s SwiftyProteins                                  # los avisos de la app
+```
+
+`:app:` es la ruta completa de la tarea (proyecto raíz → módulo `app`); sin ella, Gradle ejecuta la tarea en **todos** los módulos que la tengan (hoy solo hay uno). Las compilaciones *debug* se firman con la clave común del repositorio: se pueden instalar desde cualquier máquina sin desinstalar ([`docs/11-firma-de-depuracion.md`](docs/11-firma-de-depuracion.md)).
 
 ---
 

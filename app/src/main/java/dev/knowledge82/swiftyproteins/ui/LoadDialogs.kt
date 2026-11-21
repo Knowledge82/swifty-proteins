@@ -22,6 +22,7 @@ import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.loading.LoadState
 import dev.knowledge82.swiftyproteins.net.LoadError
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
+import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 private const val TAG = "SwiftyProteins"
 
@@ -72,7 +73,7 @@ private fun LoadingDialog(id: String, onCancel: () -> Unit) {
             CenteredColumn {
                 BobbingArt(R.drawable.art_servo_skull, size = 150.dp)
                 Spacer(Modifier.height(12.dp))
-                Text("Invoking the Machine Spirit", style = MaterialTheme.typography.titleLarge, color = SwiftyColors.Gold, textAlign = TextAlign.Center)
+                Text("Invoking the Machine Spirit", style = MaterialTheme.typography.titleLarge.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
                 Text("Downloading ligand $id.", style = MaterialTheme.typography.bodyMedium, color = SwiftyColors.Bone, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(18.dp))
@@ -93,7 +94,7 @@ private fun ErrorDialog(id: String, error: LoadError, onRetry: () -> Unit, onClo
                 // The error is shown by a picture AND a title AND a plain sentence: never by colour alone.
                 ArtImage(glyphArt(error.glyph()), size = 140.dp)
                 Spacer(Modifier.height(12.dp))
-                Text(error.flavourTitle(), style = MaterialTheme.typography.titleLarge, color = SwiftyColors.Gold, textAlign = TextAlign.Center)
+                Text(error.flavourTitle(), style = MaterialTheme.typography.titleLarge.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
                 Text(error.userMessage(id), style = MaterialTheme.typography.bodyMedium, color = SwiftyColors.Bone, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(18.dp))

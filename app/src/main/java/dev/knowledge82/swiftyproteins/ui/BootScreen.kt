@@ -26,6 +26,7 @@ import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.boot.BootSequence
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
+import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 /**
  * The cogitator boot screen (design v2, screen 02): the app's launch screen, shown ONCE per start for
@@ -70,7 +71,11 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
                     // Every line keeps its place (invisible until its time): the panel does not jump while typing.
                     val visible = i < shown
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(line, style = SwiftyDataText.medium, color = if (visible) SwiftyColors.Phosphor else SwiftyColors.Console)
+                        Text(
+                            line,
+                            style = if (visible) SwiftyDataText.medium.glowing(SwiftyColors.Phosphor) else SwiftyDataText.medium,
+                            color = if (visible) SwiftyColors.Phosphor else SwiftyColors.Console,
+                        )
                         if (visible && i == shown - 1 && !reduceMotion) BlinkingCursor()
                     }
                     Spacer(Modifier.height(6.dp))
@@ -78,7 +83,7 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
                 Spacer(Modifier.height(6.dp))
                 Text(
                     BootSequence.progressBar(BootSequence.progressBlocks(elapsed)),
-                    style = SwiftyDataText.medium,
+                    style = SwiftyDataText.medium.glowing(SwiftyColors.Gold),
                     color = SwiftyColors.Gold,
                 )
             }
