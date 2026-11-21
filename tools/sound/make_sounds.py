@@ -13,12 +13,34 @@ import os
 import subprocess
 import sys
 import wave
+import zlib
 
 import numpy as np
 from scipy import signal
 
 SR = 44_100
-RNG = np.random.default_rng(42)
+RNG = np.random.default_rng(42)  # replaced before EACH sound, see seed_for
+
+
+def seed_for(name):
+    """Each sound gets its OWN noise generator, seeded from its name. With one shared generator, changing how much
+    noise one recipe uses shifts the noise of every recipe after it: editing the boot sound would change the bell."""
+    return zlib.crc32(name.encode())
+
+
+# Sounds APPROVED on the phone (version 2.0) keep their noise exactly: they were made with ONE generator, seed 42,
+# shared in order, and this is how many numbers had been drawn from it when each one started. Rebuilding that point
+# gives the same bytes as before (the noise of the strike, the tail of the hall: in the bell, up to 3.8 dB per third
+# of an octave would change otherwise). Document 14, 6.
+FROZEN_NOISE = {"snd_boot_line": 44_276, "snd_boot_done": 44_408, "snd_key": 88_773, "snd_select": 234_567}
+
+
+def generator_for(name):
+    if name in FROZEN_NOISE:
+        rng = np.random.default_rng(42)
+        rng.uniform(-1, 1, FROZEN_NOISE[name])   # draw (and drop) what was drawn before this sound in version 2.0
+        return rng
+    return np.random.default_rng(seed_for(name))
 
 
 # ---------------------------------------------------------------------------------------------------------- basics
@@ -193,26 +215,6 @@ def bell(prime, seconds, length=1.0):
     return modal(seconds, [(prime * r, a, tau * length) for r, a, tau in BELL], strike=0.006, strike_cutoff=2_500)
 
 
-# Formants (F1, F2, F3 in Hz) of a low male voice: the resonances of the mouth that make a vowel a vowel.
-VOWELS = {'o': (400, 750, 2_400), 'u': (330, 650, 2_300), 'a': (650, 1_080, 2_450)}
-
-
-def chant(f0, seconds, vowel='o', voices=3):
-    """A buzzing source (sawtooth with slight vibrato), several slightly detuned voices (a choir, not one man),
-    through the three formant resonances of a vowel."""
-    t = t_of(seconds)
-    n = len(t)
-    src = np.zeros(n)
-    for v in range(voices):
-        detune = 1 + (v - (voices - 1) / 2) * 0.006
-        vibrato = 1 + 0.004 * np.sin(2 * np.pi * (5.1 + v * 0.37) * t + v)
-        src += saw(f0 * detune * vibrato)
-    f1, f2, f3 = VOWELS[vowel]
-    out = (bandpass(src, f1 * 0.8, f1 * 1.25) * 1.0 + bandpass(src, f2 * 0.85, f2 * 1.18) * 0.6
-           + bandpass(src, f3 * 0.9, f3 * 1.1) * 0.15)
-    return out
-
-
 def organ(freqs, seconds):
     """A pipe-organ chord, additively: each note = harmonics 1, 2, 3, 4, 6, 8 (like organ stops 8', 4', 2 2/3', 2',
     1 1/3', 1'), slightly out of tune with each other."""
@@ -227,16 +229,20 @@ def organ(freqs, seconds):
 # ---------------------------------------------------------------------------------------------------------- the sounds
 
 def boot_hum():
-    """The cogitator wakes: a heavy relay CLANK, a machine spinning up (driven sawtooth 28 -> 55 Hz), and a low organ
-    chord in D minor swelling in a stone hall. 2.4 s."""
-    d = 1.9
+    """The cogitator wakes: a relay closing (a small iron bar, NOT driven), the wind of the organ starting, and an organ
+    chord in D minor swelling in a stone hall. 2.4 s. The only long sound of the app.
+
+    Version 2.0 also had a machine 'spinning up' (a driven sawtooth 55 -> 110 Hz): half its energy was below 300 Hz and
+    SUSTAINED, and the phone speaker rattled. Here nothing below 250 Hz survives (floor_hz), and nothing low is driven.
+    """
+    d = 2.0
     n = n_of(d)
-    spin = drive(lowpass(saw(np.linspace(55, 110, n)), 1_200) * 1.6, 3.0) * adsr(n, 0.25, 0.4, 0.5, 0.8) * 0.45
     chord = organ((146.8, 220.0, 293.7, 349.2), d) / 4                # D3 A3 D4 F4: D minor, open and dark
     chord = lowpass(chord, 1_800) * adsr(n, 0.6, 0.2, 0.85, 0.9) * 0.8
-    clank = bar(185, 0.6, taus=(0.3, 0.15, 0.07, 0.03)) * 0.9
-    dry = place(d, (0, drive(clank, 1.5)), (0.05, spin), (0.15, chord))
-    return finish(reverb(dry, 0.35, seconds=1.0, tau=0.3, darkness=2_000)[:n_of(2.4)], CEREMONY)
+    wind = bandpass(noise(n), 600, 2_500) * adsr(n, 0.3, 0.3, 0.5, 0.9) * 0.06   # the bellows: air in the pipes
+    clank = bar(370, 0.4, taus=(0.2, 0.1, 0.05, 0.02)) * 0.6
+    dry = place(d, (0, clank), (0.1, wind), (0.15, chord))
+    return finish(reverb(dry, 0.35, seconds=1.0, tau=0.3, darkness=2_000)[:n_of(2.4)], CEREMONY, floor_hz=250)
 
 
 def boot_line():
@@ -258,55 +264,71 @@ def key():
 
 
 def signed_in():
-    """Binharic: 42 = 101010, CHANTED by a low machine choir ('1' on A2 vowel 'o', '0' on E2 vowel 'u'), then an open
-    fifth on the organ. 1.6 s."""
-    parts = []
-    for i, bit in enumerate("101010"):
-        seg = 0.11
-        n = n_of(seg)
-        f0, vowel = (110.0, 'o') if bit == "1" else (82.4, 'u')
-        parts.append((i * 0.12, drive(chant(f0, seg, vowel) * 2.0, 1.5) * adsr(n, 0.015, 0.02, 0.8, 0.03)))
+    """Accepted: an open fifth on the organ (A2 E3 A3: no third, neither major nor minor, archaic), short, in the hall.
+    0.9 s. (Version 2.0 sang 101010 with a choir first; it went: too long, and not liked.)"""
     n = n_of(0.75)
-    fifth = lowpass(organ((110.0, 164.8, 220.0), 0.75) / 3, 2_200) * adsr(n, 0.04, 0.1, 0.8, 0.35) * 0.9
-    parts.append((0.74, fifth))
-    dry = place(1.5, *parts)
-    return finish(reverb(dry, 0.3, seconds=0.8, tau=0.22, darkness=2_200)[:n_of(1.6)], EVENT)
+    fifth = lowpass(organ((110.0, 164.8, 220.0), 0.75) / 3, 2_200) * adsr(n, 0.04, 0.1, 0.8, 0.35)
+    return finish(reverb(fifth, 0.3, seconds=0.8, tau=0.22, darkness=2_200)[:n_of(0.9)], EVENT)
 
 
 def denied():
-    """The machine spirit refuses: a klaxon on a TRITONE (D3 + G#3, 'diabolus in musica'), driven and muffled, falling
-    a little, with a slow throb. 0.7 s."""
-    d = 0.55
-    t = t_of(d)
-    n = len(t)
-    fall = np.linspace(1.0, 0.92, n)
-    horn = saw(146.8 * fall) + saw(207.7 * fall) * 0.8
-    throb = 0.7 + 0.3 * np.sin(2 * np.pi * 9 * t)
-    body = drive(lowpass(horn, 1_600) * 1.8, 3.0) * throb * adsr(n, 0.015, 0.05, 0.85, 0.15)
-    return finish(reverb(body, 0.22, seconds=0.5, tau=0.12, darkness=1_500)[:n_of(0.7)], EVENT)
+    """Refused: two short organ stabs, each a TRITONE ('diabolus in musica'), the second a semitone lower: the same organ
+    as 'accepted', but dissonant and falling. 0.45 s. (Version 2.0 was a driven sawtooth klaxon: it rattled the speaker.)"""
+    def stab(low, high, seconds):
+        n = n_of(seconds)
+        return lowpass(organ((low, high), seconds) / 2, 2_000) * adsr(n, 0.012, 0.04, 0.75, 0.06)
+    dry = place(0.36, (0.0, stab(293.7, 415.3, 0.15)), (0.17, stab(277.2, 392.0, 0.19)))   # D4+G#4, then C#4+G4
+    return finish(reverb(dry, 0.15, seconds=0.3, tau=0.07, darkness=2_000)[:n_of(0.45)], EVENT, floor_hz=250)
+
+
+def dtmf(digit, seconds):
+    """A telephone key: DTMF = the sum of a ROW tone and a COLUMN tone of the keypad (Bell Labs, 1963)."""
+    rows, cols = (697, 770, 852, 941), (1_209, 1_336, 1_477)
+    i = "123456789*0#".index(digit)
+    t = t_of(seconds)
+    return (np.sin(2 * np.pi * rows[i // 3] * t) + np.sin(2 * np.pi * cols[i % 3] * t)) * adsr(len(t), 0.004, 0, 1, 0.006)
+
+
+def fsk(bits_per_s, f0, f1, seconds):
+    """Frequency-shift keying (V.21, 300 bit/s): each bit is a tone, f0 or f1. Random bits from the seeded RNG; the
+    phase is ACCUMULATED, so switching tones never clicks (section 3.1)."""
+    n = n_of(seconds)
+    bits = RNG.integers(0, 2, int(seconds * bits_per_s) + 1)
+    freq = np.where(np.repeat(bits, int(SR / bits_per_s))[:n] == 1, f1, f0)
+    return sine(np.pad(freq, (0, n - len(freq)), mode='edge')) * adsr(n, 0.005, 0, 1, 0.01)
 
 
 def scan():
-    """The auspex searching: a pulsing sonar (sine 330 -> 470 -> 330 Hz, driven), a 4 Hz pulse and the grind of a
-    servo (modulated band of noise). 1.2 s, quiet: it plays while the user waits."""
-    d = 1.2
-    t = t_of(d)
-    n = len(t)
-    f = 400 + 70 * np.sin(2 * np.pi * (1 / d) * t - np.pi / 2)
-    pulse = 0.55 + 0.45 * np.sin(2 * np.pi * 4 * t) ** 2
-    beam = drive(sine(f) * 1.5, 2.0) * pulse
-    grind = bandpass(noise(n), 350, 1_100) * (0.6 + 0.4 * np.sin(2 * np.pi * 23 * t)) * 0.5
-    return finish(lowpass(beam + grind, 1_600) * adsr(n, 0.1, 0.2, 0.75, 0.35), BACKGROUND)
+    """Loading a ligand = a dial-up modem connecting, compressed to 2.6 s (it is cut the moment the molecule arrives):
+    dial 4, 2 (DTMF); the 2100 Hz answer tone with its 15 Hz wobble (V.8 ANSam); two FSK bursts (V.21, one per side);
+    the 'bong' of line probing (a comb of tones every 150 Hz, V.34); then the hiss of training, pulsing. All through a
+    TELEPHONE band, 300-3400 Hz: what the line carried, and what a phone speaker plays well."""
+    parts = [(0.00, dtmf('4', 0.08) * 0.5), (0.13, dtmf('2', 0.08) * 0.5)]
+    t = t_of(0.34)
+    ans = np.sin(2 * np.pi * 2_100 * t) * (1 + 0.2 * np.sin(2 * np.pi * 15 * t)) * adsr(len(t), 0.01, 0, 1, 0.02)
+    parts.append((0.28, ans * 0.3))
+    parts.append((0.66, fsk(300, 1_180, 980, 0.16) * 0.45))          # caller: 0 = 1180 Hz, 1 = 980 Hz
+    parts.append((0.84, fsk(300, 1_850, 1_650, 0.16) * 0.35))        # answerer: 0 = 1850 Hz, 1 = 1650 Hz
+    t = t_of(0.32)
+    probe = sum(np.sin(2 * np.pi * 150 * k * t + k * 1.7) for k in range(2, 23) if k not in (5, 9, 14, 20)) / 12
+    parts.append((1.03, probe * adsr(len(t), 0.01, 0.05, 0.8, 0.06)))
+    n = n_of(1.2)
+    t = t_of(1.2)
+    hiss = bandpass(noise(n), 500, 3_200, order=4)
+    chatter = 0.55 + 0.45 * np.sign(np.sin(2 * np.pi * 5.5 * t))      # the 'ka-king ka-king' rhythm
+    parts.append((1.40, hiss * lowpass(chatter, 40) * adsr(n, 0.02, 0.1, 0.8, 0.3) * 0.5))
+    line = bandpass(place(2.6, *parts), 300, 3_400, order=4)
+    return finish(line, BACKGROUND, floor_hz=250)
 
 
 def loaded():
-    """Target acquired: a mechanism LATCHING (two metal clunks), then a deep ping (A4 in a dark hall). 1.2 s."""
-    clunk = bar(260, 0.25, taus=(0.08, 0.05, 0.03, 0.015))
-    n = n_of(0.8)
-    ping = fade_out(lowpass(sine(const(440.0, 0.8)) + 0.2 * sine(const(880.0, 0.8)), 1_500) * exp_decay(n, 0.22)
+    """Target acquired: a mechanism LATCHING (two clunks of a small bar), then a ping (A4) in a short hall. 0.6 s."""
+    clunk = bar(520, 0.15, taus=(0.05, 0.03, 0.015, 0.008))
+    n = n_of(0.45)
+    ping = fade_out(lowpass(sine(const(440.0, 0.45)) + 0.2 * sine(const(880.0, 0.45)), 1_500) * exp_decay(n, 0.13)
                     * adsr(n, 0.004, 0, 1, 0))
-    dry = place(1.0, (0, drive(clunk, 1.6) * 0.8), (0.06, drive(clunk, 1.6) * 0.5), (0.12, ping * 0.8))
-    return finish(reverb(dry, 0.35, seconds=0.8, tau=0.25, darkness=1_800)[:n_of(1.2)], EVENT)
+    dry = place(0.6, (0, clunk * 0.7), (0.05, clunk * 0.45), (0.1, ping * 0.8))
+    return finish(reverb(dry, 0.25, seconds=0.4, tau=0.1, darkness=1_800)[:n_of(0.6)], EVENT, floor_hz=250)
 
 
 def select():
@@ -316,13 +338,13 @@ def select():
 
 
 def shutter():
-    """Pict-capture: a heavy shutter CLACK, a servo winding down (driven sawtooth 240 -> 90 Hz), a second clack.
-    0.5 s."""
-    clack = modal(0.12, [(360, 1.0, 0.03), (940, 0.6, 0.02), (2_300, 0.3, 0.01)], strike=0.004, strike_cutoff=3_500)
-    n = n_of(0.22)
-    servo = drive(lowpass(saw(np.linspace(240, 90, n)), 1_400) * 1.5, 2.0) * adsr(n, 0.01, 0.05, 0.6, 0.08) * 0.45
-    dry = place(0.45, (0, drive(clack, 1.8)), (0.05, servo), (0.3, drive(clack, 1.8) * 0.8))
-    return finish(reverb(dry, 0.2, seconds=0.4, tau=0.1, darkness=2_000)[:n_of(0.5)], EVENT)
+    """Pict-capture, like a reflex camera: the mirror slaps up and the shutter fires, two dry clicks 45 ms apart.
+    Small, dense modes (no low servo any more: it rattled), almost no room. 0.2 s."""
+    def click(scale, seconds):
+        return modal(seconds, [(700 * scale, 0.5, 0.012), (1_250 * scale, 1.0, 0.007), (2_600 * scale, 0.35, 0.004)],
+                     strike=0.002, strike_cutoff=3_000)
+    dry = place(0.18, (0.0, click(1.0, 0.06)), (0.045, click(0.85, 0.08) * 0.8))
+    return finish(reverb(dry, 0.08, seconds=0.2, tau=0.04, darkness=2_500)[:n_of(0.2)], EVENT, floor_hz=250)
 
 
 SOUNDS = {
@@ -404,7 +426,9 @@ def main():
     wav_dir = args.wav_dir or os.path.join(args.out, '.wav_tmp')
     os.makedirs(wav_dir, exist_ok=True)
     made = {}
+    global RNG
     for name, make in SOUNDS.items():
+        RNG = generator_for(name)
         x = make()
         made[name] = x
         wav = os.path.join(wav_dir, name + '.wav')

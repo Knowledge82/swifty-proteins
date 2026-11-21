@@ -8,34 +8,34 @@ package dev.knowledge82.swiftyproteins.sound
  * neighbour tapped in a row, must not turn into a machine-gun of clicks.
  */
 enum class SoundCue(val minGapMillis: Long) {
-    /** The CRT powering up, when the boot screen appears. */
+    /** A relay, the organ's wind and a D minor chord, when the boot screen appears. The only long sound. */
     BOOT_HUM(0),
 
-    /** A teletype tick for each boot line. */
+    /** A typebar striking: one dull "thock" for each boot line. */
     BOOT_LINE(0),
 
-    /** The two-bell "DONE". */
+    /** A cathedral bell: "DONE". */
     BOOT_DONE(0),
 
-    /** A relay click: any console key or button. */
+    /** A heavy mechanical key, "thock": any console key or button. */
     KEY(60),
 
-    /** "101010" (42 in binary) and a glide: signed in. */
+    /** An open fifth on the organ: signed in. */
     SIGNED_IN(0),
 
-    /** Two low buzzes: wrong password, blocked, a load that failed. */
+    /** Two dissonant organ stabs (tritones), falling: wrong password, blocked, a load that failed. */
     DENIED(300),
 
-    /** The servo-skull's auspex sweep while a ligand is loading. */
+    /** A dial-up modem connecting (it dials 4, 2), while a ligand is loading; cut when it arrives. */
     SCAN(0),
 
-    /** The auspex ping: the molecule is ready. */
+    /** A latch and a ping: the molecule is ready. */
     LOADED(0),
 
-    /** A soft blip: an atom was tapped. */
+    /** A small dull metal "tock": an atom was tapped. */
     SELECT(60),
 
-    /** The pict-capture shutter: share. */
+    /** A reflex camera: mirror and shutter, two dry clicks. Share. */
     SHUTTER(0),
 }
 

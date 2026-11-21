@@ -4,6 +4,8 @@ import android.content.Context
 import android.media.AudioAttributes
 import android.media.AudioManager
 import android.media.SoundPool
+import android.os.Handler
+import android.os.Looper
 import android.os.SystemClock
 import androidx.compose.runtime.staticCompositionLocalOf
 import dev.knowledge82.swiftyproteins.R
@@ -31,6 +33,7 @@ class CogitatorSounds private constructor(context: Context) : SoundPlayer {
 
     private val audio = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
     private val gate = SoundGate(SystemClock::elapsedRealtime)
+    private val main = Handler(Looper.getMainLooper())
 
     // Loading is ASYNCHRONOUS: the boot hum is asked for in the very first frame, usually BEFORE its file is decoded.
     // Such a cue is remembered ([waiting]) and played when its file arrives, if that happens within [LATE_MILLIS];
@@ -67,7 +70,17 @@ class CogitatorSounds private constructor(context: Context) : SoundPlayer {
         // Also a cue still WAITING for its file: a ligand from the cache arrives in milliseconds, and its "scan" must
         // not start after the "loaded" ping.
         soundIds[cue]?.let(waiting::remove)
-        streams.remove(cue)?.let(pool::stop)
+        val stream = streams.remove(cue) ?: return
+        // SoundPool.stop cuts the wave wherever it is, and a sudden jump is heard as a click (document 14, 7.3).
+        // The modem is almost always cut mid-tone, so: a short fade (6 volume steps, 60 ms), THEN stop.
+        // setVolume / stop on a stream that already ended are harmless no-ops.
+        for (step in 1..FADE_STEPS) {
+            main.postDelayed({
+                val volume = MASTER_VOLUME * (1f - step.toFloat() / FADE_STEPS)
+                pool.setVolume(stream, volume, volume)
+                if (step == FADE_STEPS) pool.stop(stream)
+            }, step * FADE_STEP_MILLIS)
+        }
     }
 
     companion object {
@@ -82,6 +95,10 @@ class CogitatorSounds private constructor(context: Context) : SoundPlayer {
 
         /** How late a cue may still start once its file is loaded (the boot hum on a cold start). */
         private const val LATE_MILLIS = 400L
+
+        /** The fade before a stop: FADE_STEPS volume steps, FADE_STEP_MILLIS apart (60 ms in all). */
+        private const val FADE_STEPS = 6
+        private const val FADE_STEP_MILLIS = 10L
 
         @Volatile private var instance: CogitatorSounds? = null
 
