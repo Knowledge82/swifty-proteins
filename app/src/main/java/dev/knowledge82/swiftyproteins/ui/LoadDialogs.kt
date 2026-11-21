@@ -3,22 +3,28 @@ package dev.knowledge82.swiftyproteins.ui
 import android.util.Log
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import dev.knowledge82.swiftyproteins.R
+import dev.knowledge82.swiftyproteins.loading.LoadStage
 import dev.knowledge82.swiftyproteins.loading.LoadState
 import dev.knowledge82.swiftyproteins.net.LoadError
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
@@ -30,8 +36,9 @@ private const val TAG = "SwiftyProteins"
 /**
  * Draws the dialog that goes with the current [LoadState], or nothing (design v2, screens 10-15).
  *
- * - Loading: a modal dialog with the bobbing servo-skull and a Cancel button. A MODAL dialog is the simplest way to
- *   block the screen below while loading (no taps reach the list), and the system Back button closes it as Cancel.
+ * - Loading: a modal dialog with the bobbing servo-skull, the checklist of stages with a bar (bonus VII.4,
+ *   document 20) and a Cancel button. A MODAL dialog is the simplest way to block the screen below while loading
+ *   (no taps reach the list), and the system Back button closes it as Cancel.
  * - Failed: a picture, a flavour title, the PLAIN message and "Retry" when repeating makes sense.
  * - Idle / Loaded: nothing. The `when` has no `else`, so a fifth state would not compile until handled here.
  *
@@ -47,7 +54,7 @@ fun LoadStateDialogs(
     onClose: () -> Unit,
 ) {
     when (state) {
-        is LoadState.Loading -> LoadingDialog(id = state.id, onCancel = onClose)
+        is LoadState.Loading -> LoadingDialog(id = state.id, stage = state.stage, onCancel = onClose)
         is LoadState.Failed -> {
             // The user sees a friendly sentence; the technical cause (parser failure, reason text) goes to Logcat.
             LaunchedEffect(state) {
@@ -65,7 +72,7 @@ fun LoadStateDialogs(
 }
 
 @Composable
-private fun LoadingDialog(id: String, onCancel: () -> Unit) {
+private fun LoadingDialog(id: String, stage: LoadStage, onCancel: () -> Unit) {
     Dialog(
         onDismissRequest = onCancel,                                    // the system Back button
         properties = DialogProperties(dismissOnClickOutside = false),   // an accidental tap must not cancel
@@ -76,11 +83,43 @@ private fun LoadingDialog(id: String, onCancel: () -> Unit) {
                 Spacer(Modifier.height(12.dp))
                 Text("Invoking the Machine Spirit", style = MaterialTheme.typography.titleLarge.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
-                Text("Downloading ligand $id.", style = MaterialTheme.typography.bodyMedium, color = SwiftyColors.Bone, textAlign = TextAlign.Center)
+                Text("Ligand $id", style = MaterialTheme.typography.bodyMedium, color = SwiftyColors.Bone, textAlign = TextAlign.Center)
+                Spacer(Modifier.height(14.dp))
+                StageChecklist(stage)
+                Spacer(Modifier.height(10.dp))
+                // A real percentage while a file of known length arrives; otherwise a bar that only says "working".
+                val fraction = LoadStageText.fraction(stage)
+                val barModifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp).clearAndSetSemantics { }
+                if (fraction != null) {
+                    LinearProgressIndicator(progress = { fraction }, modifier = barModifier, color = SwiftyColors.Phosphor, trackColor = SwiftyColors.Ash.copy(alpha = 0.3f))
+                } else {
+                    LinearProgressIndicator(modifier = barModifier, color = SwiftyColors.Phosphor, trackColor = SwiftyColors.Ash.copy(alpha = 0.3f))
+                }
                 Spacer(Modifier.height(18.dp))
                 ConsoleRule(color = SwiftyColors.Brass)
                 Spacer(Modifier.height(14.dp))
                 SecondaryButton("Cancel", onClick = onCancel, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp))
+            }
+        }
+    }
+}
+
+/** "[OK] Archive OK / [>>] Connect waiting for the server / [  ] Download / [  ] Parse": one line per stage. */
+@Composable
+private fun StageChecklist(stage: LoadStage) {
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
+        for (line in LoadStageText.lines(stage)) {
+            val ink = when (line.mark) {
+                LoadStageText.Mark.DONE -> SwiftyColors.Phosphor
+                LoadStageText.Mark.ACTIVE -> SwiftyColors.Gold
+                LoadStageText.Mark.WAITING -> SwiftyColors.Ash
+            }
+            val spoken = LoadStageText.spoken(line)
+            Row(modifier = Modifier.fillMaxWidth().clearAndSetSemantics { contentDescription = spoken }) {
+                Text(LoadStageText.markText(line.mark), style = SwiftyDataText.small, color = ink, maxLines = 1)
+                Spacer(Modifier.width(8.dp))
+                Text(line.label.uppercase(), style = SwiftyDataText.small, color = ink, maxLines = 1, modifier = Modifier.width(88.dp))
+                Text(line.detail, style = SwiftyDataText.small, color = ink, maxLines = 1, modifier = Modifier.weight(1f))
             }
         }
     }

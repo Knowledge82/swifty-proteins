@@ -47,4 +47,13 @@ interface HttpFetcher {
      * @param isCancelled asked repeatedly while the body is being read; when it answers true the download stops.
      */
     fun fetch(url: String, isCancelled: () -> Boolean = { false }): FetchResult
+
+    /**
+     * The same, reporting progress (document 20): [onProgress] gets (bytes received, bytes announced or -1) once the
+     * headers arrive and after every chunk of the body. Called on the downloading thread.
+     *
+     * The default ignores the progress and calls the plain [fetch]: fakes in the tests need not know about progress.
+     */
+    fun fetch(url: String, isCancelled: () -> Boolean, onProgress: (received: Long, expected: Long) -> Unit): FetchResult =
+        fetch(url, isCancelled)
 }

@@ -27,7 +27,9 @@ class HttpUrlConnectionFetcher(
     private val open: (URL) -> HttpURLConnection = { it.openConnection() as HttpURLConnection },
 ) : HttpFetcher {
 
-    override fun fetch(url: String, isCancelled: () -> Boolean): FetchResult {
+    override fun fetch(url: String, isCancelled: () -> Boolean): FetchResult = fetch(url, isCancelled) { _, _ -> }
+
+    override fun fetch(url: String, isCancelled: () -> Boolean, onProgress: (received: Long, expected: Long) -> Unit): FetchResult {
         if (isCancelled()) return FetchResult.Cancelled
         val deadline = System.nanoTime() + totalTimeoutMs * 1_000_000
 
@@ -65,17 +67,25 @@ class HttpUrlConnectionFetcher(
             if (status !in 200..299) return FetchResult.HttpError(status)
 
             // ---- phase 2: the body -----------------------------------------------------------------------------
-            return readBody(connection, deadline, isCancelled)
+            return readBody(connection, deadline, isCancelled, onProgress)
         } finally {
             connection.disconnect()
         }
     }
 
-    private fun readBody(connection: HttpURLConnection, deadline: Long, isCancelled: () -> Boolean): FetchResult {
+    private fun readBody(
+        connection: HttpURLConnection,
+        deadline: Long,
+        isCancelled: () -> Boolean,
+        onProgress: (Long, Long) -> Unit,
+    ): FetchResult {
         val declared = connection.contentLengthLong          // -1 when the server does not say
         if (declared > maxBytes) return FetchResult.TooLarge(maxBytes)
         // Only trust the announced length when nothing was compressed on the way.
         val checkLength = declared >= 0 && connection.contentEncoding == null
+        // The percentage is only meaningful against a length we trust; otherwise "-1": bytes without a percentage.
+        val announced = if (checkLength) declared else -1L
+        onProgress(0L, announced)
 
         val body = ByteArrayOutputStream(if (declared in 0..maxBytes) declared.toInt() else 8_192)
         val buffer = ByteArray(8_192)
@@ -88,6 +98,7 @@ class HttpUrlConnectionFetcher(
                     if (count == -1) break
                     if (body.size() + count > maxBytes) return FetchResult.TooLarge(maxBytes)
                     body.write(buffer, 0, count)
+                    onProgress(body.size().toLong(), announced)
                 }
             }
         } catch (e: SocketTimeoutException) {

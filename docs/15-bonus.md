@@ -30,7 +30,7 @@ El enunciado lista cinco bloques (documento 01, §15.3) sin decir cómo puntúan
 | VII.1 Modelos | Espacio lleno (van der Waals), alambre, *stick*, cambio en tiempo real sin recargar | **Bolas y varillas, espacio lleno, varillas, alambre**; una tecla los recorre; no se descarga ni se interpreta nada de nuevo | — |
 | VII.2 Interfaz | Celdas propias, animaciones, modo oscuro, *onboarding*, ajustes | — (nada nuevo) | Celdas de consola, animaciones, tema oscuro también en 3D |
 | VII.3 Interacción | Resaltar mismo elemento, información de enlaces (tipo y longitud), medir distancias y ángulos, etiquetas, centrar con doble toque | **Resaltar mismo elemento**, **información de enlaces**, **doble toque para orbitar un átomo** | — |
-| VII.4 Rendimiento | Caché, carga perezosa, *parsing* en segundo plano, memoria, 60 FPS | — (nada nuevo) | Caché (13), FPS (12), lista perezosa |
+| VII.4 Rendimiento | Caché, carga perezosa, *parsing* en segundo plano, memoria, 60 FPS | — (nada nuevo en esta ronda; **después**, documento 20: etapas de carga, nivel de detalle, montaje por lotes) | Caché (13), FPS (12), lista perezosa |
 | VII.5 Compartir | Mensaje personalizado (**nombre, nº de átomos, fórmula**), formatos, vídeo, favoritos, comparar | **Nombre** (del fichero) y **fórmula** en el mensaje y en pantalla | Imagen con nombre, átomos y enlaces (09) |
 
 ---

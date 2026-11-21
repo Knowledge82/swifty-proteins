@@ -46,6 +46,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -59,6 +60,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -68,6 +70,7 @@ import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.ElementLegend
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
 import dev.knowledge82.swiftyproteins.net.Origin
+import dev.knowledge82.swiftyproteins.scene.Assembly
 import dev.knowledge82.swiftyproteins.scene.FpsMeter
 import dev.knowledge82.swiftyproteins.sound.LocalSounds
 import dev.knowledge82.swiftyproteins.sound.SoundCue
@@ -125,6 +128,9 @@ fun MoleculeScreen(
     // screen cancels a capture in progress (nothing is left half done in the background).
     var share by remember { mutableStateOf<ShareStatus>(ShareStatus.Idle) }
     val sounds = LocalSounds.current
+    // How much of the scene exists (bonus VII.4, document 20): (built, total). The scene builds a batch per frame.
+    var assembly by remember(molecule) { mutableStateOf(0 to Assembly.total(molecule.atoms.size, molecule.bonds.size)) }
+    val assembling = assembly.first < assembly.second
 
     // The frame counter, in EVERY build (a learning project: the number is part of what we show). The scene reports
     // each presented frame; the label is refreshed 4 times a second (not on every frame: no recomposition at 60 Hz).
@@ -142,7 +148,7 @@ fun MoleculeScreen(
     // The export menu (document 18): SHR opens it; each choice runs here.
     var exportMenu by remember { mutableStateOf(false) }
     fun startExport(format: ExportFormat) {
-        if (!share.canStart) return
+        if (!share.canStart || assembling) return   // an image of half a molecule is not what the user asked for
         share = ShareStatus.Working(format)
         sounds.play(SoundCue.SHUTTER)
         scope.launch {
@@ -170,7 +176,7 @@ fun MoleculeScreen(
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
         if (needsPermission) storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else startExport(format)
     }
-    val onShare = { if (share.canStart) exportMenu = true }
+    val onShare = { if (share.canStart && !assembling) exportMenu = true }
     if (exportMenu) ExportDialog(onChoose = ::choose, onDismiss = { exportMenu = false })
     // "Image ready" or an error stays on screen a few seconds, then the line goes away.
     LaunchedEffect(share) {
@@ -232,6 +238,7 @@ fun MoleculeScreen(
             },
             modifier = Modifier.fillMaxSize(),
             onFrame = fpsMeter::onFrame,
+            onAssembly = { built, total -> assembly = built to total },
         )
 
         // The frame AROUND the scene. Only the panels catch touches (they are Surfaces); the brackets and the empty
@@ -254,6 +261,10 @@ fun MoleculeScreen(
                 origin = origin,
             )
             CornerBrackets(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 14.dp))
+            Assembly.label(assembly.first, assembly.second)?.let { text ->
+                AssemblyPanel(text = text, fraction = assembly.first.toFloat() / assembly.second)
+                Spacer(Modifier.height(14.dp))
+            }
             share.label?.let { text ->
                 ShareStatusPanel(text = text, status = share, modifier = deselect)
                 Spacer(Modifier.height(14.dp))
@@ -386,6 +397,32 @@ private fun ExportDialog(onChoose: (ExportFormat) -> Unit, onDismiss: () -> Unit
 }
 
 /** "PICT-CAPTURE ACTIVE" / "SYSTEM MESSAGE": what the Share key is doing. */
+/** "ASSEMBLY 312 / 511" and a bar while the scene is being built (document 20). It goes away when it is complete. */
+@Composable
+private fun AssemblyPanel(text: String, fraction: Float) {
+    CogitatorPanel(
+        label = "PATTERN ASSEMBLY",
+        fill = SwiftyColors.ConsoleOverlay,
+        contentPadding = 12.dp,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+    ) {
+        Text(
+            text,
+            style = MaterialTheme.typography.labelMedium.glowing(SwiftyColors.Phosphor),
+            color = SwiftyColors.Phosphor,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { fraction },
+            modifier = Modifier.fillMaxWidth().clearAndSetSemantics { },   // the text above already says it
+            color = SwiftyColors.Phosphor,
+            trackColor = SwiftyColors.Ash.copy(alpha = 0.3f),
+        )
+    }
+}
+
 @Composable
 private fun ShareStatusPanel(text: String, status: ShareStatus, modifier: Modifier) {
     val failed = status is ShareStatus.Failed

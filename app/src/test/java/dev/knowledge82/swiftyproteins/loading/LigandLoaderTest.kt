@@ -21,6 +21,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * The loader with a FAKE source (no network). The test creates two worlds like the real app has:
@@ -61,13 +62,13 @@ class LigandLoaderTest {
 
     @Test
     fun startsIdle() {
-        assertEquals(LoadState.Idle, loader { _, _ -> error("never called") }.state.value)
+        assertEquals(LoadState.Idle, loader { _, _, _ -> error("never called") }.state.value)
     }
 
     @Test
     fun showsLoadingWhileTheWorkRunsAndThenTheMolecule() {
         val release = CountDownLatch(1)
-        val loader = loader { id, _ ->
+        val loader = loader { id, _, _ ->
             release.await(5, TimeUnit.SECONDS)
             LigandLoadResult.Success(molecule(id))
         }
@@ -82,7 +83,7 @@ class LigandLoaderTest {
     @Test
     fun theSourceReceivesTheId() {
         val received = mutableListOf<String>()
-        val loader = loader { id, _ -> received += id; LigandLoadResult.Success(molecule(id)) }
+        val loader = loader { id, _, _ -> received += id; LigandLoadResult.Success(molecule(id)) }
         onMain { loader.load("HEM") }
         awaitState(loader) { it is LoadState.Loaded }
         assertEquals(listOf("HEM"), received)
@@ -110,7 +111,7 @@ class LigandLoaderTest {
             LigandLoadResult.Cancelled to LoadState.Idle,
         )
         for ((result, expected) in cases) {
-            val loader = loader { _, _ -> result }
+            val loader = loader { _, _, _ -> result }
             onMain { loader.load("X") }
             assertEquals("for $result", expected, awaitState(loader) { it !is LoadState.Loading })
         }
@@ -118,7 +119,7 @@ class LigandLoaderTest {
 
     @Test
     fun aSourceThatThrowsEndsAsAnUnexpectedFailureNotAsAnEternalSpinner() {
-        val loader = loader { _, _ -> throw IllegalStateException("boom") }
+        val loader = loader { _, _, _ -> throw IllegalStateException("boom") }
         onMain { loader.load("X") }
         val state = awaitState(loader) { it !is LoadState.Loading }
         assertTrue("got $state", state is LoadState.Failed && state.error is LoadError.Unexpected)
@@ -128,7 +129,7 @@ class LigandLoaderTest {
     @Test
     fun afterAFailureTheSameLoaderCanTryAgain() {
         var attempt = 0
-        val loader = loader { id, _ ->
+        val loader = loader { id, _, _ ->
             if (++attempt == 1) LigandLoadResult.Failure(LoadError.NoConnection) else LigandLoadResult.Success(molecule(id))
         }
         onMain { loader.load("X") }
@@ -146,7 +147,7 @@ class LigandLoaderTest {
         val releaseA = CountDownLatch(1)
         val finishedA = CountDownLatch(1)
         val sawCancelled = AtomicBoolean(false)
-        val loader = loader { id, isCancelled ->
+        val loader = loader { id, isCancelled, _ ->
             if (id == "A") {
                 startedA.countDown()
                 releaseA.await(5, TimeUnit.SECONDS)
@@ -176,7 +177,7 @@ class LigandLoaderTest {
         val started = CountDownLatch(1)
         val release = CountDownLatch(1)
         val finished = CountDownLatch(1)
-        val loader = loader { id, _ ->
+        val loader = loader { id, _, _ ->
             started.countDown()
             release.await(5, TimeUnit.SECONDS)
             finished.countDown()
@@ -199,7 +200,7 @@ class LigandLoaderTest {
     fun cancelTellsTheSourceToStopSoTheNetworkWorkEnds() {
         val started = CountDownLatch(1)
         val stopped = CountDownLatch(1)
-        val loader = loader { _, isCancelled ->
+        val loader = loader { _, isCancelled, _ ->
             started.countDown()
             while (!isCancelled()) Thread.sleep(5)    // like the read loop of the downloader
             stopped.countDown()
@@ -216,8 +217,87 @@ class LigandLoaderTest {
 
     @Test
     fun cancelWhenNothingIsRunningDoesNothing() {
-        val loader = loader { _, _ -> error("never called") }
+        val loader = loader { _, _, _ -> error("never called") }
         onMain { loader.cancel() }
         assertEquals(LoadState.Idle, loader.state.value)
+    }
+
+    // ---------------------------------------------------------------- stages (document 20)
+
+    @Test
+    fun theStageShowsWhileLoadingAndTheResultReplacesIt() {
+        val release = CountDownLatch(1)
+        val loader = loader { id, _, onStage ->
+            onStage(LoadStage.Connecting)
+            onStage(LoadStage.Downloading(10, 100))
+            release.await(5, TimeUnit.SECONDS)
+            LigandLoadResult.Success(molecule(id))
+        }
+        onMain { loader.load("ATP") }
+        assertEquals(LoadState.Loading("ATP", LoadStage.Downloading(10, 100)), awaitState(loader) { (it as? LoadState.Loading)?.stage is LoadStage.Downloading })
+        release.countDown()
+        assertEquals(LoadState.Loaded(molecule("ATP")), awaitState(loader) { it !is LoadState.Loading })
+    }
+
+    @Test
+    fun aLateStageOfACancelledLoadNeverBringsLoadingBack() {
+        val started = CountDownLatch(1)
+        val cancelled = CountDownLatch(1)
+        val reported = CountDownLatch(1)
+        val loader = loader { _, _, onStage ->
+            started.countDown()
+            cancelled.await(5, TimeUnit.SECONDS)
+            onStage(LoadStage.Parsing)   // too late: the user already left
+            reported.countDown()
+            LigandLoadResult.Cancelled
+        }
+        onMain { loader.load("A") }
+        assertTrue(started.await(5, TimeUnit.SECONDS))
+        onMain { loader.cancel() }
+        cancelled.countDown()
+        assertTrue(reported.await(5, TimeUnit.SECONDS))
+        letLateResultsArrive()
+        assertEquals(LoadState.Idle, loader.state.value)
+    }
+
+    @Test
+    fun aLateStageOfTheOldLoadNeverOverwritesTheNewOne() {
+        val startedA = CountDownLatch(1)
+        val replaced = CountDownLatch(1)
+        val reportedA = CountDownLatch(1)
+        val releaseB = CountDownLatch(1)
+        val loader = loader { id, _, onStage ->
+            if (id == "A") {
+                startedA.countDown()
+                replaced.await(5, TimeUnit.SECONDS)
+                onStage(LoadStage.Downloading(1, 2))   // A's stage, after B took over
+                reportedA.countDown()
+            } else {
+                onStage(LoadStage.Parsing)
+                releaseB.await(5, TimeUnit.SECONDS)
+            }
+            LigandLoadResult.Success(molecule(id))
+        }
+        onMain { loader.load("A") }
+        assertTrue(startedA.await(5, TimeUnit.SECONDS))
+        onMain { loader.load("B") }
+        awaitState(loader) { it == LoadState.Loading("B", LoadStage.Parsing) }
+        replaced.countDown()
+        assertTrue(reportedA.await(5, TimeUnit.SECONDS))
+        letLateResultsArrive()
+        assertEquals(LoadState.Loading("B", LoadStage.Parsing), loader.state.value)
+        releaseB.countDown()
+        assertEquals(LoadState.Loaded(molecule("B")), awaitState(loader) { it is LoadState.Loaded })
+    }
+
+    @Test
+    fun aStageArrivingAfterTheResultIsIgnored() {
+        val report = AtomicReference<(LoadStage) -> Unit>()   // set on the work thread, used on this one
+        val loader = loader { id, _, onStage -> report.set(onStage); LigandLoadResult.Success(molecule(id)) }
+        onMain { loader.load("ATP") }
+        assertEquals(LoadState.Loaded(molecule("ATP")), awaitState(loader) { it is LoadState.Loaded })
+        report.get()(LoadStage.Parsing)   // a straggler from the work thread
+        letLateResultsArrive()
+        assertEquals(LoadState.Loaded(molecule("ATP")), loader.state.value)
     }
 }

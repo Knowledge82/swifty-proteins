@@ -2,6 +2,7 @@ package dev.knowledge82.swiftyproteins.net
 
 import dev.knowledge82.swiftyproteins.cif.CifParser
 import dev.knowledge82.swiftyproteins.cif.ParseResult
+import dev.knowledge82.swiftyproteins.loading.LoadStage
 
 /**
  * Downloads a ligand and turns it into a Molecule. It glues the network ([HttpFetcher]), the parser ([CifParser]) and
@@ -17,6 +18,8 @@ import dev.knowledge82.swiftyproteins.cif.ParseResult
  *
  * It BLOCKS the calling thread (network + parsing + files): call it from a background thread, never from the main one.
  * It never throws because of the network or the file.
+ *
+ * Progress (document 20): [load] reports each [LoadStage] it enters through `onStage`, on the calling thread.
  */
 class LigandRepository(
     private val fetcher: HttpFetcher,
@@ -25,17 +28,22 @@ class LigandRepository(
     private val now: () -> Long = System::currentTimeMillis,
 ) {
 
-    fun load(rawId: String, isCancelled: () -> Boolean = { false }): LigandLoadResult {
+    fun load(rawId: String, isCancelled: () -> Boolean = { false }, onStage: (LoadStage) -> Unit = {}): LigandLoadResult {
         val id = rawId.trim().uppercase()
         // The id goes INSIDE a URL: only letters and digits are allowed, so "../x" or "a?b" never reach the network.
         if (!ID_PATTERN.matches(id)) return failure(LoadError.InvalidId(rawId))
 
         return try {
+            onStage(LoadStage.Archive)
             val copy = cache.read(id)?.let { cached -> fromCache(id, cached) }
             if (copy != null && now() - copy.second < FRESH_MILLIS) return copy.first   // rule 1
 
-            when (val fetched = fetcher.fetch("$baseUrl$id.cif", isCancelled)) {
-                is FetchResult.Body -> parse(fetched.text).also {
+            onStage(LoadStage.Connecting)
+            val fetched = fetcher.fetch("$baseUrl$id.cif", isCancelled) { received, expected ->
+                onStage(LoadStage.Downloading(received, expected))
+            }
+            when (fetched) {
+                is FetchResult.Body -> parse(fetched.text, onStage).also {
                     if (it is LigandLoadResult.Success) cache.write(id, fetched.text)   // rule 2
                 }
                 is FetchResult.HttpError ->
@@ -58,9 +66,12 @@ class LigandRepository(
         }
     }
 
-    private fun parse(text: String): LigandLoadResult = when (val parsed = CifParser.parse(text)) {
-        is ParseResult.Success -> LigandLoadResult.Success(parsed.molecule)
-        is ParseResult.Failure -> failure(LoadError.Corrupt(parsed.failure))
+    private fun parse(text: String, onStage: (LoadStage) -> Unit): LigandLoadResult {
+        onStage(LoadStage.Parsing)
+        return when (val parsed = CifParser.parse(text)) {
+            is ParseResult.Success -> LigandLoadResult.Success(parsed.molecule)
+            is ParseResult.Failure -> failure(LoadError.Corrupt(parsed.failure))
+        }
     }
 
     private fun failure(error: LoadError) = LigandLoadResult.Failure(error)

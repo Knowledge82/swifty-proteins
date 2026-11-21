@@ -5,7 +5,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
@@ -14,7 +18,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import dev.knowledge82.swiftyproteins.molecule.Molecule
+import dev.knowledge82.swiftyproteins.scene.Assembly
 import dev.knowledge82.swiftyproteins.scene.AtomLabels
+import dev.knowledge82.swiftyproteins.scene.MeshDetail
 import dev.knowledge82.swiftyproteins.scene.BondGeometry
 import dev.knowledge82.swiftyproteins.scene.BondPose
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
@@ -40,12 +46,7 @@ import kotlin.math.max
 
 // Node names are how a TAP is traced back to what was drawn ("atom 12", "bond 3"): see ScenePick.
 
-// Mesh detail of a ball (how many bands it is cut into). The spike used 32; with up to 256 atoms (and more than half of
-// them hydrogens) a lighter ball is used, and the smaller hydrogens need even less. ESTIMATED, not measured on the A33.
-// Space-filling balls are 4 times bigger on screen: there the facets would show, so they get more bands.
-private const val BALL_DETAIL = 20
-private const val SMALL_BALL_DETAIL = 12
-private const val BIG_BALL_DETAIL = 24
+// Mesh detail (how many bands a ball is cut into, how many sides a stick has): by molecule size, MeshDetail (document 20).
 
 // The halos (document 07 and 15). Selection: phosphor green; atoms of the highlighted element: brass gold, fainter.
 private const val SELECTION_ALPHA = 0.35f
@@ -95,6 +96,7 @@ private fun colorOf(element: String): Color {
  * @param onTap            what a single tap hit: an atom, a bond, or `null` (empty space)
  * @param onDoubleTap      the same for a double tap
  * @param onFrame          called once per frame that really reached the screen (the FPS counter)
+ * @param onAssembly       how many pieces (atoms, then bonds) are already in the scene, of how many (document 20)
  */
 @Composable
 fun MoleculeScene(
@@ -110,7 +112,30 @@ fun MoleculeScene(
     onDoubleTap: (ScenePick?) -> Unit,
     modifier: Modifier = Modifier,
     onFrame: (Long) -> Unit = {},
+    onAssembly: (built: Int, total: Int) -> Unit = { _, _ -> },
 ) {
+    // LEVEL OF DETAIL (bonus VII.4): from the size of the MOLECULE, so hiding hydrogens never rebuilds every mesh.
+    val atomCount = molecule.atoms.size
+    val ballDetail = MeshDetail.ball(atomCount)
+    val sides = MeshDetail.cylinderSides(atomCount)
+
+    // ASSEMBLY (bonus VII.4): the nodes are created a batch per frame, atoms first, then bonds; the batch adapts to how
+    // long the frames take. A new molecule or a new model starts again from zero (every node is new then anyway).
+    val total = Assembly.total(molecule.atoms.size, molecule.bonds.size)
+    var built by remember(molecule, representation) { mutableIntStateOf(0) }
+    LaunchedEffect(molecule, representation) {
+        var batch = Assembly.FIRST_BATCH
+        var last = withFrameNanos { it }
+        while (built < total) {
+            built = Assembly.advance(built, batch, total)
+            val now = withFrameNanos { it }
+            batch = Assembly.nextBatch(batch, (now - last) / 1_000_000f)
+            last = now
+        }
+    }
+    val currentOnAssembly by rememberUpdatedState(onAssembly)
+    LaunchedEffect(built, total) { currentOnAssembly(built, total) }
+
     val engine = rememberEngine()
     val materialLoader = rememberMaterialLoader(engine)
     // Our own camera node (SceneView would make one anyway): the labels need to know where the camera is.
@@ -223,16 +248,16 @@ fun MoleculeScene(
         LightNode(type = LightManager.Type.DIRECTIONAL, intensity = RIM_LIGHT_LUX, direction = RIM_LIGHT_DIRECTION)
 
         for ((i, atom) in molecule.atoms.withIndex()) {
-            if (drawn(i)) {
+            if (drawn(i) && Assembly.hasAtom(i, built)) {
                 val radius = representation.atomRadius(atom.element, bonded[i])
                 // key: each atom keeps its identity when the list of nodes changes (hydrogens hidden or shown); the
                 // model and the radius are part of it because the TOUCH shape is only set when the node is created
                 // (`apply`): a node reused with a new radius would keep answering taps with the old size.
                 key(i, representation, bonded[i]) {
                     val detail = when {
-                        representation == Representation.SPACE_FILLING -> BIG_BALL_DETAIL
-                        radius < 0.3f -> SMALL_BALL_DETAIL
-                        else -> BALL_DETAIL
+                        representation == Representation.SPACE_FILLING -> MeshDetail.bigBall(atomCount)
+                        radius < 0.3f -> MeshDetail.smallBall(atomCount)
+                        else -> ballDetail
                     }
                     SphereNode(
                         radius = radius, stacks = detail, slices = detail,
@@ -252,11 +277,11 @@ fun MoleculeScene(
         // Gold: every drawn atom of the highlighted element (bonus VII.3).
         if (highlightElement != null) {
             for ((i, atom) in molecule.atoms.withIndex()) {
-                if (atom.element == highlightElement && drawn(i) && (selection as? ScenePick.Atom)?.index != i) {
+                if (atom.element == highlightElement && drawn(i) && Assembly.hasAtom(i, built) && (selection as? ScenePick.Atom)?.index != i) {
                     key("element", i, representation, bonded[i]) {
                         SphereNode(
                             radius = representation.haloRadius(atom.element, bonded[i]),
-                            stacks = BALL_DETAIL, slices = BALL_DETAIL,
+                            stacks = ballDetail, slices = ballDetail,
                             materialInstance = elementHalo,
                             position = Position(atom.x, atom.y, atom.z),
                             apply = { this.isTouchable = false },
@@ -271,7 +296,7 @@ fun MoleculeScene(
             key("selected atom", i, representation) {
                 SphereNode(
                     radius = representation.haloRadius(atom.element, bonded[i]),
-                    stacks = BALL_DETAIL, slices = BALL_DETAIL,
+                    stacks = ballDetail, slices = ballDetail,
                     materialInstance = selectionHalo,
                     position = Position(atom.x, atom.y, atom.z),
                     apply = { this.isTouchable = false },
@@ -287,6 +312,7 @@ fun MoleculeScene(
                         CylinderNode(
                             radius = max((representation.bondRadius ?: 0f) * BOND_HALO_SCALE, Representation.WIRE_RADIUS * 6),
                             height = pose.length,
+                            sideCount = sides,
                             rotation = Rotation(z = pose.tiltDegrees),
                             materialInstance = selectionHalo,
                             apply = { this.isTouchable = false },
@@ -302,7 +328,7 @@ fun MoleculeScene(
             key("measured", n, i, representation) {
                 SphereNode(
                     radius = representation.haloRadius(atom.element, bonded[i]),
-                    stacks = BALL_DETAIL, slices = BALL_DETAIL,
+                    stacks = ballDetail, slices = ballDetail,
                     materialInstance = selectionHalo,
                     position = Position(atom.x, atom.y, atom.z),
                     apply = { this.isTouchable = false },
@@ -315,6 +341,7 @@ fun MoleculeScene(
                         CylinderNode(
                             radius = RULER_LINE_RADIUS,
                             height = pose.length,
+                            sideCount = sides,
                             rotation = Rotation(z = pose.tiltDegrees),
                             materialInstance = rulerLine,
                             apply = { this.isTouchable = false },
@@ -327,7 +354,7 @@ fun MoleculeScene(
         // LABELS: the element symbol, facing the camera, on the visible face of each drawn atom.
         if (showLabels) {
             for ((i, atom) in molecule.atoms.withIndex()) {
-                if (!drawn(i)) continue
+                if (!drawn(i) || !Assembly.hasAtom(i, built)) continue
                 val r = representation.atomRadius(atom.element, bonded[i])
                 key("label", i, representation, bonded[i]) {
                     // Which node THIS group made. When the model changes, Compose builds the NEW label group first
@@ -354,6 +381,7 @@ fun MoleculeScene(
         val bondRadius = representation.bondRadius
         if (bondRadius != null) {
             for (k in drawnBonds) {
+                if (!Assembly.hasBond(k, atomCount, built)) continue
                 val bond = molecule.bonds[k]
                 if (representation.bondsInAtomColours) {
                     // Two halves, each in the colour of its atom: the colour of a stick says what it joins.
@@ -361,13 +389,13 @@ fun MoleculeScene(
                     for ((half, pose) in listOf(first, second).withIndex()) {
                         val element = molecule.atoms[if (half == 0) bond.from else bond.to].element
                         key("half", k, half, representation) {
-                            BondCylinder(pose, bondRadius, materialOf(element), ScenePick.bondName(k))
+                            BondCylinder(pose, bondRadius, materialOf(element), ScenePick.bondName(k), sides)
                         }
                     }
                 } else {
                     val pose = poses[k] ?: continue
                     key("bond", k, representation) {
-                        BondCylinder(pose, bondRadius, stick, ScenePick.bondName(k))
+                        BondCylinder(pose, bondRadius, stick, ScenePick.bondName(k), sides)
                     }
                 }
             }
@@ -380,11 +408,12 @@ fun MoleculeScene(
  * holds the cylinder, leaned (document 07). Named like the bond, so a tap on it is a tap on the bond.
  */
 @Composable
-private fun SceneScope.BondCylinder(pose: BondPose, radius: Float, material: MaterialInstance, name: String) {
+private fun SceneScope.BondCylinder(pose: BondPose, radius: Float, material: MaterialInstance, name: String, sides: Int) {
     Node(position = Position(pose.x, pose.y, pose.z), rotation = Rotation(y = pose.spinDegrees)) {
         CylinderNode(
             radius = radius,
             height = pose.length,
+            sideCount = sides,
             rotation = Rotation(z = pose.tiltDegrees),
             materialInstance = material,
             apply = { this.name = name },

@@ -271,4 +271,53 @@ class HttpUrlConnectionFetcherTest {
             assertTrue("took $millis ms, should be far below the 5 s the full body needs", millis < 2_000)
         }
     }
+
+    // ---------------------------------------------------------------- progress (document 20)
+
+    /** Fetches with progress and returns every (received, expected) reported. */
+    private fun progressOf(server: TestHttpServer): Pair<FetchResult, List<Pair<Long, Long>>> {
+        val seen = mutableListOf<Pair<Long, Long>>()
+        val result = fetcher().fetch("http://127.0.0.1:${server.port}/x.cif", { false }) { r, e -> seen += r to e }
+        return result to seen
+    }
+
+    @Test
+    fun progressStartsAtZeroGrowsAndEndsAtTheAnnouncedLength() {
+        val body = ByteArray(40_000) { 'a'.code.toByte() }   // several 8 KB chunks
+        TestHttpServer { _, s -> s.respond(body = body) }.use { server ->
+            val (result, seen) = progressOf(server)
+            assertTrue(result is FetchResult.Body)
+            assertEquals(0L to 40_000L, seen.first())
+            assertEquals(40_000L to 40_000L, seen.last())
+            assertTrue("never decreases: $seen", seen.zipWithNext().all { (a, b) -> b.first >= a.first })
+            assertTrue("more than the start and the end: $seen", seen.size > 2)
+        }
+    }
+
+    @Test
+    fun withoutAnAnnouncedLengthTheProgressHasNoTotal() {
+        TestHttpServer { _, s -> s.respondChunked(listOf("hello ".toByteArray(), "world".toByteArray())) }.use { server ->
+            val (_, seen) = progressOf(server)
+            assertTrue("no total announced: $seen", seen.all { it.second == -1L })
+            assertEquals(11L, seen.last().first)
+        }
+    }
+
+    @Test
+    fun aCompressedBodyGivesNoTotal() {
+        // With Content-Encoding the announced length is the COMPRESSED size: no percentage can be computed from it.
+        TestHttpServer { _, s -> s.respond(body = "abcdef".toByteArray(), extraHeaders = listOf("Content-Encoding: gzip")) }.use { server ->
+            val (_, seen) = progressOf(server)
+            assertTrue("no trusted total: $seen", seen.isNotEmpty() && seen.all { it.second == -1L })
+        }
+    }
+
+    @Test
+    fun anErrorStatusReportsNoProgress() {
+        TestHttpServer { _, s -> s.respond("404 Not Found") }.use { server ->
+            val (result, seen) = progressOf(server)
+            assertEquals(FetchResult.HttpError(404), result)
+            assertEquals(emptyList<Pair<Long, Long>>(), seen)
+        }
+    }
 }

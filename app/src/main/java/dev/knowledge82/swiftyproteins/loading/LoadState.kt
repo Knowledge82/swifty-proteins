@@ -13,8 +13,11 @@ sealed interface LoadState {
     /** Nothing is being loaded and nothing is ready (the start, or the user left). */
     data object Idle : LoadState
 
-    /** The download is in progress: show the loading indicator. It is the ONLY state that shows it. */
-    data class Loading(val id: String) : LoadState
+    /**
+     * The load is in progress: show the loading indicator. It is the ONLY state that shows it.
+     * [stage] says what is happening now (document 20); it changes while the state stays Loading.
+     */
+    data class Loading(val id: String, val stage: LoadStage = LoadStage.Starting) : LoadState
 
     /** The molecule is ready to be drawn. */
     data class Loaded(val molecule: Molecule, val origin: Origin = Origin.NETWORK) : LoadState

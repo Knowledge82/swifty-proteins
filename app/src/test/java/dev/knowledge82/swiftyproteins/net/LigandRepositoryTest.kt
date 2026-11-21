@@ -139,7 +139,7 @@ class LigandRepositoryTest {
             }
         }
         var flag = false
-        LigandRepository(fetcher).load("XYZ") { flag }
+        LigandRepository(fetcher).load("XYZ", { flag })   // NOT a trailing lambda: that one would be onStage (document 20)
         assertEquals(false, received.single()())
         flag = true
         assertEquals(true, received.single()())

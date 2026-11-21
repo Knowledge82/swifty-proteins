@@ -77,7 +77,7 @@ class LigandsViewModelFactory(context: Context) : ViewModelProvider.Factory {
             readCatalogText = {
                 appContext.assets.open(CATALOG_FILE).bufferedReader().use { it.readText() }
             },
-            source = { id, isCancelled -> repository.load(id, isCancelled) },
+            source = { id, isCancelled, onStage -> repository.load(id, isCancelled, onStage) },
         ) as T
     }
 

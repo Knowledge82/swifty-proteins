@@ -1,5 +1,6 @@
 package dev.knowledge82.swiftyproteins.net
 
+import dev.knowledge82.swiftyproteins.loading.LoadStage
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -126,5 +127,49 @@ class LigandRepositoryCacheTest {
         answer = FetchResult.NoConnection("airplane mode")
         assertEquals(LigandLoadResult.Failure(LoadError.NoConnection), repository.load("001"))
         assertNull(cache.files["001"])
+    }
+
+    // ---------------------------------------------------------------- stages (document 20)
+
+    private fun stagesOf(id: String): List<LoadStage> = mutableListOf<LoadStage>().also { seen -> repository.load(id, { false }) { seen += it } }
+
+    @Test
+    fun aFreshCopyOnlyVisitsTheArchive() {
+        cache.files["001"] = CachedLigand(real001, clock - day)
+        assertEquals(listOf<LoadStage>(LoadStage.Archive), stagesOf("001"))
+    }
+
+    @Test
+    fun aDownloadGoesArchiveConnectingParsing() {
+        answer = FetchResult.Body(real001)
+        assertEquals(listOf(LoadStage.Archive, LoadStage.Connecting, LoadStage.Parsing), stagesOf("001"))
+    }
+
+    @Test
+    fun aFailedDownloadNeverReachesParsing() {
+        answer = FetchResult.HttpError(404)
+        assertEquals(listOf(LoadStage.Archive, LoadStage.Connecting), stagesOf("001"))
+    }
+
+    @Test
+    fun anInvalidIdReportsNothing() {
+        assertEquals(emptyList<LoadStage>(), stagesOf("../x"))
+    }
+
+    @Test
+    fun theFetchersProgressBecomesDownloadingStages() {
+        val repository = LigandRepository(object : HttpFetcher {
+            override fun fetch(url: String, isCancelled: () -> Boolean): FetchResult = error("the progress version must be used")
+            override fun fetch(url: String, isCancelled: () -> Boolean, onProgress: (Long, Long) -> Unit): FetchResult {
+                onProgress(0, 2_000); onProgress(2_000, 2_000)
+                return FetchResult.Body(real001)
+            }
+        }, "http://base/", cache) { clock }
+        val seen = mutableListOf<LoadStage>()
+        repository.load("001", { false }) { seen += it }
+        assertEquals(
+            listOf(LoadStage.Archive, LoadStage.Connecting, LoadStage.Downloading(0, 2_000), LoadStage.Downloading(2_000, 2_000), LoadStage.Parsing),
+            seen,
+        )
     }
 }
