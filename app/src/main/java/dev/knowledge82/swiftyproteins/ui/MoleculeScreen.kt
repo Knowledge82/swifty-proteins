@@ -37,6 +37,9 @@ import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.ElementLegend
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
+import dev.knowledge82.swiftyproteins.scene.FpsMeter
+import dev.knowledge82.swiftyproteins.scene.FpsReading
+import dev.knowledge82.swiftyproteins.scene.FpsText
 import dev.knowledge82.swiftyproteins.share.CaptureException
 import dev.knowledge82.swiftyproteins.share.CaptureFailure
 import dev.knowledge82.swiftyproteins.share.MoleculeSharer
@@ -74,6 +77,17 @@ fun MoleculeScreen(
     // Share: the state of the button and the job. The job lives in the screen's coroutine scope, so leaving the
     // screen cancels a capture in progress (nothing is left half done in the background).
     var share by remember { mutableStateOf<ShareStatus>(ShareStatus.Idle) }
+
+    // The frame counter, in EVERY build (a learning project: the number is part of what we show). The scene reports
+    // each presented frame; the label is refreshed 4 times a second (not on every frame: no recomposition at 60 Hz).
+    val fpsMeter = remember { FpsMeter() }
+    var fps by remember { mutableStateOf<FpsReading>(FpsReading.Idle) }
+    LaunchedEffect(fpsMeter) {
+        while (true) {
+            delay(FPS_REFRESH_MILLIS)
+            fps = fpsMeter.reading(System.nanoTime())   // the same clock as the frame times
+        }
+    }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
@@ -117,6 +131,7 @@ fun MoleculeScreen(
             selected = if (atom == null) null else selected,
             onSelect = { selected = it },
             modifier = Modifier.fillMaxSize(),
+            onFrame = fpsMeter::onFrame,
         )
 
         // The frame AROUND the scene. Only the panels catch touches (they are Surfaces); the brackets and the empty
@@ -130,6 +145,7 @@ fun MoleculeScreen(
                 onBack = onBack,
                 share = share,
                 onShare = onShare,
+                fps = fps,
             )
             CornerBrackets(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 14.dp))
             share.label?.let { text ->
@@ -155,18 +171,26 @@ private fun TopPanel(
     onBack: () -> Unit,
     share: ShareStatus,
     onShare: () -> Unit,
+    fps: FpsReading,
 ) {
     CogitatorPanel(label = "AUSPEX // RUNNING", fill = SwiftyColors.ConsoleOverlay, contentPadding = 8.dp, modifier = Modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BackKey(onClick = onBack)
             Column(modifier = Modifier.weight(1f)) {
                 Text("Pattern ${molecule.id}", style = MaterialTheme.typography.displayLarge.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, maxLines = 1)
-                Text(
-                    "${molecule.atoms.size} ATOMS :: ${molecule.bonds.size} BONDS",
-                    style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor),
-                    color = SwiftyColors.Phosphor,
-                    maxLines = 1,
-                )
+                Row {
+                    Text(
+                        "${molecule.atoms.size} ATOMS :: ${molecule.bonds.size} BONDS :: ",
+                        style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor),
+                        color = SwiftyColors.Phosphor,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    // "60 FPS" while something moves, "IDLE" when the scene is parked (it draws on demand). The level
+                    // is in the WORDS too (the number), never only in the colour.
+                    val ink = fpsColor(FpsText.level(fps))
+                    Text(FpsText.label(fps), style = MaterialTheme.typography.labelSmall.glowing(ink), color = ink, maxLines = 1)
+                }
             }
             if (hasHydrogens) {
                 ConsoleKey(
@@ -188,6 +212,16 @@ private fun TopPanel(
         }
     }
 }
+
+/** Phosphor when smooth, amber when it drops under 55, optic red under 30 (the subject's "poor performance"). */
+private fun fpsColor(level: FpsText.Level): Color = when (level) {
+    FpsText.Level.GOOD -> SwiftyColors.Phosphor
+    FpsText.Level.FAIR -> SwiftyColors.Amber
+    FpsText.Level.POOR -> SwiftyColors.OpticRed
+    FpsText.Level.IDLE -> SwiftyColors.Ash
+}
+
+private const val FPS_REFRESH_MILLIS = 250L
 
 /** "PICT-CAPTURE ACTIVE" / "SYSTEM MESSAGE": what the Share key is doing. */
 @Composable

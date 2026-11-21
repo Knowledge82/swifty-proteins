@@ -1,6 +1,6 @@
 # 05 · Acceso y seguridad: cuentas, contraseñas, biometría y bloqueo
 
-> **Estado:** **diseño implementado** (código línea a línea en [`05a-codigo-acceso.md`](05a-codigo-acceso.md)): lógica probada en la JVM con criptografía real y mutación; la parte Android compila contra *stubs*, **sin compilar con Gradle ni probar en el móvil**. Las firmas de API de `androidx.biometric` y `lifecycle-process` se comprobaron en los ficheros de API publicados del repositorio de AndroidX (`api/1.4.0-rc01.txt`, `api/current.txt`); los parámetros de Argon2 salen de la guía de OWASP; **los tiempos en el A33 son estimaciones** hasta medirlos.
+> **Estado:** **diseño implementado** (código línea a línea en [`05a-codigo-acceso.md`](05a-codigo-acceso.md)): lógica probada en la JVM con criptografía real y mutación; la parte Android compila contra *stubs*, **compilado con Gradle y comprobado en el A33** (21-11-2026; la espera de Argon2id no se percibe). Las firmas de API de `androidx.biometric` y `lifecycle-process` se comprobaron en los ficheros de API publicados del repositorio de AndroidX (`api/1.4.0-rc01.txt`, `api/current.txt`); los parámetros de Argon2 salen de la guía de OWASP; **los tiempos en el A33 son estimaciones** hasta medirlos.
 
 ## Índice
 

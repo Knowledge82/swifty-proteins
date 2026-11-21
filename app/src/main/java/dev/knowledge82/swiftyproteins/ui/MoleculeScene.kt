@@ -8,6 +8,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.fillMaxSize
+import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.BondGeometry
@@ -15,11 +16,14 @@ import dev.knowledge82.swiftyproteins.scene.ElementStyle
 import dev.knowledge82.swiftyproteins.scene.SceneFraming
 import io.github.sceneview.SceneView
 import io.github.sceneview.collision.Sphere
+import io.github.sceneview.math.Direction
 import io.github.sceneview.math.Position
 import io.github.sceneview.math.Rotation
 import io.github.sceneview.createDefaultCameraManipulator
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberEngine
+import io.github.sceneview.rememberFillLightNode
+import io.github.sceneview.rememberMainLightNode
 import io.github.sceneview.rememberMaterialLoader
 import io.github.sceneview.rememberOnGestureListener
 import kotlin.math.max
@@ -38,6 +42,20 @@ private const val HYDROGEN_BALL_DETAIL = 12
 // A finger is much wider than a hydrogen (radius 0.25): the area that answers to a tap is never smaller than this.
 private const val MIN_TOUCH_RADIUS = 0.35f
 
+// LIGHTING (subject VI.4: "lighting should highlight the 3D structure ... consider multiple light sources").
+// Three directional lights + the image-based ambient light (IBL) SceneView adds by default. A Direction is where the
+// light TRAVELS, in world space; the camera starts in front (+z), slightly above. Values in lux, like SceneView's own
+// defaults (main 10 000, fill 3 000, IBL 10 000). The lights stay put while the camera orbits, as in a real room.
+// KEY: the main light, from upper-front-left: lights the faces the user sees first and gives each ball its shading.
+private val KEY_LIGHT_DIRECTION = Direction(0.45f, -0.65f, -0.6f)
+private const val KEY_LIGHT_LUX = 10_000f
+// FILL: weaker, from the front-right and a little below: lifts the dark side, so no ball turns into a flat black disc.
+private val FILL_LIGHT_DIRECTION = Direction(-0.6f, 0.15f, -0.8f)
+private const val FILL_LIGHT_LUX = 3_000f
+// RIM: from behind and above, toward the camera: a bright edge on the outline separates the balls from the black.
+private val RIM_LIGHT_DIRECTION = Direction(0f, -0.4f, 0.9f)
+private const val RIM_LIGHT_LUX = 5_000f
+
 private fun colorOf(element: String): Color {
     val rgb = ElementStyle.colorOf(element)
     return Color((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
@@ -52,6 +70,8 @@ private fun colorOf(element: String): Color {
  * @param showHydrogens when `false`, hydrogens and the sticks that touch them are not drawn (the numbering of the rest does not change)
  * @param selected      index in `molecule.atoms` of the highlighted atom, or `null`
  * @param onSelect      called with the tapped atom, or `null` when the tap hit a stick or empty space
+ * @param onFrame       called once per frame that really reached the screen (the FPS counter); not called while the
+ *                      scene is idle (SceneView draws on demand)
  */
 @Composable
 fun MoleculeScene(
@@ -60,6 +80,7 @@ fun MoleculeScene(
     selected: Int?,
     onSelect: (Int?) -> Unit,
     modifier: Modifier = Modifier,
+    onFrame: (Long) -> Unit = {},
 ) {
     val engine = rememberEngine()
     val materialLoader = rememberMaterialLoader(engine)
@@ -85,6 +106,16 @@ fun MoleculeScene(
     SceneView(
         modifier = modifier.fillMaxSize(),
         engine = engine,
+        // Written out (SceneView would add a main and a fill light anyway) so the lighting is OURS and visible here.
+        mainLightNode = rememberMainLightNode(engine) {
+            lightDirection = KEY_LIGHT_DIRECTION
+            intensity = KEY_LIGHT_LUX
+        },
+        fillLightNode = rememberFillLightNode(engine) {
+            lightDirection = FILL_LIGHT_DIRECTION
+            intensity = FILL_LIGHT_LUX
+        },
+        onFrame = onFrame,
         cameraManipulator = rememberCameraManipulator(
             orbitRadius = distance,
             targetPosition = Position(0f, 0f, 0f),
@@ -104,6 +135,9 @@ fun MoleculeScene(
             },
         ),
     ) {
+        // The third light (SceneView only has parameters for two): the rim, declared like any other node.
+        LightNode(type = LightManager.Type.DIRECTIONAL, intensity = RIM_LIGHT_LUX, direction = RIM_LIGHT_DIRECTION)
+
         for ((i, atom) in molecule.atoms.withIndex()) {
             if (showHydrogens || atom.element != "H") {
                 // key(i): each atom keeps its own identity when the list of drawn nodes changes (hydrogens hidden or shown).

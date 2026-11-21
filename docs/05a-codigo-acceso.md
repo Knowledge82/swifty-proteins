@@ -1,6 +1,6 @@
 # 05a · El acceso, línea a línea
 
-> **Estado:** **escrito** y **probado en la JVM** (22 + 15 + 9 + 5 + 8 + 10 + 4 + 6 pruebas, todas en verde; mutación hecha). La parte Android (Keystore, diálogo de huella, pantallas) **compila contra *stubs*** escritos a partir de los ficheros de API publicados, pero **no se ha compilado con Gradle ni probado en el móvil**: la primera compilación real y la lista de la sección 12 son el siguiente paso. El diseño y sus porqués están en el documento 05; aquí, **el código**.
+> **Estado:** **escrito** y **probado en la JVM** (22 + 15 + 9 + 5 + 8 + 10 + 4 + 6 pruebas, todas en verde; mutación hecha). La parte Android **compila con Gradle** y las pruebas pasan también en el ordenador del equipo; **en el móvil (A33) se recorrió la lista de la sección 12 y todo funciona** (21-11-2026). La espera «> VERIFYING» de Argon2id **no se llega a percibir**: los parámetros de D40 se quedan. El diseño y sus porqués están en el documento 05; aquí, **el código**.
 
 ## Índice
 
@@ -656,10 +656,9 @@ git pull
 | | Estado |
 |---|--------|
 | Reglas, hash (vector oficial), formato, fichero cifrado, libro de cuentas, flujo completo con huella simulada por cifrado real | **Verificado** en la JVM (pruebas + mutación) |
-| Que el código Android compila | **Contra *stubs*** hechos con los ficheros de API publicados, con control negativo (romper cada fichero nuevo da errores) |
-| Compilación con Gradle y las bibliotecas reales | **Sin hacer** (aquí no hay SDK ni acceso a Maven) |
-| Keystore real, diálogo de huella, bloqueo con `ProcessLifecycleOwner`, miniatura de Recientes | **Sin probar en el móvil** (sección 12) |
-| Tiempo de Argon2id en el A33 | **Sin medir** (75–160 ms en esta JVM) |
+| Compilación con Gradle y las bibliotecas reales; pruebas en el ordenador del equipo | **Hecho** (21-11-2026) |
+| Keystore real, diálogo de huella, bloqueo con `ProcessLifecycleOwner`, lista de la sección 12 | **Comprobado en el A33** (21-11-2026) |
+| Tiempo de Argon2id en el A33 | **Imperceptible** a simple vista (sin cifra exacta; en esta JVM, 75–160 ms) |
 
 ---
 
