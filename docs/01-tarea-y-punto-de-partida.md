@@ -196,7 +196,7 @@ justificarla en la defensa.
 | # | Ambigüedad | Lectura adoptada |
 |---|------------|------------------|
 | 1 | La introducción pide un framework 3D de «alto nivel», pero VI.4 permite también OpenGL ES en Android. | Usar una librería reconocida (Filament, vía SceneView) evita la discusión. Si hay que caer en OpenGL ES, queda justificado por VI.4. |
-| 2 | El login debe aparecer siempre al volver de segundo plano, pero el menú de compartir y el diálogo biométrico también sacan la app del primer plano. | Distinguir entre «el usuario abandonó la app» y «la app lanzó un diálogo del sistema». Se detalla en el documento de seguridad (05). |
+| 2 | El login debe aparecer siempre al volver de segundo plano, pero el menú de compartir y el diálogo biométrico también sacan la app del primer plano. | ~~Distinguir entre «el usuario abandonó la app» y «la app lanzó un diálogo del sistema».~~ **Revisado (documento 05, D43):** se bloquea en **cada** salida a segundo plano, también al volver de compartir; el diálogo de la huella no saca la app de primer plano. |
 | 3 | Términos de Apple (Auto Layout, ARC, VoiceOver, Face ID) en un enunciado válido también para Android. | Traducir: `ConstraintLayout` o equivalente, ciclo de vida de Android, TalkBack, `BiometricPrompt`. |
 | 4 | «Sistema de cuentas»: se admiten Firebase, almacenamiento seguro de plataforma o backend propio. | Almacenamiento local con hash de contraseña. Es legítimo y enseña más. |
 | 5 | «Probar en dispositivo real» frente a un único dispositivo disponible. | Un Samsung Galaxy A33 para lo principal. Tableta y horizontal, en emulador en casa (en el campus los equipos no lo soportan bien). |
@@ -335,5 +335,6 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 3. **Caché de `.cif`** (sin conexión).
 4. **Ronda de comprobación en el móvil**: desplazamiento, horizontal, tableta (emulador), TalkBack, compartir, LeakCanary, compilación *release* (también la *splash* invisible).
 5. **Bonus** baratos: fórmula, resaltado y doble toque, modelos de visualización, favoritos.
-6. Documento de **defensa** y **presentación**.
+6. **Añadidos del equipo** (21-11-2026): contador de FPS **también en *release*** (proyecto de aprendizaje: se enseña siempre); **sonidos** del cogitador (no se piden; calidad); **la selección de un átomo deja de ser amarilla** (el amarillo es el azufre en CPK).
+7. Documento de **defensa** y **presentación**.
 
