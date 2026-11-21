@@ -125,6 +125,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D79 | El **FPS se lee solo en su texto** (lambda): leído arriba recomponía la escena, las luces de SceneView pedían fotogramas y nunca había IDLE | Decidida | Visto en el A33. Documento 21, §18.4. |
 | D80 | **Horizontal en todas las pantallas**: índice en dos columnas (búsqueda / lista), tutorial con dibujo a la izquierda; contenido largo, con desplazamiento | Decidida | Visto en el A33. Documento 21, §19. |
 | D81 | **Diagnóstico de fotogramas** en Logcat (`SwiftyFrames`) y luces ajustadas una vez por tema (no en cada recomposición) | Decidida | FPS sin IDLE en el A33. Documento 21, §19.2. |
+| D82 | La escena 3D **fuera de `BoxWithConstraints`** y el contador de FPS de **ancho fijo**: el texto del contador re-maquetaba, `BoxWithConstraints` re-ejecutaba la escena y nunca había IDLE | Decidida | Diagnóstico en el A33. Documento 21, §20. |
 
 ---
 

@@ -238,11 +238,11 @@ fun MoleculeScreen(
     val coverRight by animateDpAsState(with(density) { (cover?.right ?: 0f).toDp() }, label = "cover right")
     val coverBottom by animateDpAsState(with(density) { (cover?.bottom ?: 0f).toDp() }, label = "cover bottom")
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize().onGloballyPositioned { screenBounds = it.boundsInWindow() }) {
-        val landscape = maxWidth > maxHeight
-        // Read HERE, in the BoxWithConstraints scope itself: inside the Row and the Column below, `maxWidth` would be
-        // taken from an OUTER layout scope, which Compose forbids (@LayoutScopeMarker, a Kotlin @DslMarker).
-        val sideWidth = minOf(maxWidth * 0.46f, SIDE_COLUMN_MAX)
+    // The scene is OUTSIDE the BoxWithConstraints below (document 21, §20). BoxWithConstraints composes its content
+    // during LAYOUT, and runs it again at every new measure of itself: the FPS text changing four times a second was
+    // enough. With the scene inside, every one of those passes ran the scene again, and every run of the scene asked
+    // SceneView for frames: no IDLE. Out here, only what the scene really depends on can run it again.
+    Box(modifier = modifier.fillMaxSize().onGloballyPositioned { screenBounds = it.boundsInWindow() }) {
         if (cover != null) MoleculeScene(
             molecule = molecule,
             representation = representation,
@@ -279,95 +279,102 @@ fun MoleculeScreen(
             visibleAspect = cover.aspectKey,
         )
 
-        val topPanel = @Composable {
-            TopPanel(
-                modifier = deselect,
-                molecule = molecule,
-                hasHydrogens = hasHydrogens,
-                showHydrogens = showHydrogens,
-                onToggleHydrogens = {
-                    showHydrogens = !showHydrogens
-                    // A highlighted element that disappears from the key stops being highlighted.
-                    if (!showHydrogens && highlightElement == "H") highlightElement = null
-                },
-                onBack = onBack,
-                share = share,
-                onShare = onShare,
-                // A LAMBDA, read inside the counter only: the FPS text changes 4 times a second, and reading it here
-                // recomposed the whole screen and the 3D scene with it, which asked SceneView for new frames, which
-                // changed the FPS... The scene never went IDLE (seen on the A33). Document 21, §18.
-                fps = { fps },
-                origin = origin,
-            )
-        }
-        // The window: the brackets, and over its bottom edge the short-lived status lines (assembly, share). They lie
-        // OVER the molecule instead of pushing the window: they come and go, the window must not jump with them.
-        val window = @Composable { m: Modifier ->
-            Box(m.onGloballyPositioned { windowBounds = it.boundsInWindow() }) {
-                CornerBrackets(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 14.dp))
-                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 18.dp)) {
-                    Assembly.label(assembly.first, assembly.second)?.let { text ->
-                        AssemblyPanel(text = text, fraction = assembly.first.toFloat() / assembly.second)
-                        Spacer(Modifier.height(8.dp))
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val landscape = maxWidth > maxHeight
+            // Read HERE, in the BoxWithConstraints scope itself: inside the Row and the Column below, `maxWidth` would be
+            // taken from an OUTER layout scope, which Compose forbids (@LayoutScopeMarker, a Kotlin @DslMarker).
+            val sideWidth = minOf(maxWidth * 0.46f, SIDE_COLUMN_MAX)
+
+            val topPanel = @Composable {
+                TopPanel(
+                    modifier = deselect,
+                    molecule = molecule,
+                    hasHydrogens = hasHydrogens,
+                    showHydrogens = showHydrogens,
+                    onToggleHydrogens = {
+                        showHydrogens = !showHydrogens
+                        // A highlighted element that disappears from the key stops being highlighted.
+                        if (!showHydrogens && highlightElement == "H") highlightElement = null
+                    },
+                    onBack = onBack,
+                    share = share,
+                    onShare = onShare,
+                    // A LAMBDA, read inside the counter only: the FPS text changes 4 times a second, and reading it here
+                    // recomposed the whole screen and the 3D scene with it, which asked SceneView for new frames, which
+                    // changed the FPS... The scene never went IDLE (seen on the A33). Document 21, §18.
+                    fps = { fps },
+                    origin = origin,
+                )
+            }
+            // The window: the brackets, and over its bottom edge the short-lived status lines (assembly, share). They lie
+            // OVER the molecule instead of pushing the window: they come and go, the window must not jump with them.
+            val window = @Composable { m: Modifier ->
+                Box(m.onGloballyPositioned { windowBounds = it.boundsInWindow() }) {
+                    CornerBrackets(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 14.dp))
+                    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 18.dp)) {
+                        Assembly.label(assembly.first, assembly.second)?.let { text ->
+                            AssemblyPanel(text = text, fraction = assembly.first.toFloat() / assembly.second)
+                            Spacer(Modifier.height(8.dp))
+                        }
+                        share.label?.let { text -> ShareStatusPanel(text = text, status = share, modifier = deselect) }
                     }
-                    share.label?.let { text -> ShareStatusPanel(text = text, status = share, modifier = deselect) }
                 }
             }
-        }
-        val readout = @Composable {
-            // The same height for every content (the molecule, an atom, a bond, the ruler) at the normal text size:
-            // the window does not change at each tap. With a bigger font the panel grows, and the molecule glides.
-            val stable = Modifier.heightIn(min = READOUT_MIN_HEIGHT)
-            if (ruler) RulerPanel(molecule = molecule, measured = measured, modifier = deselect.then(stable))
-            else ReadoutPanel(
-                molecule = molecule,
-                selection = selection,
-                hydrogensHidden = hasHydrogens && !showHydrogens,
-                favorite = favorite,
-                onToggleFavorite = onToggleFavorite,
-                modifier = deselect.then(stable),
-            )
-        }
-        val key = @Composable {
-            ElementKey(
-                elements = legend,
-                highlighted = highlightElement,
-                onToggle = { element -> highlightElement = if (highlightElement == element) null else element },
-                representation = representation,
-                atomColors = atomColors,
-                labels = showLabels,
-                onToggleLabels = { showLabels = !showLabels },
-                onModel = { representation = it },
-                ruler = ruler,
-                onToggleRuler = {
-                    ruler = !ruler
-                    measuredIds = IntArray(0)
-                    select(null)
-                },
-                modifier = deselect,
-            )
-        }
+            val readout = @Composable {
+                // The same height for every content (the molecule, an atom, a bond, the ruler) at the normal text size:
+                // the window does not change at each tap. With a bigger font the panel grows, and the molecule glides.
+                val stable = Modifier.heightIn(min = READOUT_MIN_HEIGHT)
+                if (ruler) RulerPanel(molecule = molecule, measured = measured, modifier = deselect.then(stable))
+                else ReadoutPanel(
+                    molecule = molecule,
+                    selection = selection,
+                    hydrogensHidden = hasHydrogens && !showHydrogens,
+                    favorite = favorite,
+                    onToggleFavorite = onToggleFavorite,
+                    modifier = deselect.then(stable),
+                )
+            }
+            val key = @Composable {
+                ElementKey(
+                    elements = legend,
+                    highlighted = highlightElement,
+                    onToggle = { element -> highlightElement = if (highlightElement == element) null else element },
+                    representation = representation,
+                    atomColors = atomColors,
+                    labels = showLabels,
+                    onToggleLabels = { showLabels = !showLabels },
+                    onModel = { representation = it },
+                    ruler = ruler,
+                    onToggleRuler = {
+                        ruler = !ruler
+                        measuredIds = IntArray(0)
+                        select(null)
+                    },
+                    modifier = deselect,
+                )
+            }
 
-        if (landscape) {
-            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
-                window(Modifier.weight(1f).fillMaxHeight())
-                Spacer(Modifier.width(10.dp))
-                Column(
-                    modifier = Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
+            if (landscape) {
+                Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+                    window(Modifier.weight(1f).fillMaxHeight())
+                    Spacer(Modifier.width(10.dp))
+                    Column(
+                        modifier = Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        topPanel()
+                        readout()
+                        key()
+                    }
+                }
+            } else {
+                Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
                     topPanel()
+                    window(Modifier.weight(1f).fillMaxWidth())
                     readout()
+                    Spacer(Modifier.height(10.dp))
                     key()
                 }
-            }
-        } else {
-            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
-                topPanel()
-                window(Modifier.weight(1f).fillMaxWidth())
-                readout()
-                Spacer(Modifier.height(10.dp))
-                key()
             }
         }
     }
@@ -451,7 +458,15 @@ private fun TopPanel(
 private fun FpsLabel(fps: () -> FpsReading) {
     val reading = fps()
     val ink = fpsColor(FpsText.level(reading))
-    Text(FpsText.label(reading), style = MaterialTheme.typography.labelSmall.glowing(ink), color = ink, maxLines = 1)
+    // A FIXED width: "9 FPS", "75 FPS" and "IDLE" take the same room, so a new number never moves anything else.
+    Text(
+        FpsText.label(reading),
+        style = MaterialTheme.typography.labelSmall.glowing(ink),
+        color = ink,
+        maxLines = 1,
+        textAlign = TextAlign.End,
+        modifier = Modifier.width(FPS_LABEL_WIDTH),
+    )
 }
 
 /** Phosphor when smooth, amber when it drops under 55, optic red under 30 (the subject's "poor performance"). */
@@ -465,6 +480,9 @@ private fun fpsColor(level: FpsText.Level): Color = when (level) {
 }
 
 private const val FPS_REFRESH_MILLIS = 250L
+
+// Room for "120 FPS" in the small label style.
+private val FPS_LABEL_WIDTH = 64.dp
 
 /**
  * "PICT-CAPTURE // EXPORT" (document 18): the six things SHR can do. Each row is a 64 dp button with what it does and

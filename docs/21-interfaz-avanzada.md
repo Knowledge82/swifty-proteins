@@ -23,6 +23,7 @@
 17. [Tras la primera prueba en el móvil](#17-tras-la-primera-prueba-en-el-móvil)
 18. [Segunda ronda: la ventana del 3D, la rotación y el FPS que no paraba](#18-segunda-ronda-la-ventana-del-3d-la-rotación-y-el-fps-que-no-paraba)
 19. [Tercera ronda: la lista en horizontal y el FPS, otra vez](#19-tercera-ronda-la-lista-en-horizontal-y-el-fps-otra-vez)
+20. [Lo que dijo el diagnóstico](#20-lo-que-dijo-el-diagnóstico)
 
 ---
 
@@ -499,4 +500,35 @@ Para leerlo: `adb logcat -s SwiftyFrames`, con la molécula **quieta** unos diez
 **Pruebas:** `FrameDiagnosisTest` (3): una línea por segundo y nada en medio; recomposiciones y movimientos contados aparte, con una migaja numérica que no cuenta como movimiento; cada ventana empieza de cero. Mutantes: sin umbral, sin reinicio y ventana corta: los tres muertos.
 
 **Lección:** cuando la lectura del código ya no da más, **se mide en el sitio**. Y se miden **varias** hipótesis a la vez, para que una sola prueba en el móvil las separe.
+
+## 20. Lo que dijo el diagnóstico
+
+### 20.1 Los datos (A33, 21-11-2026)
+
+```
+001, quieta:  frames=65 sceneRecompositions=10 contentRecompositions=10 cameraMoves=0   (cada ~1,5 s)
+15P:          frames≈recompositions mientras se monta (§5); después, nada: IDLE
+```
+
+- **La cámara no se mueve** (`cameraMoves=0`): no es una inercia.
+- **Cada fotograma va con recomposiciones**: unas 6-7 por segundo, y tras cada una SceneView dibuja unos 6 fotogramas de «cola».
+- **Lo que se vio a simple vista:** el marco **da un pequeño tirón** con una cadencia fija, y el contador baja al rojo y sube al verde.
+
+### 20.2 La causa: el texto del contador movía la maquetación, y la escena estaba dentro de un `BoxWithConstraints`
+
+1. **El número del contador cambiaba de ancho.** «9 FPS», «75 FPS» e «IDLE» no miden lo mismo. Cada cambio de ancho volvía a **maquetar** la fila del panel superior: ese es el tirón del marco.
+2. **`BoxWithConstraints` compone su contenido durante la maquetación**, dentro de un `SubcomposeLayout`. En cada medida crea un ámbito nuevo y una lambda nueva (`subcompose(Unit) { scope.content() }`), y su contenido **vuelve a ejecutarse**. La escena 3D estaba **dentro**.
+3. Cada ejecución de la escena pedía fotogramas, los fotogramas cambiaban el contador, y el contador cambiaba de ancho otra vez: el bucle.
+
+15P se libraba por los números: sus ráfagas dejaban de cambiar el texto del contador y el bucle se apagaba en IDLE. Con 001, no.
+
+### 20.3 El arreglo, en tres capas
+
+1. **El contador tiene un ancho fijo** (64 dp, alineado a la derecha): un número nuevo ya no mueve nada.
+2. **La escena está fuera del `BoxWithConstraints`**: en un `Box` normal, al lado. Los paneles siguen dentro, que es lo que necesita saber la orientación. Una maquetación de los paneles ya no ejecuta la escena.
+3. **El diagnóstico nombra al culpable** si queda alguno: cada línea dice qué **parámetros** de la escena eran distintos cuando se volvió a ejecutar, `contentPadding:9` (otro valor) u `onTap~:3` (el mismo valor en un objeto **nuevo**, lo que hace una lambda descuidada). Si el bucle siguiera, la próxima línea de Logcat diría su nombre.
+
+**Pruebas:** `FrameDiagnosisTest` +2: los parámetros cambiados se nombran y se cuentan; `changes` distingue un valor nuevo de un objeto nuevo con el mismo valor.
+
+**Lección:** un contenedor que compone **durante la maquetación** (`BoxWithConstraints`, `SubcomposeLayout`) vuelve a ejecutar su contenido con cada cambio de medida. Lo caro, y sobre todo lo que tiene efectos (una escena 3D que pide fotogramas), va **fuera**, y dentro solo lo que de verdad depende de las medidas.
 

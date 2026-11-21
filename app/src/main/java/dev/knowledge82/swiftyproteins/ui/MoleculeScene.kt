@@ -79,6 +79,12 @@ private val FILL_LIGHT_DIRECTION = Direction(-0.6f, 0.15f, -0.8f)
 // RIM: from behind and above, toward the camera: a bright edge on the outline separates the balls from the background.
 private val RIM_LIGHT_DIRECTION = Direction(0f, -0.4f, 0.9f)
 
+// The names of the watched parameters, in the order of `watched` in MoleculeScene.
+private val WATCHED = listOf(
+    "molecule", "representation", "showHydrogens", "selection", "highlightElement", "focus", "measured", "showLabels",
+    "onTap", "onDoubleTap", "modifier", "onFrame", "onAssembly", "look", "atomColors", "contentPadding", "visibleAspect", "built",
+)
+
 private fun rgbColor(rgb: Int, alpha: Float = 1f): Color =
     Color(((rgb shr 16) and 0xFF) / 255f, ((rgb shr 8) and 0xFF) / 255f, (rgb and 0xFF) / 255f, alpha)
 
@@ -215,7 +221,17 @@ fun MoleculeScene(
     val currentOnFrame by rememberUpdatedState(onFrame)
     // WHY frames are drawn (document 21, §19): a line a second in Logcat, tag SwiftyFrames, while the scene draws.
     val diagnosis = remember { FrameDiagnosis() }
-    SideEffect { diagnosis.onSceneRecomposed() }
+    // Which parameter made this function run again (document 21, §20): named in the Logcat line.
+    val watched = listOf(
+        molecule, representation, showHydrogens, selection, highlightElement, focus, measured, showLabels,
+        onTap, onDoubleTap, modifier, onFrame, onAssembly, look, atomColors, contentPadding, visibleAspect, built,
+    )
+    val previousWatched = remember { arrayOfNulls<Any?>(WATCHED.size) }
+    val firstWatch = remember { booleanArrayOf(true) }
+    SideEffect {
+        diagnosis.onSceneRecomposed(FrameDiagnosis.changes(WATCHED, previousWatched, watched, firstWatch[0]))
+        firstWatch[0] = false
+    }
     val afterFrame: (Long) -> Unit = remember {
         { frameTime ->
             currentOnFrame(frameTime)
