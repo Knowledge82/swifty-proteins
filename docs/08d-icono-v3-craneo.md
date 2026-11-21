@@ -1,6 +1,6 @@
 # 08d · Icono v3: el cráneo del arranque, el 42 y el ligando
 
-> **Estado:** generado (variante **A, «Hologram»**) e **integrado**: el emblema completo en la pantalla de arranque y, **provisionalmente**, también como icono, hasta que llegue la versión simplificada (sección 12). Comprobado con guion (zona segura, canal alfa, halo) y con el compilador contra los *stubs*; **sin probar en el móvil**. Las medidas del icono adaptativo salen de la documentación de Android; las del A33 son **cálculo**, no medición.
+> **Estado:** generado (variante **A, «Hologram»**) e **integrado** en dos versiones: el **emblema completo** en la pantalla de arranque y la **versión simplificada** (sin sello ni cinta) como icono del lanzador (sección 12). Comprobado con guion (zona segura, canal alfa, halo) y con el compilador contra los *stubs*; **sin probar en el móvil**. Las medidas del icono adaptativo salen de la documentación de Android; las del A33 son **cálculo**, no medición.
 
 ## Índice
 
@@ -274,7 +274,7 @@ Es lo que hacen las marcas: un **emblema completo** para piezas grandes y un **s
 
 **¿Por qué no recortamos nosotros el sello?** Porque el sello **tapa** la parte de abajo de la rueda y los cables: al quitarlo queda un agujero que habría que pintar a mano, y un parche pintado sobre una ilustración se nota. Se pide al generador.
 
-**Mientras tanto**, el icono es el emblema completo: pasa todas las mediciones y a 125 px se lee. Cuando llegue la versión simplificada, el cambio es **solo sustituir ficheros** (`mipmap-*/ic_launcher_foreground.webp` y los iconos antiguos).
+Mientras llegaba, el icono fue el emblema completo (pasaba todas las mediciones); al llegar la versión simplificada se **sustituyeron solo ficheros** (sección 12.1).
 
 *Prompt* de seguimiento (adjuntar `composite_on_dark.png` de A):
 
@@ -293,6 +293,24 @@ Deliver the same files as before: foreground (RGBA, real transparency, no halo),
 (SVG + PNG, the SVG must match the PNG), composite on #050806. In the previews, mask the VISIBLE 72 dp area
 (the central 683 × 683 px), not the whole 108 dp canvas.
 ```
+
+### 12.1 La versión simplificada: medida e integrada
+
+El generador quitó sello y cinta y **repintó** la parte de abajo de la rueda y los cables (no hay agujero ni parche visible). Dejó fuera el «42» grabado: era opcional en el *prompt* y lo omitió por legibilidad a 48 px; el 42 vive en el emblema del arranque.
+
+| Comprobación | Resultado | Límite |
+|--------------|-----------|--------|
+| Radio máximo de un píxel opaco | 305,3 px | ≤ 313 |
+| Píxeles totalmente transparentes | 75 % | alfa de verdad |
+| Luminancia media del borde semitransparente | 54 | sin halo |
+| Monocromo: SVG frente a su PNG | 0 píxeles distintos | idénticos (el de la v3 completa no lo era) |
+| Monocromo: SVG frente a nuestro vector aplanado | máx. 2/255 | conversión exacta |
+
+![El emblema completo frente al icono simplificado, a 48, 96, 125 y 192 px](img_08d_completo_vs_simplificado.png)
+
+A tamaño real la diferencia se ve sola: la figura es **redonda y llena el círculo**; el cráneo y el holograma salen más grandes; a 48 px ya no hay una mancha roja abajo compitiendo con el verde. El monocromo nuevo también es mejor: la órbita del ojo y la mandíbula se distinguen.
+
+Ficheros sustituidos: `mipmap-<densidad>/ic_launcher_foreground.webp` y `ic_launcher_background.webp`, los iconos antiguos (`ic_launcher.png`, `ic_launcher_round.png`) y `drawable/ic_launcher_monochrome.xml`. El emblema del arranque (`art_emblem_hologram.webp`) **no cambia**. La *splash* del sistema muestra ahora la versión simplificada (apunta al primer plano del icono).
 
 ---
 
@@ -332,7 +350,7 @@ Detalles que merecen explicación:
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D38 | El icono pasa a ser **pictórico**: el cráneo en la rueda, con **ligando** en holograma y **«42»** (números propios + `101010`), como icono adaptativo de mapas de bits; **dos versiones**: emblema completo en el arranque, icono simplificado en el lanzador | Decidida (variante A; icono provisional hasta la versión simplificada) | Mucho más reconocible que el icono plano; cumple «acorde con el tema» con la molécula; el 42 en binario conecta con el *binharic* del Mechanicus |
+| D38 | El icono pasa a ser **pictórico**: el cráneo en la rueda, con **ligando** en holograma y **«42»** (números propios + `101010`), como icono adaptativo de mapas de bits; **dos versiones**: emblema completo en el arranque, icono simplificado en el lanzador | Decidida e integrada (variante A: emblema completo + icono simplificado) | Mucho más reconocible que el icono plano; cumple «acorde con el tema» con la molécula; el 42 en binario conecta con el *binharic* del Mechanicus |
 
 ---
 
