@@ -126,6 +126,7 @@ fun MoleculeScreen(
     favorite: Boolean = false,
     atomColors: AtomColors = AtomColors.JMOL,
     onToggleFavorite: () -> Unit = {},
+    onCompare: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     // The system Back button returns to the list, exactly like the button on screen.
@@ -416,6 +417,8 @@ fun MoleculeScreen(
                     hydrogensHidden = hasHydrogens && !showHydrogens,
                     favorite = favorite,
                     onToggleFavorite = onToggleFavorite,
+                    // A comparison of half-built scenes would compare nothing: CMP waits for the assembly.
+                    onCompare = if (assembling) null else onCompare,
                     modifier = deselect.then(stable),
                 )
             }
@@ -537,10 +540,10 @@ private fun TopPanel(
 /**
  * "60 FPS" while something moves, "IDLE" when the scene is parked (it draws on demand). The level is in the WORDS too
  * (the number), never only in the colour. Its own composable, reading the value through a lambda: when the number
- * changes, ONLY this text is redrawn (document 21, §18).
+ * changes, ONLY this text is redrawn (document 21, §18). Also used by the comparison view, one per scene (document 24).
  */
 @Composable
-private fun FpsLabel(fps: () -> FpsReading) {
+internal fun FpsLabel(fps: () -> FpsReading) {
     val reading = fps()
     val ink = fpsColor(FpsText.level(reading))
     // A FIXED width: "9 FPS", "75 FPS" and "IDLE" take the same room, so a new number never moves anything else.
@@ -564,7 +567,7 @@ private fun fpsColor(level: FpsText.Level): Color = when (level) {
     FpsText.Level.IDLE -> SwiftyColors.Ash
 }
 
-private const val FPS_REFRESH_MILLIS = 250L
+internal const val FPS_REFRESH_MILLIS = 250L
 
 // Room for "120 FPS" in the small label style.
 private val FPS_LABEL_WIDTH = 64.dp
@@ -698,6 +701,7 @@ private fun ReadoutPanel(
     hydrogensHidden: Boolean,
     favorite: Boolean,
     onToggleFavorite: () -> Unit,
+    onCompare: (() -> Unit)?,
     modifier: Modifier,
 ) {
     CogitatorPanel(label = "AUSPEX READOUT", fill = SwiftyColors.ConsoleOverlay, modifier = modifier.fillMaxWidth()) {
@@ -715,6 +719,14 @@ private fun ReadoutPanel(
                         Spacer(Modifier.height(4.dp))
                         Text(formulaText(molecule), style = SwiftyDataText.medium.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold)
                     }
+                    // CMP: set this molecule beside another one (bonus VII.5, document 24).
+                    ConsoleKey(
+                        text = "CMP",
+                        onClick = { onCompare?.invoke() },
+                        contentDescription = "Compare with another ligand",
+                        enabled = onCompare != null,
+                    )
+                    Spacer(Modifier.width(4.dp))
                     // The favourite star of this ligand (bonus VII.5, document 16).
                     StarKey(
                         on = favorite,

@@ -44,4 +44,19 @@ class TurntableTest {
         assertEquals("REC 2.4 / 6.0 s", Turntable.label(2_400))
         assertEquals("REC 6.0 / 6.0 s", Turntable.label(9_000))
     }
+
+    @Test
+    fun theSpinOfTheComparisonGoesOnForever() {
+        val turn = Turntable.SPIN_TURN_MILLIS * 1_000_000L
+        assertEquals(0f, Turntable.loopAngle(0L), 0f)
+        assertEquals(90f, Turntable.loopAngle(turn / 4), 0.001f)
+        // After a full turn it starts again, never 360 or more.
+        assertEquals(0f, Turntable.loopAngle(turn), 0f)
+        assertEquals(90f, Turntable.loopAngle(turn + turn / 4), 0.001f)
+        assertEquals(90f, Turntable.loopAngle(7 * turn + turn / 4), 0.001f)
+        // A frame stamped just before the start: just under 360, never a negative angle.
+        assertEquals(270f, Turntable.loopAngle(-turn / 4), 0.001f)
+        // Slower than the video's turn: two shapes are being compared.
+        assertTrue(Turntable.SPIN_TURN_MILLIS > Turntable.TURN_MILLIS)
+    }
 }

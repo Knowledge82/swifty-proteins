@@ -36,6 +36,7 @@ import kotlinx.coroutines.launch
  *   boot screen      -> once per start, until the saved settings are read; ALWAYS dark (a CRT starting up)
  *   tutorial         -> the first time (and again from the settings)
  *   sign-in          -> ALWAYS before anything with data (document 05, D43)
+ *   comparison       -> once a second molecule is loaded too (document 24)
  *   molecule         -> once loaded
  *   settings / index -> otherwise, with the load dialogs over the index
  *
@@ -52,6 +53,9 @@ fun SwiftyApp(
     onSystemBarsDark: (Boolean) -> Unit = {},
 ) {
     val state by viewModel.loadState.collectAsStateWithLifecycle()
+    // The second molecule of the comparison (bonus VII.5, document 24), and whether its picker is open.
+    val compareState by viewModel.compareState.collectAsStateWithLifecycle()
+    var pickingCompare by rememberSaveable { mutableStateOf(false) }
     val authState by auth.state.collectAsStateWithLifecycle()
 
     // Settings and favourites (document 16). The favourites follow WHO is signed in: a lock empties them at once.
@@ -78,8 +82,18 @@ fun SwiftyApp(
             is LoadState.Idle -> sounds.stop(SoundCue.SCAN)
         }
     }
+    // The same sounds for the second molecule of a comparison.
+    val compareNow = compareState
+    SoundOnChange("compare:" + loadSoundTag(compareNow)) {
+        when (compareNow) {
+            is LoadState.Loading -> sounds.play(SoundCue.SCAN)
+            is LoadState.Loaded -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.LOADED) }
+            is LoadState.Failed -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.DENIED) }
+            is LoadState.Idle -> Unit   // leaving the comparison: the SCAN of the first molecule is not ours to stop
+        }
+    }
     // A ligand that just loaded is now on the phone: its "archived" mark appears in the index (document 21).
-    LaunchedEffect((loadNow as? LoadState.Loaded)?.molecule?.id) { viewModel.refreshArchived() }
+    LaunchedEffect((loadNow as? LoadState.Loaded)?.molecule?.id, (compareNow as? LoadState.Loaded)?.molecule?.id) { viewModel.refreshArchived() }
 
     // Kept HERE (and not inside the list screen) because the list screen leaves the composition while the molecule
     // is shown, and anything it remembered would be lost: the user would come back to an empty search box at the top.
@@ -97,6 +111,7 @@ fun SwiftyApp(
         unlocked = authState.unlocked,
         showSettings = showSettings,
         load = state,
+        compare = compareState,
     )
 
     // THE THEME (bonus VII.2, document 21): the settings say light, dark or "as the phone"; the boot screen is always dark.
@@ -139,9 +154,34 @@ fun SwiftyApp(
                             favorite = id in favorites,
                             onToggleFavorite = { prefs.toggleFavorite(id) },
                             atomColors = settings.atomColors,
+                            onCompare = { pickingCompare = true },
                             modifier = content,
                         )
+                        // CMP (document 24): pick the second ligand, then its load shows the same dialogs as the first.
+                        if (pickingCompare) {
+                            ComparePicker(
+                                catalog = viewModel.catalog,
+                                index = viewModel.index,
+                                archived = archived,
+                                exclude = id,
+                                onPick = { second ->
+                                    pickingCompare = false
+                                    viewModel.openCompare(second)
+                                },
+                                onDismiss = { pickingCompare = false },
+                            )
+                        }
+                        LoadStateDialogs(state = compareState, onOpen = viewModel::openCompare, onClose = viewModel::cancelCompare)
                     }
+                    is Screen.Compare -> CompareScreen(
+                        first = shown.first,
+                        second = shown.second,
+                        onBack = viewModel::cancelCompare,
+                        model = settings.defaultModel,
+                        startWithHydrogens = settings.showHydrogens,
+                        atomColors = settings.atomColors,
+                        modifier = content,
+                    )
                     Screen.Settings -> SettingsScreen(
                         settings = settings,
                         onChange = prefs::updateSettings,

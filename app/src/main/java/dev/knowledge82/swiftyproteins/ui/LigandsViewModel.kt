@@ -76,8 +76,24 @@ class LigandsViewModel(
     /** Called from the main thread (a tap). */
     fun open(id: String) = loader.load(id)
 
-    /** Called from the main thread (Cancel, Back, closing an error). Returns the state to Idle. */
-    fun cancel() = loader.cancel()
+    /** Called from the main thread (Cancel, Back, closing an error). Returns the state to Idle, the comparison too. */
+    fun cancel() {
+        compareLoader.cancel()
+        loader.cancel()
+    }
+
+    // THE SECOND MOLECULE of the comparison view (bonus VII.5, document 24): a loader of its own, the same rules (the
+    // same repository, so the same cache and the same errors). Its state is separate: the first molecule stays loaded.
+    private val compareLoader = LigandLoader(source, viewModelScope, Dispatchers.IO)
+
+    /** The second molecule: Idle until CMP picks one. */
+    val compareState: StateFlow<LoadState> = compareLoader.state
+
+    /** Loads [id] as the second molecule of the comparison. */
+    fun openCompare(id: String) = compareLoader.load(id)
+
+    /** Leaves the comparison (or stops its load): back to the first molecule alone. */
+    fun cancelCompare() = compareLoader.cancel()
 }
 
 /**

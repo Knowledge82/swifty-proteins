@@ -45,7 +45,8 @@ object Onboarding {
             tab = "RITE IV // THE SHARING",
             title = "Share the pattern",
             lines = listOf(
-                "SHR shares a picture, saves it to the gallery, or exports .cif, .mol and .glb files.",
+                "SHR shares a picture or a video of one full turn, saves them to the gallery, or exports .cif, .mol and .glb files.",
+                "CMP sets the molecule beside another one: both in 3D, and their numbers side by side.",
                 "The cog on the index holds the theme, the atom colours, the sounds and this tutorial.",
             ),
             art = Art.EMBLEM,

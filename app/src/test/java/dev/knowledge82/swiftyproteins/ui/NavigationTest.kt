@@ -16,7 +16,8 @@ class NavigationTest {
     private fun screen(
         booted: Boolean = true, loaded: Boolean = true, seen: Boolean = true, replay: Boolean = false,
         unlocked: Boolean = true, settings: Boolean = false, load: LoadState = LoadState.Idle,
-    ) = Navigation.screenOf(booted, loaded, seen, replay, unlocked, settings, load)
+        compare: LoadState = LoadState.Idle,
+    ) = Navigation.screenOf(booted, loaded, seen, replay, unlocked, settings, load, compare)
 
     @Test
     fun theBootScreenStaysUntilTheSettingsAreRead() {
@@ -56,8 +57,24 @@ class NavigationTest {
     }
 
     @Test
+    fun aSecondMoleculeOpensTheComparisonAndOnlyThen() {
+        val cff = Molecule("CFF", listOf(Atom("C1", "C", 0f, 0f, 0f)), emptyList())
+        val both = screen(load = LoadState.Loaded(atp, Origin.NETWORK), compare = LoadState.Loaded(cff, Origin.ARCHIVE)) as Screen.Compare
+        assertEquals(atp, both.first)
+        assertEquals(cff, both.second)
+        assertEquals("compare:ATP:CFF", both.key)
+        // While the second one loads (or failed), the first molecule stays on screen, under the dialogs.
+        assertTrue(screen(load = LoadState.Loaded(atp, Origin.NETWORK), compare = LoadState.Loading("CFF")) is Screen.Molecule)
+        // A second molecule alone (the first one was closed) is no comparison: the index.
+        assertEquals(Screen.Index, screen(compare = LoadState.Loaded(cff, Origin.ARCHIVE)))
+        // Locked: never the comparison either (D43).
+        assertEquals(Screen.Access, screen(unlocked = false, load = LoadState.Loaded(atp, Origin.NETWORK), compare = LoadState.Loaded(cff, Origin.ARCHIVE)))
+    }
+
+    @Test
     fun keysAreUniqueSoEveryChangeOfScreenSwitchesTheTube() {
-        val all = listOf(Screen.Boot, Screen.Tutorial, Screen.Access, Screen.Index, Screen.Settings, Screen.Molecule(atp, Origin.NETWORK))
+        val cff = Molecule("CFF", listOf(Atom("C1", "C", 0f, 0f, 0f)), emptyList())
+        val all = listOf(Screen.Boot, Screen.Tutorial, Screen.Access, Screen.Index, Screen.Settings, Screen.Molecule(atp, Origin.NETWORK), Screen.Compare(atp, cff))
         assertEquals(all.size, all.map { it.key }.toSet().size)
     }
 

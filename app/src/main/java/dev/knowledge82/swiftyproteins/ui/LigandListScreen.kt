@@ -230,9 +230,11 @@ private val LIST_SIDE_MAX = 400.dp
  * The "_" after the prompt blinks while the box is EMPTY, and the field's own cursor is hidden then (transparent): the
  * console cursor IS the cursor, there are never two blinking at once. With the first letter typed, the "_" goes away
  * and the field's cursor appears after the text, where the next letter will go.
+ *
+ * Shared with the comparison picker (document 24), which searches the same catalogue the same way.
  */
 @Composable
-private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: Boolean) {
+internal fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: Boolean, placeholder: String = "Search by ID") {
     OutlinedTextField(
         value = query,
         onValueChange = onQueryChange,
@@ -240,7 +242,7 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
         textStyle = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor),
-        placeholder = { Text("Search by ID", style = SwiftyDataText.medium) },
+        placeholder = { Text(placeholder, style = SwiftyDataText.medium) },
         leadingIcon = {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)

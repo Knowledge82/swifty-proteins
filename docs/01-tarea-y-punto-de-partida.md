@@ -326,7 +326,7 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 | VII.2 Interfaz | Celdas propias (líneas de consola), animaciones (cursor, vaivén, arranque), tema oscuro en toda la app y el 3D; sonidos (documento 14); **ajustes** (documento 16) | — |
 | VII.3 Interacción | **Hecho** (documentos 15 y 16): resaltar un elemento, información de enlaces, doble toque para orbitar un átomo, **regla** (distancia, ángulo, torsión) | — |
 | VII.4 Rendimiento y caché | Lista perezosa (`LazyColumn`), *parsing* fuera del hilo principal, **caché local de `.cif`** (documento 13), contador de FPS (documento 12) | — |
-| VII.5 Compartir | **Mensaje con nombre, fórmula, átomos y enlaces** (documento 15); **favoritos por cuenta** (documento 16) | — |
+| VII.5 Compartir | **Mensaje con nombre, fórmula, átomos y enlaces** (documento 15); **favoritos por cuenta** (documento 16); **formatos** PNG, JPEG, galería, `.cif`, `.mol`, `.glb` (documento 18); **vídeo** de una vuelta (documento 22); **comparación de dos moléculas** (documento 24) | — |
 
 ### 15.4 Orden de trabajo resultante
 

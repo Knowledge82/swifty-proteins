@@ -85,6 +85,7 @@ private val RIM_LIGHT_DIRECTION = Direction(0f, -0.4f, 0.9f)
 private val WATCHED = listOf(
     "molecule", "representation", "showHydrogens", "selection", "highlightElement", "focus", "measured", "showLabels",
     "onTap", "onDoubleTap", "modifier", "onFrame", "onAssembly", "look", "atomColors", "contentPadding", "visibleAspect", "built",
+    "spinSince",
 )
 
 private fun rgbColor(rgb: Int, alpha: Float = 1f): Color =
@@ -117,6 +118,9 @@ private fun rgbColor(rgb: Int, alpha: Float = 1f): Color =
  * @param turning          true while a video is recorded: the molecule makes ONE full turn ([Turntable], document 22)
  * @param onTurnProgress   how far the turn is, in milliseconds (the REC line)
  * @param onTurnDone       the turn is complete: the screen stops the recording
+ * @param spinSince        the comparison view's SPIN (document 24): the molecule turns without end, its angle counted
+ *                         from this moment (System.nanoTime, the clock of the frames). Two scenes given the same moment
+ *                         turn together, frame by frame. Null: no spin
  */
 @Composable
 fun MoleculeScene(
@@ -141,6 +145,7 @@ fun MoleculeScene(
     turning: Boolean = false,
     onTurnProgress: (Long) -> Unit = {},
     onTurnDone: () -> Unit = {},
+    spinSince: Long? = null,
 ) {
     // LEVEL OF DETAIL (bonus VII.4): from the size of the MOLECULE, so hiding hydrogens never rebuilds every mesh.
     val atomCount = molecule.atoms.size
@@ -232,21 +237,33 @@ fun MoleculeScene(
     val spinNode = remember { arrayOfNulls<NodeImpl>(1) }
     val currentOnTurnProgress by rememberUpdatedState(onTurnProgress)
     val currentOnTurnDone by rememberUpdatedState(onTurnDone)
-    LaunchedEffect(turning) {
-        val node = spinNode[0] ?: return@LaunchedEffect
-        if (!turning) {
+    LaunchedEffect(turning, spinSince) {
+        // SceneView creates the node on the first composition of its content: if it is not there yet, wait for it.
+        var found = spinNode[0]
+        while (found == null) { withFrameNanos { }; found = spinNode[0] }
+        val node: NodeImpl = found
+        if (turning) {
+            // A frame loop of our own: each frame writes the node's rotation, which also asks SceneView for that frame.
+            val start = withFrameNanos { it }
+            while (true) {
+                val elapsed = withFrameNanos { it } - start
+                node.rotation = Rotation(y = Turntable.angle(elapsed))
+                currentOnTurnProgress(elapsed / 1_000_000L)
+                if (Turntable.isDone(elapsed)) break
+            }
+            currentOnTurnDone()
+            return@LaunchedEffect
+        }
+        val since = spinSince
+        if (since == null) {
             node.rotation = Rotation(0f, 0f, 0f)
             return@LaunchedEffect
         }
-        // A frame loop of our own: each frame writes the node's rotation, which also asks SceneView for that frame.
-        val start = withFrameNanos { it }
+        // The endless spin: the angle comes from the FRAME's time, the same for every scene in that frame.
         while (true) {
-            val elapsed = withFrameNanos { it } - start
-            node.rotation = Rotation(y = Turntable.angle(elapsed))
-            currentOnTurnProgress(elapsed / 1_000_000L)
-            if (Turntable.isDone(elapsed)) break
+            val now = withFrameNanos { it }
+            node.rotation = Rotation(y = Turntable.loopAngle(now - since))
         }
-        currentOnTurnDone()
     }
 
     val currentOnFrame by rememberUpdatedState(onFrame)
@@ -256,6 +273,7 @@ fun MoleculeScene(
     val watched = listOf(
         molecule, representation, showHydrogens, selection, highlightElement, focus, measured, showLabels,
         onTap, onDoubleTap, modifier, onFrame, onAssembly, look, atomColors, contentPadding, visibleAspect, built,
+        spinSince,
     )
     val previousWatched = remember { arrayOfNulls<Any?>(WATCHED.size) }
     val firstWatch = remember { booleanArrayOf(true) }

@@ -25,6 +25,13 @@ sealed interface Screen {
     data class Molecule(val molecule: dev.knowledge82.swiftyproteins.molecule.Molecule, val origin: Origin) : Screen {
         override val key = "molecule:${molecule.id}"
     }
+    /** Two molecules side by side (bonus VII.5, document 24): the one that was open, and the one CMP picked. */
+    data class Compare(
+        val first: dev.knowledge82.swiftyproteins.molecule.Molecule,
+        val second: dev.knowledge82.swiftyproteins.molecule.Molecule,
+    ) : Screen {
+        override val key = "compare:${first.id}:${second.id}"
+    }
 }
 
 object Navigation {
@@ -37,9 +44,10 @@ object Navigation {
      * 2. the first-run tutorial, before signing in (it shows nothing private);
      * 3. signing in: ALWAYS before anything with data (D43);
      * 4. the tutorial again, if asked for from the settings;
-     * 5. the molecule, once loaded;
-     * 6. the settings;
-     * 7. the list.
+     * 5. the comparison, once the molecule AND the second one are loaded (document 24);
+     * 6. the molecule, once loaded;
+     * 7. the settings;
+     * 8. the list.
      */
     fun screenOf(
         booted: Boolean,
@@ -49,11 +57,13 @@ object Navigation {
         unlocked: Boolean,
         showSettings: Boolean,
         load: LoadState,
+        compare: LoadState = LoadState.Idle,
     ): Screen = when {
         !booted || !settingsLoaded -> Screen.Boot
         !tutorialSeen -> Screen.Tutorial
         !unlocked -> Screen.Access
         replayTutorial -> Screen.Tutorial
+        load is LoadState.Loaded && compare is LoadState.Loaded -> Screen.Compare(load.molecule, compare.molecule)
         load is LoadState.Loaded -> Screen.Molecule(load.molecule, load.origin)
         showSettings -> Screen.Settings
         else -> Screen.Index

@@ -36,14 +36,14 @@ object ListTexts {
      * What TalkBack reads for a cell (document 21): everything the eye gets from it, in one sentence. The formula is
      * spaced ("C10 H16 N5") so it is read as parts, not as one strange word.
      */
-    fun cellDescription(id: String, name: String?, formula: String?, atoms: Int?, archived: Boolean): String = buildString {
+    fun cellDescription(id: String, name: String?, formula: String?, atoms: Int?, archived: Boolean, action: String = "Inspect"): String = buildString {
         append("Ligand ").append(id)
         if (!name.isNullOrBlank()) append(", ").append(name)
         val parts = formula?.let { MolecularFormula.parse(it) }
         if (parts != null) append(", formula ").append(parts.joinToString(" ") { if (it.count == 1) it.element else "${it.element} ${it.count}" })
         if (atoms != null) append(", ").append(atoms(atoms).lowercase())
         if (archived) append(", saved on the phone")
-        append(". Inspect")
+        append(". ").append(action)
     }
 
     /**

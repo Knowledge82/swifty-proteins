@@ -81,6 +81,8 @@ class ListTextsTest {
         )
         assertEquals("Ligand K, formula K, 1 atom. Inspect", ListTexts.cellDescription("K", "", "K", 1, archived = false))
         assertEquals("Ligand UNL. Inspect", ListTexts.cellDescription("UNL", null, null, null, archived = false))
+        // The comparison picker says what its tap does (document 24).
+        assertEquals("Ligand K, formula K, 1 atom. Compare", ListTexts.cellDescription("K", "", "K", 1, archived = false, action = "Compare"))
     }
 
     @Test

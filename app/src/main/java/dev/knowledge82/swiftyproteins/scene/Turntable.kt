@@ -32,6 +32,19 @@ object Turntable {
     /** Has the turn ended at [elapsedNanos]? */
     fun isDone(elapsedNanos: Long, turnNanos: Long = TURN_MILLIS * 1_000_000L): Boolean = elapsedNanos >= turnNanos
 
+    /**
+     * One turn of the SPIN of the comparison view (document 24): slower than the video's, the eye compares two shapes
+     * while they turn.
+     */
+    const val SPIN_TURN_MILLIS = 12_000L
+
+    /**
+     * The angle of an endless spin, [elapsedNanos] after it started: 0 up to (not including) 360, then again from 0.
+     * A negative time (a frame stamped just before the start) counts back from 360, never a negative angle.
+     */
+    fun loopAngle(elapsedNanos: Long, turnNanos: Long = SPIN_TURN_MILLIS * 1_000_000L): Float =
+        if (turnNanos <= 0) 0f else (360.0 * Math.floorMod(elapsedNanos, turnNanos) / turnNanos).toFloat()
+
     /** "Recording 2.4 / 6.0 s": the line over the scene while it turns. */
     fun label(elapsedMillis: Long): String =
         String.format(java.util.Locale.US, "REC %.1f / %.1f s", elapsedMillis.coerceIn(0L, TURN_MILLIS) / 1000.0, TURN_MILLIS / 1000.0)

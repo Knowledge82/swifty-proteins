@@ -360,7 +360,7 @@ Un programa de comprobación (fuera de la app) interpreta los 1242 `.cif` del co
 | **Favoritos** (VII.5) | **Hecho después** (documento 16): por cuenta |
 | Otros formatos (VII.5) | **Hecho después** (documento 18): JPEG, `.cif`, `.mol`, `.glb` |
 | Vídeo (VII.5) | **Hecho después** (documento 22): una vuelta de 6 s en MP4 |
-| Comparar dos moléculas (VII.5) | Pendiente |
+| Comparar dos moléculas (VII.5) | **Hecho después** (documento 24): dos escenas, tabla y giro sincronizado |
 
 ---
 
