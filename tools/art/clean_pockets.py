@@ -23,7 +23,15 @@ def select(a):
     lab, n = ndi.label(cand & ~connected)
     sizes = ndi.sum(np.ones_like(lab), lab, range(1, n + 1)) if n else np.array([])
     pockets = np.isin(lab, np.where(sizes >= 20)[0] + 1)
-    return connected | pockets
+    # Third pass (seen on the phone at 330 dp): tiny, almost pure-grey light specks between the cables (3+ px,
+    # saturation < 0.12, R - B < 24), grown into their grey fringe. Warm highlights (skin, bronze) never qualify.
+    core = (a[..., 3] > 0) & (L > 0.62) & (sat < 0.12) & (rb < 24)
+    lab, n = ndi.label(core)
+    sizes = ndi.sum(core, lab, range(1, n + 1)) if n else np.array([])
+    core = np.isin(lab, np.where(sizes >= 3)[0] + 1)
+    fringe = (a[..., 3] > 0) & (L > 0.40) & (sat < 0.16) & (rb < 30)
+    specks = ndi.binary_propagation(core, mask=fringe | core)
+    return connected | pockets | specks
 
 def clean(src, dst, preview):
     im = Image.open(src).convert('RGBA'); a = np.array(im)
