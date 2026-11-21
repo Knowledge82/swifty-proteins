@@ -62,17 +62,21 @@ class ShareTextTest {
 
     @Test
     fun aSecondTapWhileWorkingIsIgnored() {
-        assertFalse(ShareStatus.Working.canStart)
+        assertFalse(ShareStatus.Working(ExportFormat.PNG).canStart)
         assertTrue(ShareStatus.Idle.canStart)
-        assertTrue(ShareStatus.Done.canStart)
+        assertTrue(ShareStatus.Done(ExportFormat.PNG).canStart)
         assertTrue(ShareStatus.Failed(CaptureFailure.TIMEOUT).canStart)
     }
 
     @Test
     fun theStatusLineFollowsTheDesign() {
         assertNull(ShareStatus.Idle.label)
-        assertEquals("Preparing pict-capture…", ShareStatus.Working.label)
-        assertEquals("Pict-capture ready", ShareStatus.Done.label)
+        assertEquals("Preparing pict-capture…", ShareStatus.Working(ExportFormat.JPEG).label)
+        assertEquals("Pict-capture ready", ShareStatus.Done(ExportFormat.PNG).label)
+        // Files and the gallery say what happened (document 18).
+        assertEquals("Preparing .mol file…", ShareStatus.Working(ExportFormat.MOL).label)
+        assertEquals("File ready", ShareStatus.Done(ExportFormat.GLB).label)
+        assertEquals("Saved to Pictures/Swifty Proteins", ShareStatus.Done(ExportFormat.GALLERY).label)
         assertEquals(CaptureFailure.NOT_READY.userMessage(), ShareStatus.Failed(CaptureFailure.NOT_READY).label)
     }
 }

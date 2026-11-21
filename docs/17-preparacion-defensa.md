@@ -22,7 +22,7 @@
 
 | # | Qué | Por qué |
 |---|-----|---------|
-| 1 | ⚠️ **Guardar en la galería** implementado y probado | Punto 16 es **obligatorio**; hoy solo hay «compartir» |
+| 1 | **Guardar en la galería** probado en el A33 (SHR → Save to gallery → álbum «Swifty Proteins») | Punto 16 es **obligatorio** (documento 18) |
 | 2 | Compilar en el ordenador donde se va a defender (`./gradlew assembleDebug`) | Punto 3: si no compila, la evaluación **se para** |
 | 3 | Un **emulador** creado y probado (Android Studio → Device Manager) | Punto 3 dice «launches the simulator»; el 1 pide además el móvil real |
 | 4 | El A33 cargado, con **huella** registrada, la app instalada y **una cuenta creada** | Puntos 4, 5, 7, 8 |
@@ -258,11 +258,16 @@ Detalles que suman: la comparación del hash es de **tiempo constante** (no reve
 
 > *Compartir el modelo con el botón de compartir **y guardarlo en el álbum de fotos**.*
 
-**Qué decir (hoy).** **SHR** captura la escena 3D (con `PixelCopy`: la escena es una superficie de GPU y una captura normal saldría negra), le añade una banda con «Swifty Proteins · ATP · C10H16N5O13P3 · 47 atoms · 49 bonds», la guarda en la caché privada y abre la **hoja de compartir** de Android a través de un `FileProvider` (un enlace `content://` con permiso de lectura temporal, nunca una ruta del disco). El mensaje lleva nombre, fórmula y tamaño.
+**Qué decir.** **SHR** abre el menú «PICT-CAPTURE // EXPORT» (documento 18):
+- **Share image** (PNG o JPEG): captura la escena 3D con `PixelCopy` (la escena es una superficie de GPU; una captura normal saldría negra), añade una banda «Swifty Proteins · ATP · C10H16N5O13P3 · 47 atoms · 49 bonds» y abre la **hoja de compartir** de Android con un `FileProvider` (un enlace `content://` con permiso de lectura temporal, nunca una ruta del disco). El mensaje lleva nombre, fórmula y tamaño.
+- **Save to gallery**: la imagen al **álbum «Swifty Proteins»** de la galería. En Android 10+ con **`MediaStore`**, sin permisos (una app siempre puede añadir sus imágenes), creando la entrada **pendiente** (`IS_PENDING`) y publicándola cuando está entera. En Android 7–9 pide el permiso de almacenamiento.
+- Y además, ficheros: `.cif` original, `.mol` y modelo 3D `.glb` (bonus, punto 18).
 
-⚠️ **FALTA «guardar en el álbum»** como acción propia. Desde la hoja de compartir a veces hay una opción de guardar, pero depende del móvil: **no se puede confiar en eso**. **Se añade antes de la defensa**: una opción «Save to gallery» que escribe la imagen en **Imágenes/Swifty Proteins** con `MediaStore` (sin permisos en Android 10+; en 7–9 hace falta el permiso de almacenamiento).
+🎯 SHR → Save to gallery → «Saved to Pictures/Swifty Proteins» → abrir la **Galería** del móvil: álbum Swifty Proteins. Luego SHR → Share image (PNG) → la hoja de compartir.
 
-**Dónde.** `share/MoleculeSharer.kt`, `share/ShareText.kt`. Documento 09.
+**Dónde.** `share/MoleculeSharer.kt`, `share/GallerySaver.kt`, `share/ExportFormat.kt`. Documentos 09 y 18.
+
+**Si preguntan…** *¿Por qué no basta la hoja de compartir para guardar?* Que aparezca «guardar imagen» depende de las apps instaladas en cada móvil; la app lo hace por sí misma.
 
 ## 17. Bonus: modelos de visualización
 
@@ -292,10 +297,10 @@ Detalles que suman: la comparación del hash es de **tiempo constante** (no reve
 | **UI/UX avanzada** (celdas, animaciones, modo oscuro) | Diseño propio completo «Culto de la Máquina»: celdas de consola, paneles con esquinas cortadas, arranque animado, cráneo flotante, cursor parpadeante; **oscuro en toda la app y en el 3D**; **sonidos sintetizados** propios (documento 14); **ajustes** |
 | **Interacciones** (resaltar átomos, medir) | Resaltar **todos** los átomos de un elemento (tocarlo en la leyenda); **información de enlaces** (orden, longitud); **regla**: distancia, ángulo y **torsión**; **doble toque** para orbitar un átomo; ocultar hidrógenos |
 | **Rendimiento** (caché, 60 FPS) | **Caché** de `.cif` 30 días, funciona **sin conexión** (documento 13); **contador de FPS** siempre visible; *parsing* fuera del hilo principal; lista perezosa |
-| **Compartir ampliado** (mensajes, varios formatos) | **Mensaje propio** con nombre, fórmula, átomos y enlaces. ⚠️ **Varios formatos: falta** → se añade con el punto 16 (imagen, galería y fichero `.cif`) |
+| **Compartir ampliado** (mensajes, varios formatos) | **Mensaje propio** con nombre, fórmula, átomos y enlaces; **seis formatos**: PNG, JPEG, galería, `.cif` original, **`.mol`** (validado con RDKit en los 1242) y **modelo 3D `.glb`** (glTF 2.0, validador de Khronos: 0 errores) — documento 18 |
 | Además | **Favoritos por cuenta**; nombre y **fórmula** del ligando (comprobada contra RCSB en los 1242); **452 pruebas** automáticas y pruebas de mutación |
 
-🎯 En dos minutos: leyenda «C» (resaltado) → RULER con 3 átomos (ángulo) → MODEL → modo avión con un ligando ya visto → ★ y filtro → ajustes.
+🎯 En dos minutos: leyenda «C» (resaltado) → RULER con 3 átomos (ángulo) → MODEL → SHR → `.glb` → modo avión con un ligando ya visto → ★ y filtro → ajustes.
 
 ---
 

@@ -6,6 +6,9 @@
     <!-- The biometric dialog (document 05). A "normal" permission: granted at install, no question to the user.
          androidx.biometric declares it too; written here so the manifest says what the app does. -->
     <uses-permission android:name="android.permission.USE_BIOMETRIC" />
+    <!-- Saving to the gallery on Android 7-9 ONLY (document 18). From Android 10 an app adds its own pictures through
+         MediaStore with no permission; maxSdkVersion keeps newer phones from even listing it. -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="28" />
 
     <application
         android:allowBackup="true"

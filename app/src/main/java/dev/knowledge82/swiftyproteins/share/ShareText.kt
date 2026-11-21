@@ -47,6 +47,10 @@ enum class CaptureFailure {
     TIMEOUT,
     /** The image could not be written to the phone. */
     WRITE_FAILED,
+    /** Saving to the gallery on Android 7-9 needs the storage permission, and it was refused (document 18). */
+    NEEDS_PERMISSION,
+    /** The original .cif is not in the cache any more (the user emptied it): it must be downloaded again. */
+    NO_SOURCE_FILE,
     /** No app on the phone can receive an image. */
     NO_RECEIVER,
     /** Anything else. */
@@ -56,17 +60,19 @@ enum class CaptureFailure {
         NOT_READY -> "The 3D view is not ready yet. Try again in a second."
         NO_SCENE -> "There is no 3D view to capture."
         TIMEOUT -> "Capturing the image took too long. Try again."
-        WRITE_FAILED -> "The image could not be saved on the phone."
+        WRITE_FAILED -> "The file could not be saved on the phone."
+        NEEDS_PERMISSION -> "Allow storage access to save the image to the gallery."
+        NO_SOURCE_FILE -> "The original file is gone. Open the ligand again with a connection."
         NO_RECEIVER -> "No app on this phone can receive an image."
         OTHER -> "The image could not be captured. Try again."
     }
 }
 
-/** What the Share button is doing: the small status line above the atom card shows it. */
+/** What the export menu is doing (document 18): the small status line above the atom card shows it. */
 sealed interface ShareStatus {
     data object Idle : ShareStatus
-    data object Working : ShareStatus
-    data object Done : ShareStatus
+    data class Working(val format: ExportFormat) : ShareStatus
+    data class Done(val format: ExportFormat) : ShareStatus
     data class Failed(val failure: CaptureFailure) : ShareStatus
 
     /** A second tap while working is ignored (double taps would open two share sheets). */
@@ -75,8 +81,12 @@ sealed interface ShareStatus {
     /** The status line, or null when nothing is shown ("pict-capture": the design's word for a screenshot). */
     val label: String? get() = when (this) {
         Idle -> null
-        Working -> "Preparing pict-capture…"
-        Done -> "Pict-capture ready"
+        is Working -> if (format.isImage) "Preparing pict-capture…" else "Preparing ${format.detail.substringBefore(" ·")} file…"
+        is Done -> when {
+            format == ExportFormat.GALLERY -> "Saved to ${ExportFormat.GALLERY.detail}"
+            format.isImage -> "Pict-capture ready"
+            else -> "File ready"
+        }
         is Failed -> failure.userMessage()
     }
 }

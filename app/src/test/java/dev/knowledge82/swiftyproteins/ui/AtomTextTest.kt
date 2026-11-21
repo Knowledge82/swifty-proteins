@@ -42,4 +42,12 @@ class AtomTextTest {
         assertEquals("-5.006 Å", AtomText.value(-5.006f))
         assertEquals("12.184 Å", AtomText.value(12.1841f))
     }
+
+    @Test
+    fun aChargedAtomSaysItsChargeWithItsSign() {
+        val n = dev.knowledge82.swiftyproteins.molecule.Atom("N1", "N", 0f, 0f, 0f, charge = 1)
+        assertEquals("N1 · Nitrogen (N) · charge +1", AtomText.title(n))
+        assertEquals("O2 · Oxygen (O) · charge -1", AtomText.title(n.copy(name = "O2", element = "O", charge = -1)))
+        assertEquals("C01 · Carbon (C)", AtomText.title(n.copy(name = "C01", element = "C", charge = 0)))
+    }
 }

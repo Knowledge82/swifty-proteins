@@ -4,6 +4,7 @@ import org.junit.After
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Before
@@ -110,5 +111,22 @@ class ShareImageStoreTest {
         File(dir, "ligand_OLD.png.part").writeText("half")
         ShareImageStore(dir).save("001") { it.write(1) }
         assertEquals(listOf("ligand_001.png"), dir.list()!!.toList())
+    }
+
+    @Test
+    fun anyExportReplacesThePreviousOneButOtherFilesStay() {
+        val store = ShareImageStore(dir)
+        store.save("ATP") { it.write(1) }
+        File(dir, "notes.txt").writeText("mine")
+        val glb = store.save("ATP", "glb") { it.write(2) }
+        assertEquals("ligand_ATP.glb", glb.name)
+        assertEquals(setOf("ligand_ATP.glb", "notes.txt"), dir.list()!!.toSet())
+    }
+
+    @Test
+    fun anExtensionFromOutsideTheListIsRefused() {
+        assertThrows(IllegalArgumentException::class.java) { ShareImageStore.fileNameFor("ATP", "apk") }
+        assertThrows(IllegalArgumentException::class.java) { ShareImageStore.fileNameFor("ATP", "png/../x") }
+        assertEquals("ligand_ATP.mol", ShareImageStore.fileNameFor("ATP", "mol"))
     }
 }

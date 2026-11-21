@@ -17,7 +17,10 @@ import android.view.ViewGroup
 import androidx.core.content.FileProvider
 import androidx.core.content.res.ResourcesCompat
 import dev.knowledge82.swiftyproteins.R
+import dev.knowledge82.swiftyproteins.export.GlbWriter
+import dev.knowledge82.swiftyproteins.export.MolfileWriter
 import dev.knowledge82.swiftyproteins.molecule.Molecule
+import dev.knowledge82.swiftyproteins.scene.Representation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -30,7 +33,8 @@ import kotlin.coroutines.resume
 class CaptureException(val failure: CaptureFailure, cause: Throwable? = null) : Exception(failure.name, cause)
 
 /**
- * Captures the 3D scene, prints a caption under it, saves it and opens Android's share sheet (document 09).
+ * The export menu (documents 09 and 18): captures the 3D scene with a caption (PNG, JPEG, or into the GALLERY), or
+ * makes a file from the molecule (.cif original, .mol, .glb), and opens Android's share sheet.
  *
  * WHY THIS WAY: SceneView draws into a SurfaceView, a separate GPU surface that the normal `View.draw()` cannot see
  * (it would give a black rectangle). `PixelCopy.request(SurfaceView, ...)` (API 24+) is Android's way to copy the
@@ -49,24 +53,75 @@ object MoleculeSharer {
      * @param root any view of the window (Compose's `LocalView.current`)
      * @throws CaptureException with the reason to show
      */
-    suspend fun share(context: Context, root: View, molecule: Molecule) {
-        val surface = findSurfaceView(root.rootView) ?: throw CaptureException(CaptureFailure.NO_SCENE)
-        val scene = copy(surface)
-        val captioned = withContext(Dispatchers.Default) {
-            try { addCaption(context, scene, ShareText.caption(molecule)) } finally { scene.recycle() }
-        }
-        val file = withContext(Dispatchers.IO) {
-            try {
-                ShareImageStore(File(context.cacheDir, ShareImageStore.DIRECTORY)).save(molecule.id) { out ->
-                    if (!captioned.compress(Bitmap.CompressFormat.PNG, 100, out)) throw IOException("PNG compression failed")
+    /**
+     * Does [format]. [representation] and [showHydrogens] are what is on screen: the .glb exports exactly that.
+     * Saving to the gallery on Android 7-9 needs the storage permission: the SCREEN asks for it before calling this.
+     */
+    suspend fun export(context: Context, root: View, molecule: Molecule, format: ExportFormat, representation: Representation, showHydrogens: Boolean) {
+        val store = ShareImageStore(File(context.cacheDir, ShareImageStore.DIRECTORY))
+        when (format) {
+            ExportFormat.PNG, ExportFormat.JPEG -> {
+                val captioned = capture(context, root, molecule)
+                val file = written(captioned) {
+                    store.save(molecule.id, format.extension) { out ->
+                        val ok = if (format == ExportFormat.PNG) captioned.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        else captioned.compress(Bitmap.CompressFormat.JPEG, JPEG_QUALITY, out)
+                        if (!ok) throw IOException("${format.name} compression failed")
+                    }
                 }
-            } catch (e: IOException) {
-                throw CaptureException(CaptureFailure.WRITE_FAILED, e)
-            } finally {
-                captioned.recycle()
+                openShareSheet(context, file, molecule, format)
+            }
+            ExportFormat.GALLERY -> {
+                val captioned = capture(context, root, molecule)
+                written(captioned) { GallerySaver.savePng(context, captioned, GalleryName.of(molecule.id, System.currentTimeMillis())) }
+            }
+            ExportFormat.CIF -> {
+                // The text as it came from RCSB, from the cache (document 13). Copied to the shared folder: the
+                // FileProvider opens ONLY that folder, never the cache of ligands itself.
+                val original = File(File(context.cacheDir, "ligands"), "${molecule.id}.cif")
+                val file = withContext(Dispatchers.IO) {
+                    if (!original.isFile) throw CaptureException(CaptureFailure.NO_SOURCE_FILE)
+                    try { store.save(molecule.id, "cif") { out -> original.inputStream().use { it.copyTo(out) } } }
+                    catch (e: IOException) { throw CaptureException(CaptureFailure.WRITE_FAILED, e) }
+                }
+                openShareSheet(context, file, molecule, format)
+            }
+            ExportFormat.MOL, ExportFormat.GLB -> {
+                val file = withContext(Dispatchers.Default) {
+                    val bytes = try {
+                        if (format == ExportFormat.MOL) MolfileWriter.write(molecule).toByteArray(Charsets.US_ASCII)
+                        else GlbWriter.write(molecule, representation, showHydrogens)
+                    } catch (e: IllegalArgumentException) {
+                        throw CaptureException(CaptureFailure.OTHER, e)   // more than 999 atoms for a .mol
+                    }
+                    withContext(Dispatchers.IO) {
+                        try { store.save(molecule.id, format.extension) { it.write(bytes) } }
+                        catch (e: IOException) { throw CaptureException(CaptureFailure.WRITE_FAILED, e) }
+                    }
+                }
+                openShareSheet(context, file, molecule, format)
             }
         }
-        openShareSheet(context, file, molecule)
+    }
+
+    /** The scene with its caption band (on a background thread for the drawing). */
+    private suspend fun capture(context: Context, root: View, molecule: Molecule): Bitmap {
+        val surface = findSurfaceView(root.rootView) ?: throw CaptureException(CaptureFailure.NO_SCENE)
+        val scene = copy(surface)
+        return withContext(Dispatchers.Default) {
+            try { addCaption(context, scene, ShareText.caption(molecule)) } finally { scene.recycle() }
+        }
+    }
+
+    /** Runs [write] on the IO thread, turns a failure into WRITE_FAILED, and always frees the bitmap. */
+    private suspend fun <T> written(bitmap: Bitmap, write: () -> T): T = withContext(Dispatchers.IO) {
+        try {
+            write()
+        } catch (e: IOException) {
+            throw CaptureException(CaptureFailure.WRITE_FAILED, e)
+        } finally {
+            bitmap.recycle()
+        }
     }
 
     /** Depth-first search for the first SurfaceView under [view]. On this screen there is exactly one: SceneView's. */
@@ -137,10 +192,10 @@ object MoleculeSharer {
      * address, and FLAG_GRANT_READ_URI_PERMISSION lets ONLY the chosen app read it. Setting `clipData` too is what
      * makes the permission reach the app picked in the chooser on recent Android versions.
      */
-    private fun openShareSheet(context: Context, file: File, molecule: Molecule) {
+    private fun openShareSheet(context: Context, file: File, molecule: Molecule, format: ExportFormat) {
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
         val send = Intent(Intent.ACTION_SEND).apply {
-            type = "image/png"
+            type = format.intentType
             putExtra(Intent.EXTRA_STREAM, uri)
             putExtra(Intent.EXTRA_TEXT, ShareText.message(molecule))
             clipData = ClipData.newRawUri(file.name, uri)
@@ -153,6 +208,9 @@ object MoleculeSharer {
             throw CaptureException(CaptureFailure.NO_RECEIVER, e)
         }
     }
+
+    /** JPEG quality: 92 keeps the thin sticks and the caption crisp at about a third of the PNG's size. */
+    private const val JPEG_QUALITY = 92
 
     private const val BAND_COLOR = 0xFF050806.toInt()   // SwiftyColors.Abyss
     private const val TEXT_COLOR = 0xFF43E07A.toInt()   // SwiftyColors.Phosphor

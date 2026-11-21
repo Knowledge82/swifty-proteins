@@ -7,8 +7,12 @@ import java.util.Locale
 /** The texts of the atom card. Pure Kotlin, tested. */
 object AtomText {
 
-    /** "C01 · Carbon (C)". */
-    fun title(atom: Atom): String = "${atom.name} · ${ElementStyle.nameOf(atom.element)} (${atom.element})"
+    /** "C01 · Carbon (C)"; with a formal charge, "N1 · Nitrogen (N) · charge +1" (document 18). */
+    fun title(atom: Atom): String =
+        "${atom.name} · ${ElementStyle.nameOf(atom.element)} (${atom.element})" + if (atom.charge == 0) "" else " · charge ${signed(atom.charge)}"
+
+    /** "+1", "-2": always with its sign (a plain ASCII minus, see [value]). */
+    fun signed(n: Int): String = if (n > 0) "+$n" else n.toString()
 
     /**
      * "X 12.184 Å", three decimals. Locale.US: a dot, never a comma, and a plain ASCII minus "-" (the design's

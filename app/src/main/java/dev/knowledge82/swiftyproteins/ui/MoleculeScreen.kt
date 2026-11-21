@@ -1,6 +1,15 @@
 package dev.knowledge82.swiftyproteins.ui
 
 import android.util.Log
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.ui.window.Dialog
+import androidx.core.content.ContextCompat
+import dev.knowledge82.swiftyproteins.share.ExportFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -127,26 +136,39 @@ fun MoleculeScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
-    val onShare = {
-        if (share.canStart) {
-            share = ShareStatus.Working
-            sounds.play(SoundCue.SHUTTER)
-            scope.launch {
-                share = try {
-                    MoleculeSharer.share(context, view, molecule)
-                    ShareStatus.Done
-                } catch (e: CancellationException) {
-                    throw e   // the screen went away: not a failure, just stop
-                } catch (e: CaptureException) {
-                    Log.w("SwiftyProteins", "share ${molecule.id} failed: ${e.failure}", e.cause)
-                    ShareStatus.Failed(e.failure)
-                } catch (e: Exception) {
-                    Log.w("SwiftyProteins", "share ${molecule.id} failed", e)
-                    ShareStatus.Failed(CaptureFailure.OTHER)
-                }
+    // The export menu (document 18): SHR opens it; each choice runs here.
+    var exportMenu by remember { mutableStateOf(false) }
+    fun startExport(format: ExportFormat) {
+        if (!share.canStart) return
+        share = ShareStatus.Working(format)
+        sounds.play(SoundCue.SHUTTER)
+        scope.launch {
+            share = try {
+                MoleculeSharer.export(context, view, molecule, format, representation, showHydrogens)
+                ShareStatus.Done(format)
+            } catch (e: CancellationException) {
+                throw e   // the screen went away: not a failure, just stop
+            } catch (e: CaptureException) {
+                Log.w("SwiftyProteins", "export ${format.name} of ${molecule.id} failed: ${e.failure}", e.cause)
+                ShareStatus.Failed(e.failure)
+            } catch (e: Exception) {
+                Log.w("SwiftyProteins", "export ${format.name} of ${molecule.id} failed", e)
+                ShareStatus.Failed(CaptureFailure.OTHER)
             }
         }
     }
+    // Android 7-9 only: the gallery needs WRITE_EXTERNAL_STORAGE, asked the first time (the system remembers the answer).
+    val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startExport(ExportFormat.GALLERY) else share = ShareStatus.Failed(CaptureFailure.NEEDS_PERMISSION)
+    }
+    fun choose(format: ExportFormat) {
+        exportMenu = false
+        val needsPermission = format == ExportFormat.GALLERY && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
+        if (needsPermission) storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else startExport(format)
+    }
+    val onShare = { if (share.canStart) exportMenu = true }
+    if (exportMenu) ExportDialog(onChoose = ::choose, onDismiss = { exportMenu = false })
     // "Image ready" or an error stays on screen a few seconds, then the line goes away.
     LaunchedEffect(share) {
         if (share is ShareStatus.Done || share is ShareStatus.Failed) {
@@ -312,7 +334,7 @@ private fun TopPanel(
                 // "SHR" as in the design; "..." while the capture is being prepared (the key is off: no double taps).
                 text = if (share is ShareStatus.Working) "..." else "SHR",
                 onClick = onShare,
-                contentDescription = "Share an image of the molecule",
+                contentDescription = "Share or export the molecule",
                 enabled = share.canStart,
             )
         }
@@ -328,6 +350,33 @@ private fun fpsColor(level: FpsText.Level): Color = when (level) {
 }
 
 private const val FPS_REFRESH_MILLIS = 250L
+
+/**
+ * "PICT-CAPTURE // EXPORT" (document 18): the six things SHR can do. Each row is a 64 dp button with what it does and
+ * the format; Back or a tap outside closes it.
+ */
+@Composable
+private fun ExportDialog(onChoose: (ExportFormat) -> Unit, onDismiss: () -> Unit) {
+    Dialog(onDismissRequest = onDismiss) {
+        CogitatorPanel(label = "PICT-CAPTURE // EXPORT", cut = 11.dp, modifier = Modifier.widthIn(max = 440.dp)) {
+            for (format in ExportFormat.entries) {
+                Surface(
+                    onClick = { onChoose(format) },
+                    color = Color.Transparent,
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                ) {
+                    Column(verticalArrangement = Arrangement.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                        Text(format.label, style = MaterialTheme.typography.titleMedium, color = SwiftyColors.Gold)
+                        Text(format.detail, style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+                    }
+                }
+                ConsoleRule()
+            }
+            Spacer(Modifier.height(12.dp))
+            SecondaryButton("Cancel", onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp))
+        }
+    }
+}
 
 /** "PICT-CAPTURE ACTIVE" / "SYSTEM MESSAGE": what the Share key is doing. */
 @Composable

@@ -59,6 +59,29 @@ class CifExtractorTest {
     private fun named(nameLine: String): Molecule =
         extract("data_XXA\n_chem_comp.id XXA\n_chem_comp.name " + nameLine + "\n" + ligand(twoAtoms).removePrefix("data_XXA\n"))
 
+    // ---------------------------------------------------------------- formal charges (forgiving: document 18)
+
+    private fun charged(charges: List<String>): List<Int> =
+        extract(ligand(
+            atoms = charges.mapIndexed { i, c -> "A$i C $i 0 0 $i 0 0 $c" },
+            columns = atomTags + "charge",
+        )).atoms.map { it.charge }
+
+    @Test
+    fun chargesAreRead() {
+        assertEquals(listOf(0, -1, 1, 2, -2), charged(listOf("0", "-1", "1", "2", "-2")))
+    }
+
+    @Test
+    fun anOddChargeIsZeroNotAFailure() {
+        assertEquals(listOf(0, 0, 0, 0, 15), charged(listOf("?", ".", "plus", "99", "15")))
+    }
+
+    @Test
+    fun withoutAChargeColumnEveryAtomIsNeutral() {
+        assertTrue(extract(ligand(twoAtoms)).atoms.all { it.charge == 0 })
+    }
+
     // ---------------------------------------------------------------- the name (optional, cleaned: document 15)
 
     @Test

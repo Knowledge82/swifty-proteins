@@ -32,6 +32,10 @@ object CifExtractor {
     private const val BOND_SECOND = "_chem_comp_bond.atom_id_2"
     private const val BOND_ORDER = "_chem_comp_bond.value_order"
     private const val NAME = "_chem_comp.name"
+    private const val CHARGE = "_chem_comp_atom.charge"
+
+    // MDL molfiles (the .mol export, document 18) hold charges from -15 to +15; real ligands stay within -2..+3.
+    private const val MAX_ABS_CHARGE = 15
 
     // The longest name among the 1242 ligands has 384 characters (1SZ); the median, 39. Anything longer is cut: it is
     // text from the network that will be drawn on screen and put in a message (document 15).
@@ -63,6 +67,7 @@ object CifExtractor {
 
         val nameColumn = atomTable.column(ATOM_ID)
         val elementColumn = atomTable.column(ELEMENT)
+        val chargeColumn = atomTable.indexOf(CHARGE)   // optional
 
         // Names and elements first: the bonds refer to atoms BY NAME and need this map.
         val indexByName = HashMap<String, Int>()
@@ -99,6 +104,7 @@ object CifExtractor {
                 x = (p.x - centerX).toFloat(),
                 y = (p.y - centerY).toFloat(),
                 z = (p.z - centerZ).toFloat(),
+                charge = chargeColumn?.let { chargeOf(rows[index][it]) } ?: 0,
             )
         }
 
@@ -121,6 +127,12 @@ object CifExtractor {
     }
 
     private val WHITESPACE = Regex("\\s+")
+
+    /**
+     * The formal charge, FORGIVING (unlike coordinates and elements): it does not change what is drawn, so "?", "."
+     * or nonsense give 0 instead of rejecting the molecule. A value outside -15..15 is nonsense too.
+     */
+    private fun chargeOf(raw: String): Int = raw.trim().toIntOrNull()?.takeIf { it in -MAX_ABS_CHARGE..MAX_ABS_CHARGE } ?: 0
 
     private fun readBonds(table: CifTable, indexByName: Map<String, Int>): List<Bond> {
         if (table.rows.size > MAX_BONDS) throw fail(CifFailure.TooBig("bonds", table.rows.size, MAX_BONDS))

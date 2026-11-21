@@ -17,6 +17,7 @@ enum class BondOrder { SINGLE, DOUBLE, TRIPLE, AROMATIC, OTHER }
  * @param element normalized symbol: first letter upper case, the rest lower case ("C", "Cl", "Fe").
  *                The file writes "CL" and "FE"; the CPK color table is easier to read with "Cl", "Fe".
  * @param x,y,z   position in angstrom (1 Å = 0.1 nm). The parser centers the molecule on the origin.
+ * @param charge  formal charge; 175 of the 1242 ligands have at least one charged atom (document 18).
  */
 data class Atom(
     val name: String,
@@ -24,6 +25,8 @@ data class Atom(
     val x: Float,
     val y: Float,
     val z: Float,
+    /** Formal charge (`_chem_comp_atom.charge`): 0 for most atoms; -1 for a carboxylate oxygen, +1 for an ammonium N. */
+    val charge: Int = 0,
 )
 
 /**
