@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Adaptive icon (Android 8+): background + foreground layers, both vectors (document 08b). The monochrome layer is
-     used by "themed icons" on Android 13+; older versions ignore it. -->
+<!-- Adaptive icon (Android 8+), v3 (document 08d): painted foreground and background as bitmaps per density
+     (mipmap-*), monochrome silhouette as a vector for "themed icons" on Android 13+ (older versions ignore it). -->
 <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
-    <background android:drawable="@drawable/ic_launcher_background" />
-    <foreground android:drawable="@drawable/ic_launcher_foreground" />
+    <background android:drawable="@mipmap/ic_launcher_background" />
+    <foreground android:drawable="@mipmap/ic_launcher_foreground" />
     <monochrome android:drawable="@drawable/ic_launcher_monochrome" />
 </adaptive-icon>

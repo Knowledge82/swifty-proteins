@@ -86,6 +86,8 @@ El tema (`themes.xml`):
 </style>
 ```
 
+> **Nota (documento 08d, icono v3):** hoy el fondo es `swifty_abyss` y el icono apunta a `@mipmap/ic_launcher_foreground`: el primer plano pintado del icono v3, un mapa de bits por densidad. El vector de este documento ya no existe.
+
 Y en el manifiesto, dentro de `<activity>`: `android:theme="@style/Theme.SwiftyProteins.Starting"`. Es la actividad la que arranca con el tema de arranque; al llamar a `installSplashScreen()` pasa al tema normal.
 
 ---

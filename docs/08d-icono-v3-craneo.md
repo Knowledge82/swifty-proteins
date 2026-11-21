@@ -1,6 +1,6 @@
 # 08d · Icono v3: el cráneo del arranque, el 42 y el ligando
 
-> **Estado:** *prompt* listo; **pendiente de generar** e integrar. El icono actual (v2, vectorial y plano) sigue en el proyecto hasta que llegue el nuevo. Las medidas del icono adaptativo salen de la documentación de Android; las del A33 son **cálculo**, no medición.
+> **Estado:** generado (variante **A, «Hologram»**) e **integrado**: el emblema completo en la pantalla de arranque y, **provisionalmente**, también como icono, hasta que llegue la versión simplificada (sección 12). Comprobado con guion (zona segura, canal alfa, halo) y con el compilador contra los *stubs*; **sin probar en el móvil**. Las medidas del icono adaptativo salen de la documentación de Android; las del A33 son **cálculo**, no medición.
 
 ## Índice
 
@@ -14,8 +14,11 @@
 8. [Qué hacer con lo que devuelva el generador](#8-qué-hacer-con-lo-que-devuelva-el-generador)
 9. [Trampas](#9-trampas)
 10. [Alternativas](#10-alternativas)
-11. [Decisión](#11-decisión)
-12. [Qué recordar](#12-qué-recordar)
+11. [Lo que devolvió el generador](#11-lo-que-devolvió-el-generador)
+12. [Dos versiones: emblema completo e icono simplificado](#12-dos-versiones-emblema-completo-e-icono-simplificado)
+13. [La integración, paso a paso](#13-la-integración-paso-a-paso)
+14. [Decisión](#14-decisión)
+15. [Qué recordar](#15-qué-recordar)
 
 ---
 
@@ -56,7 +59,7 @@ Conclusión: la **dirección** es buena y ya está probada; falta una **composic
 
 - **Monocromo** (Android 13+, «iconos temáticos»): una tercera capa de una sola tinta; el sistema la colorea con la paleta del fondo de pantalla. Si falta, el icono sale con sus colores aunque el usuario active los iconos temáticos.
 - **Icono antiguo** (API 24–25, que soportamos: `minSdk 24`): un PNG de **48 × 48 dp** por densidad (`mipmap-mdpi` 48 px … `mipmap-xxxhdpi` 192 px), cuadrado y redondo.
-- **Splash del sistema** (Android 12+): usa `windowSplashScreenAnimatedIcon`, que hoy apunta al primer plano del icono (`@drawable/ic_launcher_foreground`, `themes.xml`). El sistema lo recorta a un círculo de **2/3** del lienzo. Nuestro contenido va en el 61 % (66/108), así que cabe.
+- **Splash del sistema** (Android 12+): usa `windowSplashScreenAnimatedIcon`, que apunta al primer plano del icono (hoy `@mipmap/ic_launcher_foreground`, `themes.xml`). El sistema lo recorta a un círculo de **2/3** del lienzo. Nuestro contenido va en el 61 % (66/108), así que cabe.
 
 **Tamaño real:** el A33 tiene una densidad de unos 2,6× (≈ 411 ppp, cálculo), así que el icono de 48 dp mide **≈ 125 px físicos**. El caso peor (48 px) es el de pantallas `mdpi`, raras hoy, pero es la prueba de que la silueta funciona.
 
@@ -225,18 +228,121 @@ La primera sirve de **plan B**: si el generador no da algo mejor, se integra el 
 
 ---
 
-## 11. Decisión
+## 11. Lo que devolvió el generador
 
-| # | Decisión | Estado | Motivo |
-|---|----------|--------|--------|
-| D38 | El icono pasa a ser **pictórico**: el cráneo en la rueda del arranque, con **ligando** de bolas y varillas y **«42»** (números propios + `101010`), como icono adaptativo de mapas de bits | Propuesta (*prompt* listo) | Mucho más reconocible que el icono plano; cumple «acorde con el tema» con la molécula; el 42 en binario conecta con el *binharic* del Mechanicus |
+Un paquete por variante (A, B, C): primer plano, fondo y monocromo en 1024 px (el monocromo también en SVG), el primer plano sobre `#050806`, hojas de vistas previas y un `manifest.json` con sus propias medidas. El propio generador avisa de algo importante: **A es una ilustración hecha a propósito; B y C están recortadas** de una hoja de conceptos y reescaladas (menos nitidez).
+
+### 11.1 Medido por nosotros (no nos fiamos del `manifest.json`)
+
+| Comprobación | A | B | C | Límite |
+|--------------|---|---|---|--------|
+| Radio máximo de un píxel opaco (px) | 306,5 | 308,0 | 307,9 | ≤ 313 (círculo seguro) |
+| Píxeles totalmente transparentes | 76 % | 79 % | 80 % | > 0: hay **alfa de verdad**, no un tablero pintado |
+| Luminancia media del borde semitransparente (0–255) | 58 | 15 | 17 | Baja = **sin halo blanco** |
+| Fondo | opaco, luminancia 6,9–14,2 | igual | igual | Oscuro y tranquilo |
+| Monocromo | solo blanco | solo blanco | solo blanco | Una tinta |
+
+Las tres pasan. El borde de A es algo más claro (58) porque el bronce del borde es claro, no por un halo: se ve en la composición sobre oscuro.
+
+### 11.2 La trampa de sus vistas previas
+
+Sus hojas recortan **el lienzo entero de 108 dp** con la máscara. Un lanzador real recorta **la zona visible de 72 dp** (sección 3): el icono se ve **1,5 veces más grande** de lo que enseñan. Hicimos nuestra propia hoja, recortando como el lanzador:
+
+![Las tres variantes a tamaño real: 48, 96 y 125 px, círculo y cuadrado, fondo claro y versión temática](img_08d_v3_tamano_real.png)
+
+### 11.3 Lectura a tamaño real
+
+- **A:** a 48 px se leen la rueda, el cráneo y el bloque verde del holograma (el único acento fuerte: bien). A 125 px (el A33) el «42» se lee; `101010` es ya **textura** (letras de unos 4 px).
+- **B:** a 48 px es un **collar de cuentas de colores**: la silueta de rueda desaparece. Lo más vistoso a 1024 px y lo peor a 48.
+- **C:** la molécula es pequeña y oscura; a 96 px ya no se distingue. Es la variante que menos dice «molécula».
+- **Monocromo de A:** el PNG trae el **diente de arriba recortado** (489 píxeles distintos entre las filas 196–254 frente a su propio SVG). Se usa el **SVG**.
+
+**Elegida: A.** También era la favorita del generador.
 
 ---
 
-## 12. Qué recordar
+## 12. Dos versiones: emblema completo e icono simplificado
+
+Con cinco elementos (rueda, cráneo, holograma, sello, cinta), A a 1024 px es una pieza preciosa, pero como icono va **cargada**. La solución acordada:
+
+| Versión | Dónde | Por qué ahí |
+|---------|-------|-------------|
+| **Emblema completo** (A tal cual) | Pantalla de arranque, a 240 dp (≈ 620 px físicos en el A33) | A ese tamaño se lee **todo**: «42», `101010`, átomos. Además mide 590 px de origen, frente a los ~424 del arte anterior: **más nítido** |
+| **Icono simplificado** (A sin sello ni cinta) | Lanzador | Una idea y un acento: rueda, cráneo, ojo, holograma. Figura **redonda** que llena el círculo |
+
+Es lo que hacen las marcas: un **emblema completo** para piezas grandes y un **signo** simplificado para tamaños pequeños.
+
+**¿Por qué no recortamos nosotros el sello?** Porque el sello **tapa** la parte de abajo de la rueda y los cables: al quitarlo queda un agujero que habría que pintar a mano, y un parche pintado sobre una ilustración se nota. Se pide al generador.
+
+**Mientras tanto**, el icono es el emblema completo: pasa todas las mediciones y a 125 px se lee. Cuando llegue la versión simplificada, el cambio es **solo sustituir ficheros** (`mipmap-*/ic_launcher_foreground.webp` y los iconos antiguos).
+
+*Prompt* de seguimiento (adjuntar `composite_on_dark.png` de A):
+
+```text
+Follow-up to the Swifty Proteins icon v3, variant A "Hologram" (attached). We keep it as the full emblem.
+Now make a SIMPLIFIED launcher version of the SAME artwork (same painting style, same skull, same cog,
+same green optic and hologram molecule):
+- REMOVE the red wax seal "42" and the parchment strip "101010" completely; repaint the lower part of
+  the cog ring and the cables behind them so nothing looks cut out.
+- The composition becomes ROUND: the cog fills the safe circle (diameter 626 px on the 1024 px canvas)
+  as much as possible, centred.
+- Keep the hologram (green beam + 5–7 CPK atoms) as the single bright accent. Fewer cables if needed.
+- Optional, only if it stays subtle: the numerals "42" small and engraved into the brass of the cog
+  ring, as texture (it does not need to be readable at 48 px).
+Deliver the same files as before: foreground (RGBA, real transparency, no halo), background, monochrome
+(SVG + PNG, the SVG must match the PNG), composite on #050806. In the previews, mask the VISIBLE 72 dp area
+(the central 683 × 683 px), not the whole 108 dp canvas.
+```
+
+---
+
+## 13. La integración, paso a paso
+
+| Fichero | Qué es | Cómo se hizo |
+|---------|--------|--------------|
+| `mipmap-<densidad>/ic_launcher_foreground.webp` | Primer plano (108 dp): 108, 162, 216, 324, 432 px | Reescalado Lanczos desde 1024; WebP con pérdida (calidad 92) **con alfa** |
+| `mipmap-<densidad>/ic_launcher_background.webp` | Fondo (108 dp) | Igual; sin alfa (≈ 1 KB: es un degradado) |
+| `drawable/ic_launcher_monochrome.xml` | Monocromo, **vector** | El SVG del generador con nuestro conversor (documento 08c, 5) |
+| `mipmap-<densidad>/ic_launcher.png`, `ic_launcher_round.png` | Icono antiguo (48 dp, API 24–25): 48…192 px | **Guion:** fondo + primer plano, recorte de la zona visible (683 px centrales), máscara de cuadrado redondeado (radio 18 %) o círculo |
+| `mipmap-anydpi-v26/ic_launcher*.xml` | Icono adaptativo | Capas de `@drawable/…` (vectores v2) a `@mipmap/…`; el monocromo sigue en `@drawable` |
+| `values/themes.xml` | *Splash* del sistema | `windowSplashScreenAnimatedIcon` → `@mipmap/ic_launcher_foreground` |
+| `drawable-nodpi/art_emblem_hologram.webp` | El emblema completo | Primer plano recortado a su contenido (590 × 603 px) |
+| `ui/BootScreen.kt` | Pantalla de arranque | `art_skull_cog_art` (200 dp) → `art_emblem_hologram` (240 dp) |
+| `drawable/ic_launcher_foreground.xml`, `ic_launcher_background.xml` | Vectores del icono v2 | **Borrados**: ya no los usa nadie (comprobado con `grep`) |
+
+Detalles que merecen explicación:
+
+- **¿Por qué `mipmap` y no `drawable`?** Los `mipmap-*` no se eliminan al generar paquetes por densidad, y el lanzador puede pedir el icono de **una densidad mayor** que la de la pantalla (lo hace para que se vea nítido). Es la carpeta pensada para iconos.
+- **¿Por qué el monocromo como vector?** Es una silueta de 16 trazados: en vector pesa 4 KB, escala a cualquier tamaño y no hace falta exportarlo cinco veces. El conversor aprendió los colores con nombre (`white`, `black`), que este SVG usa, y se quitó un trazado de grosor 0 que no dibujaba nada. Verificado: el SVG aplanado frente al original difiere como mucho **8/255** en un píxel (suavizado de bordes).
+- **240 dp con `size()`:** `size()` **respeta** el espacio que da el panel; en una pantalla baja el emblema se encoge en vez de desbordar (a diferencia de `requiredSize()`).
+- **Peso total:** ≈ 556 KB entre todas las capas, los iconos antiguos y el emblema (156 KB).
+
+**Comprobado aquí:** compilación contra los *stubs* sin errores, con un **control negativo** (el mismo código con un recurso mal escrito, `art_emblem_hologramX`, **sí** falla), XML bien formado, y que ningún fichero apunta ya a los vectores borrados.
+
+**Sin comprobar (no hay SDK de Android aquí):** que `aapt` acepte los recursos (no se espera problema: nombres válidos, sin duplicados entre `.png` y `.webp`), y todo lo visual en el móvil:
+
+1. El icono en el lanzador de Samsung (cuadrado redondeado). **Si sigue el viejo**, es la caché del lanzador (sección 9, trampa 6): reiniciar el móvil o desinstalar.
+2. Con los iconos temáticos activados (si la versión de One UI los ofrece), la silueta verde.
+3. La *splash* del sistema (un instante) con el primer plano nuevo.
+4. La pantalla de arranque: el emblema nítido, el «42» y `101010` legibles.
+
+---
+
+## 14. Decisión
+
+| # | Decisión | Estado | Motivo |
+|---|----------|--------|--------|
+| D38 | El icono pasa a ser **pictórico**: el cráneo en la rueda, con **ligando** en holograma y **«42»** (números propios + `101010`), como icono adaptativo de mapas de bits; **dos versiones**: emblema completo en el arranque, icono simplificado en el lanzador | Decidida (variante A; icono provisional hasta la versión simplificada) | Mucho más reconocible que el icono plano; cumple «acorde con el tema» con la molécula; el 42 en binario conecta con el *binharic* del Mechanicus |
+
+---
+
+## 15. Qué recordar
 
 - **Icono adaptativo:** lienzo de 108 dp, visible 72 dp, **lo importante en el círculo de 66 dp** (626 px de 1024).
 - **Tres capas:** fondo, primer plano y **monocromo** (iconos temáticos de Android 13+); más el icono antiguo de 48 dp para API 24–25.
 - **Jerarquía por tamaño:** a 48 px solo se lee la silueta y el ojo; el «42» es para el tamaño real (~125 px).
 - **42 = `101010`** en binario.
 - Lo que devuelva el generador **se mide** (radio del contenido, canal alfa, halo), no se integra a ojo.
+- **Las vistas previas ajenas se comprueban:** recortar el lienzo entero en vez de la zona visible de 72 dp hace el icono 1,5 veces más pequeño de lo real.
+- **Emblema completo para lo grande, signo simplificado para lo pequeño.**
+- Iconos en **`mipmap-*`**; una silueta monocroma, mejor en **vector**.

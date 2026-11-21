@@ -74,7 +74,9 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
             HeaderPanel(subtitle = "LITANY OF IGNITION // 0xF7")
             CogitatorPanel(modifier = Modifier.fillMaxWidth().weight(1f), fillHeight = true) {
                 CenteredColumn(Modifier.fillMaxSize()) {
-                    ArtImage(R.drawable.art_skull_cog_art, size = 200.dp)
+                    // The full v3 emblem (document 08d): skull, hologram of a ligand, seal "42", strip "101010".
+                    // size() is clamped by the panel, so on a short screen it shrinks instead of overflowing.
+                    ArtImage(R.drawable.art_emblem_hologram, size = 240.dp)
                 }
             }
             CogitatorPanel(label = "BOOT TERMINAL", modifier = Modifier.fillMaxWidth()) {
