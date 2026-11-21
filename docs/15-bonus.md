@@ -358,7 +358,9 @@ Un programa de comprobación (fuera de la app) interpreta los 1242 `.cif` del co
 | **Etiquetas** de átomos en 3D (VII.3) | Texto en 3D con SceneView (`ViewNode` o texturas): coste alto en rendimiento con 256 etiquetas |
 | **Ajustes** (VII.2): modelo por defecto, hidrógenos | **Hecho después** (documento 16), con los sonidos |
 | **Favoritos** (VII.5) | **Hecho después** (documento 16): por cuenta |
-| Vídeo, comparar dos moléculas, otros formatos (VII.5) | Más trabajo que valor para la defensa |
+| Otros formatos (VII.5) | **Hecho después** (documento 18): JPEG, `.cif`, `.mol`, `.glb` |
+| Vídeo (VII.5) | **Hecho después** (documento 22): una vuelta de 6 s en MP4 |
+| Comparar dos moléculas (VII.5) | Pendiente |
 
 ---
 

@@ -77,6 +77,11 @@ class ShareTextTest {
         assertEquals("Preparing .mol file…", ShareStatus.Working(ExportFormat.MOL).label)
         assertEquals("File ready", ShareStatus.Done(ExportFormat.GLB).label)
         assertEquals("Saved to Pictures/Swifty Proteins", ShareStatus.Done(ExportFormat.GALLERY).label)
+        // Document 22.
+        assertEquals("Preparing the video…", ShareStatus.Working(ExportFormat.VIDEO).label)
+        assertEquals("Video ready", ShareStatus.Done(ExportFormat.VIDEO).label)
+        assertEquals("Saved to Movies/Swifty Proteins", ShareStatus.Done(ExportFormat.VIDEO_GALLERY).label)
+        assertEquals("Recording cancelled.", ShareStatus.Failed(CaptureFailure.VIDEO_CANCELLED).label)
         assertEquals(CaptureFailure.NOT_READY.userMessage(), ShareStatus.Failed(CaptureFailure.NOT_READY).label)
     }
 }

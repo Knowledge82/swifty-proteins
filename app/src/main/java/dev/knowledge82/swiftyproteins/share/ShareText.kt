@@ -53,6 +53,10 @@ enum class CaptureFailure {
     NO_SOURCE_FILE,
     /** No app on the phone can receive an image. */
     NO_RECEIVER,
+    /** The video encoder could not start or produced no file (document 22). */
+    VIDEO_FAILED,
+    /** The user left or cancelled while the video was being recorded. */
+    VIDEO_CANCELLED,
     /** Anything else. */
     OTHER;
 
@@ -61,9 +65,11 @@ enum class CaptureFailure {
         NO_SCENE -> "There is no 3D view to capture."
         TIMEOUT -> "Capturing the image took too long. Try again."
         WRITE_FAILED -> "The file could not be saved on the phone."
-        NEEDS_PERMISSION -> "Allow storage access to save the image to the gallery."
+        NEEDS_PERMISSION -> "Allow storage access to save to the gallery."
         NO_SOURCE_FILE -> "The original file is gone. Open the ligand again with a connection."
         NO_RECEIVER -> "No app on this phone can receive an image."
+        VIDEO_FAILED -> "The video could not be recorded on this phone."
+        VIDEO_CANCELLED -> "Recording cancelled."
         OTHER -> "The image could not be captured. Try again."
     }
 }
@@ -81,9 +87,14 @@ sealed interface ShareStatus {
     /** The status line, or null when nothing is shown ("pict-capture": the design's word for a screenshot). */
     val label: String? get() = when (this) {
         Idle -> null
-        is Working -> if (format.isImage) "Preparing pict-capture…" else "Preparing ${format.detail.substringBefore(" ·")} file…"
+        is Working -> when {
+            format.isVideo -> "Preparing the video…"
+            format.isImage -> "Preparing pict-capture…"
+            else -> "Preparing ${format.detail.substringBefore(" ·")} file…"
+        }
         is Done -> when {
-            format == ExportFormat.GALLERY -> "Saved to ${ExportFormat.GALLERY.detail}"
+            format.toGallery -> "Saved to ${format.detail}"
+            format.isVideo -> "Video ready"
             format.isImage -> "Pict-capture ready"
             else -> "File ready"
         }

@@ -26,6 +26,8 @@ import dev.knowledge82.swiftyproteins.scene.Assembly
 import dev.knowledge82.swiftyproteins.scene.FrameDiagnosis
 import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.scene.SceneLook
+import dev.knowledge82.swiftyproteins.scene.Turntable
+import io.github.sceneview.utils.SurfaceMirrorer
 import dev.knowledge82.swiftyproteins.scene.AtomLabels
 import dev.knowledge82.swiftyproteins.scene.MeshDetail
 import dev.knowledge82.swiftyproteins.scene.BondGeometry
@@ -111,6 +113,10 @@ private fun rgbColor(rgb: Int, alpha: Float = 1f): Color =
  * @param contentPadding   the parts of the view covered by panels: the camera aims at what is left (document 21, §18)
  * @param visibleAspect    width / height of that visible window, rounded ([SceneFraming.aspectKey]): how far the
  *                         camera must stand for the whole molecule to fit in it
+ * @param surfaceMirrorer  SceneView's recorder draws the scene a second time into the video encoder through it
+ * @param turning          true while a video is recorded: the molecule makes ONE full turn ([Turntable], document 22)
+ * @param onTurnProgress   how far the turn is, in milliseconds (the REC line)
+ * @param onTurnDone       the turn is complete: the screen stops the recording
  */
 @Composable
 fun MoleculeScene(
@@ -131,6 +137,10 @@ fun MoleculeScene(
     atomColors: AtomColors = AtomColors.JMOL,
     contentPadding: PaddingValues = PaddingValues(0.dp),
     visibleAspect: Float = SceneFraming.TALL_PHONE_ASPECT,
+    surfaceMirrorer: SurfaceMirrorer? = null,
+    turning: Boolean = false,
+    onTurnProgress: (Long) -> Unit = {},
+    onTurnDone: () -> Unit = {},
 ) {
     // LEVEL OF DETAIL (bonus VII.4): from the size of the MOLECULE, so hiding hydrogens never rebuilds every mesh.
     val atomCount = molecule.atoms.size
@@ -218,6 +228,27 @@ fun MoleculeScene(
     val currentMolecule by rememberUpdatedState(molecule)
     // Called by SceneView AFTER each presented frame: an observer, it does not keep the scene drawing. A label is
     // moved only if the camera moved; with the camera still nothing changes and the scene goes idle (document 12).
+    // The turntable's node (document 22), kept here when SceneView creates it. A plain holder, not state: it is set once.
+    val spinNode = remember { arrayOfNulls<NodeImpl>(1) }
+    val currentOnTurnProgress by rememberUpdatedState(onTurnProgress)
+    val currentOnTurnDone by rememberUpdatedState(onTurnDone)
+    LaunchedEffect(turning) {
+        val node = spinNode[0] ?: return@LaunchedEffect
+        if (!turning) {
+            node.rotation = Rotation(0f, 0f, 0f)
+            return@LaunchedEffect
+        }
+        // A frame loop of our own: each frame writes the node's rotation, which also asks SceneView for that frame.
+        val start = withFrameNanos { it }
+        while (true) {
+            val elapsed = withFrameNanos { it } - start
+            node.rotation = Rotation(y = Turntable.angle(elapsed))
+            currentOnTurnProgress(elapsed / 1_000_000L)
+            if (Turntable.isDone(elapsed)) break
+        }
+        currentOnTurnDone()
+    }
+
     val currentOnFrame by rememberUpdatedState(onFrame)
     // WHY frames are drawn (document 21, §19): a line a second in Logcat, tag SwiftyFrames, while the scene draws.
     val diagnosis = remember { FrameDiagnosis() }
@@ -238,7 +269,10 @@ fun MoleculeScene(
             val eye = cameraNode.worldPosition
             diagnosis.onFrame(frameTime, eye.x, eye.y, eye.z)?.let { Log.d(FrameDiagnosis.LOG_TAG, it) }
             if (labelNodes.isNotEmpty()) {
-                val cam = cameraNode.worldPosition
+                // The camera in the MOLECULE's own coordinates: the same as the world's at rest, turned while the
+                // turntable turns (document 22). Asked of the node itself, so no sign convention can be got wrong.
+                val world = cameraNode.worldPosition
+                val cam = spinNode[0]?.getLocalPosition(world) ?: world
                 for ((i, node) in labelNodes) {
                     val atom = currentMolecule.atoms.getOrNull(i) ?: continue
                     val r = currentRepresentation.atomRadius(atom.element, drawnBonded.getOrElse(i) { false })
@@ -283,6 +317,7 @@ fun MoleculeScene(
         // The window between the panels: the molecule is centred THERE, not on the whole screen, while the scene still
         // draws under the panels too. Taps follow (SceneView maps them through the same projection). Document 21, §18.
         contentPadding = contentPadding,
+        surfaceMirrorer = surfaceMirrorer,
         cameraNode = cameraNode,
         onFrame = afterFrame,
         cameraManipulator = rememberCameraManipulator(
@@ -309,155 +344,159 @@ fun MoleculeScene(
         // Compose SKIPS it on a recomposition, so its setters (which ask for a frame each) do not run again.
         RimLight(look.rimLux)
 
-        for ((i, atom) in molecule.atoms.withIndex()) {
-            if (drawn(i) && Assembly.hasAtom(i, built)) {
-                val radius = representation.atomRadius(atom.element, bonded[i])
-                // key: each atom keeps its identity when the list of nodes changes (hydrogens hidden or shown); the
-                // model and the radius are part of it because the TOUCH shape is only set when the node is created
-                // (`apply`): a node reused with a new radius would keep answering taps with the old size.
-                key(i, representation, bonded[i]) {
-                    val detail = when {
-                        representation == Representation.SPACE_FILLING -> MeshDetail.bigBall(atomCount)
-                        radius < 0.3f -> MeshDetail.smallBall(atomCount)
-                        else -> ballDetail
-                    }
-                    SphereNode(
-                        radius = radius, stacks = detail, slices = detail,
-                        materialInstance = materialOf(atom.element),
-                        position = Position(atom.x, atom.y, atom.z),
-                        apply = {
-                            this.name = ScenePick.atomName(i)
-                            this.collisionShape = Sphere(max(radius, MIN_TOUCH_RADIUS))
-                        },
-                    )
-                }
-            }
-        }
-
-        // HALOS. None is touchable: they are bigger than what they surround, and a tap on them must reach the atom (or
-        // the empty space) behind, not count as "a tap on nothing" that would clear the selection.
-        // Gold: every drawn atom of the highlighted element (bonus VII.3).
-        if (highlightElement != null) {
+        // THE TURNTABLE (bonus VII.5, document 22): everything of the molecule hangs from this node. At rest its rotation
+        // is zero and it changes nothing; while a video is recorded it turns once around the vertical axis.
+        Node(apply = { spinNode[0] = this }) {
             for ((i, atom) in molecule.atoms.withIndex()) {
-                if (atom.element == highlightElement && drawn(i) && Assembly.hasAtom(i, built) && (selection as? ScenePick.Atom)?.index != i) {
-                    key("element", i, representation, bonded[i]) {
+                if (drawn(i) && Assembly.hasAtom(i, built)) {
+                    val radius = representation.atomRadius(atom.element, bonded[i])
+                    // key: each atom keeps its identity when the list of nodes changes (hydrogens hidden or shown); the
+                    // model and the radius are part of it because the TOUCH shape is only set when the node is created
+                    // (`apply`): a node reused with a new radius would keep answering taps with the old size.
+                    key(i, representation, bonded[i]) {
+                        val detail = when {
+                            representation == Representation.SPACE_FILLING -> MeshDetail.bigBall(atomCount)
+                            radius < 0.3f -> MeshDetail.smallBall(atomCount)
+                            else -> ballDetail
+                        }
                         SphereNode(
-                            radius = representation.haloRadius(atom.element, bonded[i]),
-                            stacks = ballDetail, slices = ballDetail,
-                            materialInstance = elementHalo,
+                            radius = radius, stacks = detail, slices = detail,
+                            materialInstance = materialOf(atom.element),
                             position = Position(atom.x, atom.y, atom.z),
-                            apply = { this.isTouchable = false },
+                            apply = {
+                                this.name = ScenePick.atomName(i)
+                                this.collisionShape = Sphere(max(radius, MIN_TOUCH_RADIUS))
+                            },
                         )
                     }
                 }
             }
-        }
-        // Green: the selected atom...
-        (selection as? ScenePick.Atom)?.index?.let { i ->
-            val atom = molecule.atoms[i]
-            key("selected atom", i, representation) {
-                SphereNode(
-                    radius = representation.haloRadius(atom.element, bonded[i]),
-                    stacks = ballDetail, slices = ballDetail,
-                    materialInstance = selectionHalo,
-                    position = Position(atom.x, atom.y, atom.z),
-                    apply = { this.isTouchable = false },
-                )
-            }
-        }
-        // ...or the selected bond: a translucent tube along it.
-        (selection as? ScenePick.Bond)?.index?.let { k ->
-            val pose = poses[k]
-            if (pose != null) {
-                key("selected bond", k, representation) {
-                    Node(position = Position(pose.x, pose.y, pose.z), rotation = Rotation(y = pose.spinDegrees)) {
-                        CylinderNode(
-                            radius = max((representation.bondRadius ?: 0f) * BOND_HALO_SCALE, Representation.WIRE_RADIUS * 6),
-                            height = pose.length,
-                            sideCount = sides,
-                            rotation = Rotation(z = pose.tiltDegrees),
-                            materialInstance = selectionHalo,
-                            apply = { this.isTouchable = false },
-                        )
-                    }
-                }
-            }
-        }
 
-        // THE RULER: a green halo on each measured atom and a line from each one to the next (A-B, B-C, C-D).
-        for ((n, i) in measured.withIndex()) {
-            val atom = molecule.atoms[i]
-            key("measured", n, i, representation) {
-                SphereNode(
-                    radius = representation.haloRadius(atom.element, bonded[i]),
-                    stacks = ballDetail, slices = ballDetail,
-                    materialInstance = selectionHalo,
-                    position = Position(atom.x, atom.y, atom.z),
-                    apply = { this.isTouchable = false },
-                )
-            }
-            if (n > 0) {
-                val pose = BondGeometry.poseOf(molecule.atoms[measured[n - 1]], atom) ?: continue
-                key("ruler line", n, measured[n - 1], i) {
-                    Node(position = Position(pose.x, pose.y, pose.z), rotation = Rotation(y = pose.spinDegrees)) {
-                        CylinderNode(
-                            radius = RULER_LINE_RADIUS,
-                            height = pose.length,
-                            sideCount = sides,
-                            rotation = Rotation(z = pose.tiltDegrees),
-                            materialInstance = rulerLine,
-                            apply = { this.isTouchable = false },
-                        )
-                    }
-                }
-            }
-        }
-
-        // LABELS: the element symbol, facing the camera, on the visible face of each drawn atom.
-        if (showLabels) {
-            for ((i, atom) in molecule.atoms.withIndex()) {
-                if (!drawn(i) || !Assembly.hasAtom(i, built)) continue
-                val r = representation.atomRadius(atom.element, bonded[i])
-                key("label", i, representation, bonded[i]) {
-                    // Which node THIS group made. When the model changes, Compose builds the NEW label group first
-                    // (it registers itself) and disposes of the OLD one after: the old one must not remove the new.
-                    val mine = remember { arrayOfNulls<NodeImpl>(1) }
-                    BillboardNode(
-                        bitmap = labelOf(atom.element),
-                        widthMeters = AtomLabels.width(r),
-                        heightMeters = AtomLabels.height(r),
-                        position = Position(atom.x, atom.y, atom.z),   // moved toward the camera after the first frame
-                        cameraPositionProvider = { cameraNode.worldPosition },
-                        apply = {
-                            this.isTouchable = false   // a tap on a label must reach its atom
-                            labelNodes[i] = this
-                            mine[0] = this
-                        },
-                    )
-                    DisposableEffect(mine) { onDispose { if (labelNodes[i] === mine[0]) labelNodes.remove(i) } }
-                }
-            }
-        }
-
-        // BONDS (none in space-filling).
-        val bondRadius = representation.bondRadius
-        if (bondRadius != null) {
-            for (k in drawnBonds) {
-                if (!Assembly.hasBond(k, atomCount, built)) continue
-                val bond = molecule.bonds[k]
-                if (representation.bondsInAtomColours) {
-                    // Two halves, each in the colour of its atom: the colour of a stick says what it joins.
-                    val (first, second) = halves[k] ?: continue
-                    for ((half, pose) in listOf(first, second).withIndex()) {
-                        val element = molecule.atoms[if (half == 0) bond.from else bond.to].element
-                        key("half", k, half, representation) {
-                            BondCylinder(pose, bondRadius, materialOf(element), ScenePick.bondName(k), sides)
+            // HALOS. None is touchable: they are bigger than what they surround, and a tap on them must reach the atom (or
+            // the empty space) behind, not count as "a tap on nothing" that would clear the selection.
+            // Gold: every drawn atom of the highlighted element (bonus VII.3).
+            if (highlightElement != null) {
+                for ((i, atom) in molecule.atoms.withIndex()) {
+                    if (atom.element == highlightElement && drawn(i) && Assembly.hasAtom(i, built) && (selection as? ScenePick.Atom)?.index != i) {
+                        key("element", i, representation, bonded[i]) {
+                            SphereNode(
+                                radius = representation.haloRadius(atom.element, bonded[i]),
+                                stacks = ballDetail, slices = ballDetail,
+                                materialInstance = elementHalo,
+                                position = Position(atom.x, atom.y, atom.z),
+                                apply = { this.isTouchable = false },
+                            )
                         }
                     }
-                } else {
-                    val pose = poses[k] ?: continue
-                    key("bond", k, representation) {
-                        BondCylinder(pose, bondRadius, stick, ScenePick.bondName(k), sides)
+                }
+            }
+            // Green: the selected atom...
+            (selection as? ScenePick.Atom)?.index?.let { i ->
+                val atom = molecule.atoms[i]
+                key("selected atom", i, representation) {
+                    SphereNode(
+                        radius = representation.haloRadius(atom.element, bonded[i]),
+                        stacks = ballDetail, slices = ballDetail,
+                        materialInstance = selectionHalo,
+                        position = Position(atom.x, atom.y, atom.z),
+                        apply = { this.isTouchable = false },
+                    )
+                }
+            }
+            // ...or the selected bond: a translucent tube along it.
+            (selection as? ScenePick.Bond)?.index?.let { k ->
+                val pose = poses[k]
+                if (pose != null) {
+                    key("selected bond", k, representation) {
+                        Node(position = Position(pose.x, pose.y, pose.z), rotation = Rotation(y = pose.spinDegrees)) {
+                            CylinderNode(
+                                radius = max((representation.bondRadius ?: 0f) * BOND_HALO_SCALE, Representation.WIRE_RADIUS * 6),
+                                height = pose.length,
+                                sideCount = sides,
+                                rotation = Rotation(z = pose.tiltDegrees),
+                                materialInstance = selectionHalo,
+                                apply = { this.isTouchable = false },
+                            )
+                        }
+                    }
+                }
+            }
+
+            // THE RULER: a green halo on each measured atom and a line from each one to the next (A-B, B-C, C-D).
+            for ((n, i) in measured.withIndex()) {
+                val atom = molecule.atoms[i]
+                key("measured", n, i, representation) {
+                    SphereNode(
+                        radius = representation.haloRadius(atom.element, bonded[i]),
+                        stacks = ballDetail, slices = ballDetail,
+                        materialInstance = selectionHalo,
+                        position = Position(atom.x, atom.y, atom.z),
+                        apply = { this.isTouchable = false },
+                    )
+                }
+                if (n > 0) {
+                    val pose = BondGeometry.poseOf(molecule.atoms[measured[n - 1]], atom) ?: continue
+                    key("ruler line", n, measured[n - 1], i) {
+                        Node(position = Position(pose.x, pose.y, pose.z), rotation = Rotation(y = pose.spinDegrees)) {
+                            CylinderNode(
+                                radius = RULER_LINE_RADIUS,
+                                height = pose.length,
+                                sideCount = sides,
+                                rotation = Rotation(z = pose.tiltDegrees),
+                                materialInstance = rulerLine,
+                                apply = { this.isTouchable = false },
+                            )
+                        }
+                    }
+                }
+            }
+
+            // LABELS: the element symbol, facing the camera, on the visible face of each drawn atom.
+            if (showLabels) {
+                for ((i, atom) in molecule.atoms.withIndex()) {
+                    if (!drawn(i) || !Assembly.hasAtom(i, built)) continue
+                    val r = representation.atomRadius(atom.element, bonded[i])
+                    key("label", i, representation, bonded[i]) {
+                        // Which node THIS group made. When the model changes, Compose builds the NEW label group first
+                        // (it registers itself) and disposes of the OLD one after: the old one must not remove the new.
+                        val mine = remember { arrayOfNulls<NodeImpl>(1) }
+                        BillboardNode(
+                            bitmap = labelOf(atom.element),
+                            widthMeters = AtomLabels.width(r),
+                            heightMeters = AtomLabels.height(r),
+                            position = Position(atom.x, atom.y, atom.z),   // moved toward the camera after the first frame
+                            cameraPositionProvider = { cameraNode.worldPosition },
+                            apply = {
+                                this.isTouchable = false   // a tap on a label must reach its atom
+                                labelNodes[i] = this
+                                mine[0] = this
+                            },
+                        )
+                        DisposableEffect(mine) { onDispose { if (labelNodes[i] === mine[0]) labelNodes.remove(i) } }
+                    }
+                }
+            }
+
+            // BONDS (none in space-filling).
+            val bondRadius = representation.bondRadius
+            if (bondRadius != null) {
+                for (k in drawnBonds) {
+                    if (!Assembly.hasBond(k, atomCount, built)) continue
+                    val bond = molecule.bonds[k]
+                    if (representation.bondsInAtomColours) {
+                        // Two halves, each in the colour of its atom: the colour of a stick says what it joins.
+                        val (first, second) = halves[k] ?: continue
+                        for ((half, pose) in listOf(first, second).withIndex()) {
+                            val element = molecule.atoms[if (half == 0) bond.from else bond.to].element
+                            key("half", k, half, representation) {
+                                BondCylinder(pose, bondRadius, materialOf(element), ScenePick.bondName(k), sides)
+                            }
+                        }
+                    } else {
+                        val pose = poses[k] ?: continue
+                        key("bond", k, representation) {
+                            BondCylinder(pose, bondRadius, stick, ScenePick.bondName(k), sides)
+                        }
                     }
                 }
             }

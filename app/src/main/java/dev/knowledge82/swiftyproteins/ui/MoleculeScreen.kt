@@ -1,5 +1,12 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import dev.knowledge82.swiftyproteins.scene.SceneFraming
+import dev.knowledge82.swiftyproteins.scene.Turntable
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CompletableDeferred
+import io.github.sceneview.capture.rememberSceneRecorder
+import io.github.sceneview.capture.VideoSettings
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.boundsInWindow
@@ -162,8 +169,69 @@ fun MoleculeScreen(
     val view = LocalView.current
     // The export menu (document 18): SHR opens it; each choice runs here.
     var exportMenu by remember { mutableStateOf(false) }
+
+    // THE VIDEO (bonus VII.5, document 22). SceneView's recorder encodes what the scene draws (none of the panels) into
+    // an MP4 while the molecule makes one full turn. While it records, the panels give way to a REC line and Cancel,
+    // and the camera aims at the whole screen, so the molecule is in the middle of the video.
+    val recorder = rememberSceneRecorder()
+    var recordingMode by remember { mutableStateOf(false) }
+    var turning by remember { mutableStateOf(false) }
+    var turnMillis by remember { mutableLongStateOf(0L) }
+    val turnDone = remember { arrayOfNulls<CompletableDeferred<Unit>>(1) }
+    var videoJob by remember { mutableStateOf<Job?>(null) }
+    fun startVideo(format: ExportFormat) {
+        share = ShareStatus.Working(format)
+        sounds.play(SoundCue.SHUTTER)
+        selectedAtom = null   // a clean video: no halo of a selection (select() is declared further down)
+        selectedBond = null
+        focus = null          // the turn is around the molecule's centre: no orbit around one atom
+        videoJob = scope.launch {
+            val done = CompletableDeferred<Unit>()
+            turnDone[0] = done
+            recordingMode = true
+            turnMillis = 0L
+            try {
+                delay(Turntable.SETTLE_MILLIS)   // the panels go and the camera re-aims before the first frame
+                recorder.overlay = MoleculeSharer.videoCaption(context, molecule)
+                val settings = VideoSettings(frameRate = Turntable.FRAME_RATE, maxDurationMillis = Turntable.MAX_RECORDING_MILLIS)
+                if (!recorder.startRecording(recorder.newCaptureFile("mp4"), settings)) {
+                    Log.w("SwiftyProteins", "video of ${molecule.id} did not start", recorder.lastError)
+                    throw CaptureException(CaptureFailure.VIDEO_FAILED, recorder.lastError)
+                }
+                turning = true
+                done.await()
+                val recording = recorder.stopRecording() ?: throw CaptureException(CaptureFailure.VIDEO_FAILED, recorder.lastError)
+                turning = false
+                recordingMode = false
+                MoleculeSharer.deliverVideo(context, molecule, recording.file, format)
+                share = ShareStatus.Done(format)
+            } catch (e: CancellationException) {
+                recorder.stopRecording()?.file?.delete()   // cancelled: nothing of it stays on the phone
+                throw e
+            } catch (e: CaptureException) {
+                share = ShareStatus.Failed(e.failure)
+            } catch (e: Exception) {
+                Log.w("SwiftyProteins", "video of ${molecule.id} failed", e)
+                share = ShareStatus.Failed(CaptureFailure.VIDEO_FAILED)
+            } finally {
+                turning = false
+                recordingMode = false
+                recorder.overlay = null
+                turnDone[0] = null
+            }
+        }
+    }
+    fun cancelVideo() {
+        videoJob?.cancel()
+        videoJob = null
+        share = ShareStatus.Failed(CaptureFailure.VIDEO_CANCELLED)
+    }
+    // While recording, the system Back cancels the recording (registered AFTER the screen's own Back: it wins).
+    BackHandler(enabled = recordingMode) { cancelVideo() }
+
     fun startExport(format: ExportFormat) {
         if (!share.canStart || assembling) return   // an image of half a molecule is not what the user asked for
+        if (format.isVideo) { startVideo(format); return }
         share = ShareStatus.Working(format)
         sounds.play(SoundCue.SHUTTER)
         scope.launch {
@@ -182,14 +250,23 @@ fun MoleculeScreen(
         }
     }
     // Android 7-9 only: the gallery needs WRITE_EXTERNAL_STORAGE, asked the first time (the system remembers the answer).
+    // Which gallery export asked for it (image or video): it runs once the answer comes.
+    var waitingForPermission by remember { mutableStateOf<ExportFormat?>(null) }
     val storagePermission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-        if (granted) startExport(ExportFormat.GALLERY) else share = ShareStatus.Failed(CaptureFailure.NEEDS_PERMISSION)
+        val format = waitingForPermission ?: ExportFormat.GALLERY
+        waitingForPermission = null
+        if (granted) startExport(format) else share = ShareStatus.Failed(CaptureFailure.NEEDS_PERMISSION)
     }
     fun choose(format: ExportFormat) {
         exportMenu = false
-        val needsPermission = format == ExportFormat.GALLERY && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
+        val needsPermission = format.toGallery && Build.VERSION.SDK_INT < Build.VERSION_CODES.Q &&
             ContextCompat.checkSelfPermission(context, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED
-        if (needsPermission) storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE) else startExport(format)
+        if (needsPermission) {
+            waitingForPermission = format
+            storagePermission.launch(Manifest.permission.WRITE_EXTERNAL_STORAGE)
+        } else {
+            startExport(format)
+        }
     }
     val onShare = { if (share.canStart && !assembling) exportMenu = true }
     if (exportMenu) ExportDialog(onChoose = ::choose, onDismiss = { exportMenu = false })
@@ -231,7 +308,9 @@ fun MoleculeScreen(
     var screenBounds by remember { mutableStateOf<Rect?>(null) }
     var windowBounds by remember { mutableStateOf<Rect?>(null) }
     val density = LocalDensity.current
-    val cover = coverOf(screenBounds, windowBounds)
+    // While a video is recorded the camera aims at the WHOLE screen (the video is the whole surface): no panels cover it.
+    val cover = if (recordingMode) screenBounds?.let { Viewport.Cover(0f, 0f, 0f, 0f, SceneFraming.aspectKey(it.width, it.height)) }
+    else coverOf(screenBounds, windowBounds)
     // A panel that changes height (a long name, the ruler) moves the window: the molecule GLIDES to the new centre.
     val coverLeft by animateDpAsState(with(density) { (cover?.left ?: 0f).toDp() }, label = "cover left")
     val coverTop by animateDpAsState(with(density) { (cover?.top ?: 0f).toDp() }, label = "cover top")
@@ -277,9 +356,15 @@ fun MoleculeScreen(
             atomColors = atomColors,
             contentPadding = PaddingValues(start = coverLeft, top = coverTop, end = coverRight, bottom = coverBottom),
             visibleAspect = cover.aspectKey,
+            surfaceMirrorer = recorder.surfaceMirrorer,
+            turning = turning,
+            onTurnProgress = { turnMillis = it },
+            onTurnDone = { turnDone[0]?.complete(Unit) },
         )
 
-        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        if (recordingMode) {
+            RecordingOverlay(label = Turntable.label(turnMillis), recording = turning, onCancel = ::cancelVideo)
+        } else BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val landscape = maxWidth > maxHeight
             // Read HERE, in the BoxWithConstraints scope itself: inside the Row and the Column below, `maxWidth` would be
             // taken from an OUTER layout scope, which Compose forbids (@LayoutScopeMarker, a Kotlin @DslMarker).
@@ -485,29 +570,68 @@ private const val FPS_REFRESH_MILLIS = 250L
 private val FPS_LABEL_WIDTH = 64.dp
 
 /**
- * "PICT-CAPTURE // EXPORT" (document 18): the six things SHR can do. Each row is a 64 dp button with what it does and
+ * "PICT-CAPTURE // EXPORT" (documents 18 and 22): the eight things SHR can do. Each row is a 64 dp button with what it does and
  * the format; Back or a tap outside closes it.
  */
 @Composable
 private fun ExportDialog(onChoose: (ExportFormat) -> Unit, onDismiss: () -> Unit) {
     Dialog(onDismissRequest = onDismiss) {
         CogitatorPanel(label = "PICT-CAPTURE // EXPORT", cut = 11.dp, modifier = Modifier.widthIn(max = 440.dp)) {
-            for (format in ExportFormat.entries) {
-                Surface(
-                    onClick = { onChoose(format) },
-                    color = Color.Transparent,
-                    modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
-                ) {
-                    Column(verticalArrangement = Arrangement.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
-                        Text(format.label, style = MaterialTheme.typography.titleMedium, color = SwiftyColors.Gold)
-                        Text(format.detail, style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+            // Eight choices: on a phone in landscape they do not fit, so they scroll (Cancel stays visible below).
+            Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
+                for (format in ExportFormat.entries) {
+                    Surface(
+                        onClick = { onChoose(format) },
+                        color = Color.Transparent,
+                        modifier = Modifier.fillMaxWidth().heightIn(min = 64.dp),
+                    ) {
+                        Column(verticalArrangement = Arrangement.Center, modifier = Modifier.padding(horizontal = 8.dp, vertical = 8.dp)) {
+                            Text(format.label, style = MaterialTheme.typography.titleMedium, color = SwiftyColors.Gold)
+                            Text(format.detail, style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+                        }
                     }
+                    ConsoleRule()
                 }
-                ConsoleRule()
             }
             Spacer(Modifier.height(12.dp))
             SecondaryButton("Cancel", onClick = onDismiss, modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp))
         }
+    }
+}
+
+/**
+ * While the video is recorded (document 22): the panels are gone (the recorder captures only the scene, but the user
+ * should see what the video will be), a REC line at the top, Cancel at the bottom. It covers the whole screen and
+ * takes every touch: a finger turning the molecule would spoil the turn.
+ */
+@Composable
+private fun RecordingOverlay(label: String, recording: Boolean, onCancel: () -> Unit) {
+    Box(
+        Modifier
+            .fillMaxSize()
+            .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null, onClickLabel = null) { }
+            .padding(horizontal = 24.dp, vertical = 18.dp),
+    ) {
+        CogitatorPanel(
+            label = "VID-CAPTURE",
+            accent = SwiftyColors.OpticRed,
+            fill = SwiftyColors.ConsoleOverlay,
+            contentPadding = 10.dp,
+            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth(),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                // The red dot: never the only sign (the words say REC too).
+                Box(Modifier.size(12.dp).background(if (recording) SwiftyColors.OpticRed else SwiftyColors.Ash, CircleShape))
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    if (recording) label else "Preparing the turntable…",
+                    style = MaterialTheme.typography.labelMedium.glowing(SwiftyColors.OpticRed),
+                    color = if (recording) SwiftyColors.OpticRed else SwiftyColors.Ash,
+                    maxLines = 1,
+                )
+            }
+        }
+        SecondaryButton("Cancel", onClick = onCancel, modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth())
     }
 }
 

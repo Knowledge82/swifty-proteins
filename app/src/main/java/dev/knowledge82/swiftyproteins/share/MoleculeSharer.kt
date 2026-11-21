@@ -95,6 +95,8 @@ object MoleculeSharer {
                 }
                 openShareSheet(context, file, molecule, format)
             }
+            // A video is recorded by the SCREEN (it owns the scene and its recorder) and handed to [deliverVideo].
+            ExportFormat.VIDEO, ExportFormat.VIDEO_GALLERY -> error("a video is delivered with deliverVideo")
             ExportFormat.MOL, ExportFormat.GLB -> {
                 val file = withContext(Dispatchers.Default) {
                     val bytes = try {
@@ -173,11 +175,19 @@ object MoleculeSharer {
 
     /** A new bitmap: the scene on top, a dark band with the caption below (so the image says which ligand it is). */
     private fun addCaption(context: Context, scene: Bitmap, caption: String): Bitmap {
-        val band = (scene.width * 0.09f).toInt().coerceAtLeast(48)
+        val band = bandHeight(scene.width)
         val out = Bitmap.createBitmap(scene.width, scene.height + band, Bitmap.Config.ARGB_8888)
         val canvas = Canvas(out)
         canvas.drawColor(BAND_COLOR)
         canvas.drawBitmap(scene, 0f, 0f, null)
+        drawCaption(context, canvas, scene.width, scene.height, band, caption)
+        return out
+    }
+
+    private fun bandHeight(width: Int) = (width * 0.09f).toInt().coerceAtLeast(48)
+
+    /** The caption band: dark, at [top], [band] pixels tall, the text in the app's console font. */
+    private fun drawCaption(context: Context, canvas: Canvas, width: Int, top: Int, band: Int, caption: String) {
         val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
             color = TEXT_COLOR
             textSize = band * 0.38f
@@ -186,12 +196,53 @@ object MoleculeSharer {
         }
         // Shrink the text if the caption would not fit between the margins (it did not, with the wide pixel font tried
         // before; Share Tech Mono is narrower, but a long ligand id or a small capture can still need it).
-        val maxWidth = scene.width - band * 0.8f
-        val width = paint.measureText(caption)
-        if (width > maxWidth) paint.textSize = paint.textSize * maxWidth / width
-        val baseline = scene.height + band / 2f - (paint.descent() + paint.ascent()) / 2f
+        val maxWidth = width - band * 0.8f
+        val textWidth = paint.measureText(caption)
+        if (textWidth > maxWidth) paint.textSize = paint.textSize * maxWidth / textWidth
+        val background = Paint().apply { color = BAND_COLOR }
+        canvas.drawRect(0f, top.toFloat(), width.toFloat(), (top + band).toFloat(), background)
+        val baseline = top + band / 2f - (paint.descent() + paint.ascent()) / 2f
         canvas.drawText(caption, band * 0.4f, baseline, paint)
-        return out
+    }
+
+    /**
+     * The caption of the VIDEO (document 22): the same band as the images, drawn by SceneView's recorder over the
+     * bottom of every frame (the video keeps the scene's size; there is no room to add a band below).
+     */
+    fun videoCaption(context: Context, molecule: Molecule): io.github.sceneview.capture.CaptureOverlay {
+        val caption = ShareText.caption(molecule)
+        val appContext = context.applicationContext
+        return io.github.sceneview.capture.CaptureOverlay { canvas, width, height ->
+            val band = bandHeight(width)
+            drawCaption(appContext, canvas, width, height - band, band, caption)
+        }
+    }
+
+    /**
+     * Shares the recorded video, or puts it in the gallery's Movies/Swifty Proteins (document 22). The recording is
+     * in the app's own folder; for sharing it is COPIED into the shared folder (the only one the FileProvider opens).
+     */
+    suspend fun deliverVideo(context: Context, molecule: Molecule, recording: File, format: ExportFormat) {
+        require(format.isVideo)
+        if (!recording.isFile || recording.length() == 0L) throw CaptureException(CaptureFailure.VIDEO_FAILED)
+        try {
+            if (format == ExportFormat.VIDEO_GALLERY) {
+                withContext(Dispatchers.IO) {
+                    try { GallerySaver.saveVideo(context, recording, GalleryName.of(molecule.id, System.currentTimeMillis(), "mp4")) }
+                    catch (e: IOException) { throw CaptureException(CaptureFailure.WRITE_FAILED, e) }
+                }
+            } else {
+                val store = ShareImageStore(File(context.cacheDir, ShareImageStore.DIRECTORY))
+                val file = withContext(Dispatchers.IO) {
+                    try { store.save(molecule.id, "mp4") { out -> recording.inputStream().use { it.copyTo(out) } } }
+                    catch (e: IOException) { throw CaptureException(CaptureFailure.WRITE_FAILED, e) }
+                }
+                openShareSheet(context, file, molecule, format)
+            }
+        } finally {
+            // The recorder's own copy is not needed any more: the video lives on in the gallery or the shared folder.
+            withContext(Dispatchers.IO) { recording.delete() }
+        }
     }
 
     /**

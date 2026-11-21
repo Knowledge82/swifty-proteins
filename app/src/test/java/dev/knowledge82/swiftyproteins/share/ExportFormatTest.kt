@@ -26,8 +26,26 @@ class ExportFormatTest {
     }
 
     @Test
-    fun theMenuHasTheSixChoicesInOrder() {
-        assertEquals(listOf("PNG", "JPEG", "GALLERY", "CIF", "MOL", "GLB"), ExportFormat.entries.map { it.name })
+    fun theMenuHasTheEightChoicesInOrder() {
+        assertEquals(listOf("PNG", "JPEG", "GALLERY", "CIF", "MOL", "GLB", "VIDEO", "VIDEO_GALLERY"), ExportFormat.entries.map { it.name })
+    }
+
+    @Test
+    fun videosAreMp4AndGoAsVideo() {
+        // Document 22: unlike the chemical files, every phone has apps that claim video/mp4.
+        for (f in listOf(ExportFormat.VIDEO, ExportFormat.VIDEO_GALLERY)) {
+            assertTrue(f.isVideo); assertFalse(f.isImage)
+            assertEquals("mp4", f.extension)
+            assertEquals("video/mp4", f.intentType)
+        }
+        assertEquals(listOf(ExportFormat.GALLERY, ExportFormat.VIDEO_GALLERY), ExportFormat.entries.filter { it.toGallery })
+        assertTrue(ExportFormat.entries.none { it.isImage && it.isVideo })
+    }
+
+    @Test
+    fun aVideoInTheGalleryGetsItsOwnExtension() {
+        assertTrue(GalleryName.of("ATP", 0L, "mp4").endsWith(".mp4"))
+        assertTrue(GalleryName.of("ATP", 0L).endsWith(".png"))
     }
 
     @Test
