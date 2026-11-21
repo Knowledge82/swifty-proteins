@@ -2,7 +2,8 @@ package dev.knowledge82.swiftyproteins.catalog
 
 /**
  * What the list knows about each ligand WITHOUT downloading it (bonus VII.2 "custom cells", document 21): its name,
- * its Hill formula and its number of atoms, from `assets/ligand_index.tsv`. Pure, tested.
+ * its Hill formula and its number of atoms, from `assets/ligand_index.tsv`. Pure, tested. (The name is no longer shown
+ * nor searched, document 23; TalkBack still reads it.)
  *
  * The file is made by `tools/index/BuildLigandIndex.kt` with the app's OWN parser and formula, so a cell never says
  * something different from what the molecule screen shows after loading.
@@ -17,9 +18,6 @@ class LigandIndex private constructor(private val entries: Map<String, Entry>) {
     operator fun get(id: String): Entry? = entries[id]
 
     val size: Int get() = entries.size
-
-    /** The name of [id], or null (no entry, or an empty name). */
-    fun nameOf(id: String): String? = entries[id]?.name?.takeIf { it.isNotEmpty() }
 
     companion object {
         val EMPTY = LigandIndex(emptyMap())

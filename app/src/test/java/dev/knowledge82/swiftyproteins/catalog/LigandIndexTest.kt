@@ -33,36 +33,19 @@ class LigandIndexTest {
     @Test
     fun anEmptyNameIsNoName() {
         val index = LigandIndex.fromText(text)
-        assertNull(index.nameOf("K"))
-        assertEquals("CAFFEINE", index.nameOf("CFF"))
-        assertNull(index.nameOf("ZZZ"))
+        assertEquals("", index["K"]!!.name)
+        assertEquals("CAFFEINE", index["CFF"]!!.name)
+        assertNull(index["ZZZ"])
         assertEquals(0, LigandIndex.EMPTY.size)
     }
 
-    // ---------------------------------------------------------------- the search by name
-
-    private val catalog = LigandCatalog.fromText("ATP\nCFF\nK\nCAF\nAC")
+    // ---------------------------------------------------------------- the search is by id only (document 23)
 
     @Test
-    fun theNameFindsWhatTheIdCannot() {
-        val index = LigandIndex.fromText(text)
-        assertEquals(listOf("CFF"), catalog.search("caffeine", index::nameOf))
-        assertEquals(listOf("ATP"), catalog.search("triphosphate", index::nameOf))
-    }
-
-    @Test
-    fun idMatchesComeFirstAndNothingTwice() {
-        // "CAF" matches the id CAF and the NAME of CFF ("CAFFEINE"): the id first, then the name, each once.
-        val index = LigandIndex.fromText(text)
-        assertEquals(listOf("CAF", "CFF"), catalog.search("caf", index::nameOf))
-        // "A": ids starting with it, ids containing it, then names (ATP's and CFF's names contain A but they are already in).
-        val r = catalog.search("a", index::nameOf)
-        assertEquals(r.size, r.toSet().size)
-        assertEquals(listOf("ATP", "AC", "CAF", "CFF"), r)
-    }
-
-    @Test
-    fun withoutNamesTheSearchIsTheOldOne() {
+    fun theNameIsNoLongerSearched() {
+        // CFF is CAFFEINE in the index, but the list searches ids only: a hit nobody could see on the row looked wrong.
+        val catalog = LigandCatalog.fromText("ATP\nCFF\nK\nCAF\nAC")
+        assertTrue(catalog.search("caffeine").isEmpty())
         assertEquals(listOf("CAF"), catalog.search("caf"))
     }
 

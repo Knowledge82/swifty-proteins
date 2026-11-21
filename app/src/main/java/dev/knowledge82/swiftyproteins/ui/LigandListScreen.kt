@@ -64,7 +64,7 @@ import dev.knowledge82.swiftyproteins.ui.theme.glowing
  * Only the LOOK changed with the design; the logic (search, keys, hiding the keyboard) is the same as before.
  *
  * @param catalog  the ligands, or `null` if the file could not be read
- * @param index    name, formula and size of each ligand, for the cells and the search by name (document 21)
+ * @param index    formula and size of each ligand, for the cells (document 21); the name only for TalkBack (document 23)
  * @param archived the ids with a copy on the phone: their cells say ARCHIVED
  */
 @Composable
@@ -87,7 +87,7 @@ fun LigandListScreen(
     // Recomputed ONLY when the catalog, the text or the favourites filter change (not on every recomposition). It is
     // the "real time" search: each keystroke changes `query`, this line runs again and the list below redraws.
     val results = remember(catalog, index, query, favorites, onlyFavorites) {
-        Favorites.filter(catalog?.search(query, index::nameOf) ?: emptyList(), favorites, onlyFavorites)
+        Favorites.filter(catalog?.search(query) ?: emptyList(), favorites, onlyFavorites)
     }
     val total = remember(catalog) { catalog?.search("")?.size ?: 0 }
     val available = catalog != null
@@ -224,7 +224,13 @@ fun LigandListScreen(
 // The search column in landscape: about two fifths of the screen, never wider than this.
 private val LIST_SIDE_MAX = 400.dp
 
-/** The search box as a console prompt: "> SEARCH BY LIGAND ID", with a 48 dp clear key when there is text. */
+/**
+ * The search box as a console prompt, "> _ Search by ID", with a 48 dp clear key when there is text (document 23).
+ *
+ * The "_" after the prompt blinks while the box is EMPTY, and the field's own cursor is hidden then (transparent): the
+ * console cursor IS the cursor, there are never two blinking at once. With the first letter typed, the "_" goes away
+ * and the field's cursor appears after the text, where the next letter will go.
+ */
 @Composable
 private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: Boolean) {
     OutlinedTextField(
@@ -234,8 +240,13 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
         textStyle = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor),
-        placeholder = { Text("Search by ID or name", style = SwiftyDataText.medium) },
-        leadingIcon = { Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor) },
+        placeholder = { Text("Search by ID", style = SwiftyDataText.medium) },
+        leadingIcon = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+                if (query.isEmpty()) BlinkingCursor(style = SwiftyDataText.large)
+            }
+        },
         trailingIcon = if (query.isEmpty()) null else {
             {
                 IconButton(onClick = { onQueryChange("") }) {
@@ -252,7 +263,7 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
             disabledContainerColor = SwiftyColors.Abyss,
             focusedBorderColor = SwiftyColors.Phosphor,
             unfocusedBorderColor = Color.Transparent,
-            cursorColor = SwiftyColors.Phosphor,
+            cursorColor = if (query.isEmpty()) Color.Transparent else SwiftyColors.Phosphor,
             focusedTrailingIconColor = SwiftyColors.Gold,
             unfocusedTrailingIconColor = SwiftyColors.Gold,
             focusedPlaceholderColor = SwiftyColors.Ash,
@@ -264,11 +275,13 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
 /**
  * One ligand as a rich console cell (bonus VII.2 "custom cells", document 21), all of it tappable, the star its own key:
  *
- *     > ATP   ADENOSINE-5'-TRIPHOSPHATE                    ☆
- *             C10H16N5O13P3 · 47 ATOMS            ARCHIVED
- *             ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇  (the share of each element, in its colour)
+ *     > ATP                                               ☆
+ *       C10H16N5O13P3 · 47 ATOMS                 ARCHIVED
+ *       ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇  (the share of each element, in its colour)
  *
- * Without an index entry (the file is missing, or a ligand added later) it is the old line: the id alone.
+ * The chemical name is not shown (document 23: long, grey, clipped by the ellipsis, and searching by it is gone too); it
+ * is still READ by TalkBack, where it costs no room. Without an index entry (the file is missing, or a ligand added
+ * later) it is the old line: the id alone.
  */
 @Composable
 private fun PatternRow(
@@ -292,17 +305,7 @@ private fun PatternRow(
                 Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f).clearAndSetSemantics { }) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(id, style = SwiftyDataText.large.glowing(SwiftyColors.Bone, 0.25f), color = SwiftyColors.Bone, modifier = Modifier.width(64.dp))
-                        Text(
-                            entry?.name?.takeIf { it.isNotEmpty() } ?: "·······",
-                            style = SwiftyDataText.small,
-                            color = if (entry == null) SwiftyColors.PhosphorDim else SwiftyColors.Ash,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.weight(1f),
-                        )
-                    }
+                    Text(id, style = SwiftyDataText.large.glowing(SwiftyColors.Bone, 0.25f), color = SwiftyColors.Bone, maxLines = 1)
                     if (entry != null) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(

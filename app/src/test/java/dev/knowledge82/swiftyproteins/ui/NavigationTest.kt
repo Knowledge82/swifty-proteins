@@ -56,23 +56,7 @@ class NavigationTest {
     }
 
     @Test
-    fun deeperGoesForwardAndBackGoesBack() {
-        assertEquals(1, Navigation.direction(Screen.Index, Screen.Molecule(atp, Origin.NETWORK)))
-        assertEquals(-1, Navigation.direction(Screen.Molecule(atp, Origin.NETWORK), Screen.Index))
-        assertEquals(-1, Navigation.direction(Screen.Settings, Screen.Index))
-        assertEquals(1, Navigation.direction(Screen.Boot, Screen.Access))
-        assertEquals(0, Navigation.direction(Screen.Settings, Screen.Molecule(atp, Origin.NETWORK)))
-    }
-
-    @Test
-    fun theTutorialAlwaysGoesForward() {
-        assertEquals(1, Navigation.direction(Screen.Settings, Screen.Tutorial))
-        assertEquals(1, Navigation.direction(Screen.Tutorial, Screen.Settings))
-        assertEquals(1, Navigation.direction(Screen.Tutorial, Screen.Access))
-    }
-
-    @Test
-    fun keysAreUniqueSoEveryScreenAnimates() {
+    fun keysAreUniqueSoEveryChangeOfScreenSwitchesTheTube() {
         val all = listOf(Screen.Boot, Screen.Tutorial, Screen.Access, Screen.Index, Screen.Settings, Screen.Molecule(atp, Origin.NETWORK))
         assertEquals(all.size, all.map { it.key }.toSet().size)
     }

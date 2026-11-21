@@ -164,6 +164,8 @@ En el 3D (un material por elemento **y por esquema**), en la leyenda (con un aro
 6. **ajustes**;
 7. **índice**.
 
+> **Sustituido (documento 23):** el cambio de pantalla es ahora un **tubo de rayos catódicos que se apaga y se enciende** (`CrtSwitch`). Lo que sigue describe la primera versión, que quedó en la historia del repositorio.
+
 `AnimatedContent` anima el cambio. Hacia una pantalla **más profunda**, la nueva entra por la derecha (¼ del ancho) y se funde; al **volver**, al revés; al mismo nivel, solo fundido. Duran **300 ms**, o **0** si el usuario quitó las animaciones del sistema (`rememberReduceMotion`). El tutorial siempre va «hacia delante»: es un desvío, no un nivel.
 
 ### 5.2 La pantalla lleva lo que necesita
@@ -211,7 +213,7 @@ Una vez, **antes** del acceso: no enseña nada privado, y quien instala la app v
          ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
 ```
 
-- **Nombre** (CCD), cortado con «…» si no cabe.
+- **Nombre** (CCD), cortado con «…» si no cabe. **Quitado de la vista (documento 23)**: TalkBack lo sigue leyendo.
 - **Fórmula** con subíndices tipográficos (los mismos que en la molécula, ahora compartidos en `FormulaText.kt`) y **número de átomos**.
 - **ARCHIVED**: hay copia en el móvil (documento 13), así que se abre sin conexión. Se actualiza al cargar un ligando.
 - **Barra de composición**: la proporción de cada elemento, en su color. Antes de descargar nada ya se ve si es casi todo carbono e hidrógeno o un ion metálico. Es decoración: TalkBack recibe lo mismo en palabras.
@@ -226,6 +228,8 @@ Una vez, **antes** del acceso: no enseña nada privado, y quien instala la app v
 - La lectura es **permisiva línea a línea**: una línea rota se salta. Sin fichero, las celdas vuelven a ser las de antes.
 
 ### 7.3 Búsqueda por nombre
+
+> **Quitada (documento 23):** con el nombre fuera de la celda, una fila encontrada por un nombre invisible parecía un resultado equivocado. La búsqueda vuelve a ser **solo por ID** y el cuadro dice «Search by ID».
 
 `LigandCatalog.search(texto, nombreDe)`: primero los ids que **empiezan** por el texto, luego los que lo **contienen**, y después los ligandos cuyo **nombre** lo contiene. Ninguno aparece **dos veces**. «caffeine» encuentra CFF; «heme» encuentra HEM y sus parientes. El cuadro dice «Search by ID or name».
 
@@ -321,9 +325,9 @@ Con ella se encontraron y corrigieron **19 errores en cuatro sitios**: 12 lectur
 | D69 | La paleta por **`CompositionLocal` estático**, con getters `@Composable`; el arranque, siempre oscuro | Decidida | Una parte del árbol puede tener otra paleta |
 | D70 | El **3D sigue al tema**: skybox compensado para el *tone mapper* PBR Neutral, halos y contraluz por tema | Decidida (sin probar en el móvil) | VII.2 «también en el 3D» |
 | D71 | **Dos esquemas CPK** (Jmol, RasMol), verificados contra fuentes; en 3D, leyenda, lista y .glb | Decidida | VII.2 «ajustes: colores» |
-| D72 | **Pantalla elegida por función pura** y animada con `AnimatedContent`; la pantalla lleva sus datos | Decidida | VII.2 «transiciones»; amplía D19 |
+| D72 | **Pantalla elegida por función pura** y animada con `AnimatedContent`; la pantalla lleva sus datos | Decidida; la animación, sustituida por D84 | VII.2 «transiciones»; amplía D19 |
 | D73 | **Tutorial** de 4 páginas antes del acceso, una vez, repetible | Decidida | VII.2 «onboarding» |
-| D74 | **Celdas ricas** desde un **índice incluido** generado con el parser de la app; búsqueda por nombre; marca ARCHIVED | Decidida | VII.2 «celdas personalizadas» |
+| D74 | **Celdas ricas** desde un **índice incluido** generado con el parser de la app; búsqueda por nombre; marca ARCHIVED | Decidida; nombre y búsqueda por nombre, quitados por D86 | VII.2 «celdas personalizadas» |
 | D75 | **Comprobación de reglas de Compose** con el plugin de `kotlinc` sobre los *stubs* | Decidida | Encontró 19 errores que solo habría visto Gradle |
 
 ## 15. Fuentes

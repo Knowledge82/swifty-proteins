@@ -17,12 +17,12 @@ class LigandCatalog private constructor(
      * - Case does not matter: "atp", "ATP" and "aTp" are the same search.
      * - Spaces at the ends are ignored.
      * - An id matches if it CONTAINS the text; the ones that START with it come first, then the rest.
-     * - Then (document 21) the ligands whose NAME contains the text ([nameOf]): "caffeine" finds CFF. Never twice:
-     *   an id that already matched is not repeated.
+     * - Only the ID is searched (document 23). The search by chemical name (document 21) was removed together with
+     *   the name in the cells: a row that matched by a name nobody could see looked like a wrong result.
      * - Inside each group the order of the file is kept.
      * - Empty text (or only spaces) matches everything.
      */
-    fun search(query: String, nameOf: (String) -> String? = { null }): List<String> {
+    fun search(query: String): List<String> {
         val wanted = query.trim()
         if (wanted.isEmpty()) return ids
 
@@ -31,10 +31,7 @@ class LigandCatalog private constructor(
         val (startingWith, containing) = ids
             .filter { it.contains(wanted, ignoreCase = true) }
             .partition { it.startsWith(wanted, ignoreCase = true) }
-        val byId = startingWith + containing
-        val already = byId.toHashSet()
-        val byName = ids.filter { it !in already && nameOf(it)?.contains(wanted, ignoreCase = true) == true }
-        return byId + byName
+        return startingWith + containing
     }
 
     companion object {

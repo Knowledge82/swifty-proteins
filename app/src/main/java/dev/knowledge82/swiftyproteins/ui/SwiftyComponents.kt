@@ -38,6 +38,17 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.drawRect
+import androidx.compose.ui.graphics.linearGradient
+import androidx.compose.ui.text.TextStyle
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -250,8 +261,8 @@ fun CogitatorBackground(modifier: Modifier = Modifier, content: @Composable BoxS
 }
 
 /**
- * The header of a screen: tab "COGITATOR // MK.VII", the skull-cog emblem, the app name in blackletter and a console
- * subtitle ("DATA-VAULT INDEX // PRIMARY ARCHIVE").
+ * The header of a screen: tab "COGITATOR // MK.VII", the skull-cog emblem, the app name in blackletter (with a glint of
+ * light running over it every few seconds, [GlintText]) and a console subtitle ("DATA-VAULT INDEX // PRIMARY ARCHIVE").
  */
 @Composable
 fun HeaderPanel(
@@ -265,7 +276,7 @@ fun HeaderPanel(
             Image(painterResource(R.drawable.emblem), contentDescription = null, modifier = Modifier.size(44.dp))
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text("Swifty Proteins", style = MaterialTheme.typography.headlineMedium.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, maxLines = 1)
+                GlintText("Swifty Proteins", style = MaterialTheme.typography.headlineMedium.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold)
                 Text(subtitle, style = MaterialTheme.typography.labelSmall.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, maxLines = 1)
             }
             action?.invoke()
@@ -484,19 +495,90 @@ fun BobbingArt(@DrawableRes art: Int, modifier: Modifier = Modifier, size: Dp = 
     ArtImage(art, modifier.graphicsLayer { translationY = if (reduce) 0f else offset * density }, size)
 }
 
-/** A console text cursor "_" that blinks every 0.7 s (steady if motion is reduced). */
+/**
+ * A console text cursor "_" that blinks: [CURSOR_BLINK_MILLIS] lit, the same dark (steady if motion is reduced).
+ *
+ * A plain wait loop flips one boolean twice per blink, and the boolean is read in the LAYER (graphicsLayer alpha),
+ * not in the composition: a blink only redraws the cursor's layer. (An infinite tween, as before, asked for a frame
+ * at the screen's full rate the whole time, even though the cursor changed only twice a second.)
+ */
 @Composable
-fun BlinkingCursor(color: Color = SwiftyColors.Phosphor) {
+fun BlinkingCursor(color: Color = SwiftyColors.Phosphor, style: TextStyle = SwiftyDataText.medium) {
     val reduce = rememberReduceMotion()
-    val blink = rememberInfiniteTransition(label = "cursor")
-    val alpha by blink.animateFloat(
-        initialValue = 1f,
-        targetValue = 0f,
-        animationSpec = infiniteRepeatable(tween(durationMillis = 700, easing = LinearEasing), RepeatMode.Reverse),
-        label = "cursor alpha",
-    )
-    Text("_", style = SwiftyDataText.medium.glowing(color), color = color.copy(alpha = if (reduce) 1f else if (alpha > 0.5f) 1f else 0f))
+    val lit = remember { mutableStateOf(true) }
+    if (!reduce) {
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(CURSOR_BLINK_MILLIS)
+                lit.value = !lit.value
+            }
+        }
+    }
+    Text("_", style = style.glowing(color), color = color, modifier = Modifier.graphicsLayer { alpha = if (lit.value || reduce) 1f else 0f })
 }
+
+/** How long the console cursor stays lit, and then dark. */
+const val CURSOR_BLINK_MILLIS = 750L
+
+/**
+ * A line of gilded text with a glint of light that runs over it every [Glint.EVERY_MILLIS] (document 23).
+ *
+ * HOW. The text is drawn into its own offscreen layer; over it a slanted white gradient band is drawn with the blend
+ * mode SrcAtop: "draw only where something is already drawn". So the light falls ON THE LETTERS (and their glow), never
+ * on the background around them, exactly like Flutter's ShaderMask with srcATop in Chaos Mode. Without the offscreen
+ * layer the band would blend with whatever is behind the text, and the whole rectangle would light up.
+ *
+ * FRAMES. The band's position lives in a float state read only in the draw phase. During a pass (0.9 s) one frame per
+ * vsync redraws the layer; between passes nothing at all is drawn or recomposed. With motion reduced: plain text.
+ */
+@Composable
+fun GlintText(text: String, style: TextStyle, color: Color, modifier: Modifier = Modifier) {
+    val reduce = rememberReduceMotion()
+    val sweep = remember { mutableFloatStateOf(NO_GLINT) }
+    if (!reduce) {
+        LaunchedEffect(Unit) {
+            delay(Glint.FIRST_DELAY_MILLIS)
+            while (true) {
+                val t0 = withFrameNanos { it }
+                var p = 0f
+                while (p < 1f) {
+                    p = Glint.progress((withFrameNanos { it } - t0) / 1_000_000f)
+                    sweep.floatValue = p
+                }
+                sweep.floatValue = NO_GLINT
+                delay(Glint.EVERY_MILLIS - Glint.SWEEP_MILLIS)
+            }
+        }
+    }
+    Text(
+        text,
+        style = style,
+        color = color,
+        maxLines = 1,
+        // The offscreen layer is cut to its own bounds, and the letters' glow spills a few pixels past the first and last
+        // letter: GLOW_ROOM of padding inside the layer keeps it whole, and the offset puts the letters back in place.
+        modifier = modifier
+            .offset(x = -GLOW_ROOM)
+            .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+            .drawWithContent {
+                drawContent()
+                val p = sweep.floatValue
+                if (p >= 0f) {
+                    val cx = Glint.center(p) * size.width
+                    val half = Glint.HALF_BAND * size.width
+                    drawRect(
+                        Brush.linearGradient(listOf(Color.Transparent, GLINT_LIGHT, Color.Transparent), start = Offset(cx - half, 0f), end = Offset(cx + half, size.height)),
+                        blendMode = BlendMode.SrcAtop,
+                    )
+                }
+            }
+            .padding(horizontal = GLOW_ROOM),
+    )
+}
+
+private const val NO_GLINT = -1f
+private val GLOW_ROOM = 6.dp
+private val GLINT_LIGHT = Color(0xC8FFFFFF)   // white, ~78 %: polished metal, not a lamp
 
 /** Centred column helper for dialogs and empty states. */
 @Composable

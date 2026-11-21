@@ -1,12 +1,5 @@
 package dev.knowledge82.swiftyproteins.ui
 
-import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.togetherWith
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,7 +31,7 @@ import kotlinx.coroutines.launch
 
 /**
  * The root of the screen: decides WHAT to show ([Navigation.screenOf], pure and tested; no navigation library, D19)
- * and animates the change from one screen to the next (bonus VII.2, document 21).
+ * and changes from one screen to the next like an old tube switching off and on ([CrtSwitch], bonus VII.2, document 23).
  *
  *   boot screen      -> once per start, until the saved settings are read; ALWAYS dark (a CRT starting up)
  *   tutorial         -> the first time (and again from the settings)
@@ -120,21 +113,8 @@ fun SwiftyApp(
             // imePadding() inside the list does not add them a second time when the keyboard opens.
             val content = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
 
-            AnimatedContent(
-                targetState = screen,
-                contentKey = { it.key },
-                transitionSpec = {
-                    val duration = Navigation.durationMillis(reduce)
-                    when (Navigation.direction(initialState, targetState)) {
-                        1 -> (slideInHorizontally(tween(duration)) { w -> w / 4 } + fadeIn(tween(duration)))
-                            .togetherWith(slideOutHorizontally(tween(duration)) { w -> -w / 4 } + fadeOut(tween(duration)))
-                        -1 -> (slideInHorizontally(tween(duration)) { w -> -w / 4 } + fadeIn(tween(duration)))
-                            .togetherWith(slideOutHorizontally(tween(duration)) { w -> w / 4 } + fadeOut(tween(duration)))
-                        else -> fadeIn(tween(duration)).togetherWith(fadeOut(tween(duration)))
-                    }
-                },
-                label = "screens",
-            ) { shown ->
+            // The change of screen: an old tube switching off and on (bonus VII.2, document 23).
+            CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown ->
                 when (shown) {
                     Screen.Boot -> AlwaysDark {
                         val size = remember(viewModel) { viewModel.catalog?.search("")?.size }

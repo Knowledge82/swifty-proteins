@@ -15,7 +15,7 @@ object Onboarding {
             tab = "RITE I // THE INDEX",
             title = "The Data-Vault Index",
             lines = listOf(
-                "Search the ligands by ID or by name.",
+                "Search the ligands by their ID.",
                 "Tap a line to load its 3D pattern. The phone keeps a copy, so it opens again without a connection.",
                 "The star keeps a favourite; the star by the search box shows only those.",
             ),
