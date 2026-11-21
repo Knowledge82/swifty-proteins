@@ -312,6 +312,77 @@ A tamaño real la diferencia se ve sola: la figura es **redonda y llena el círc
 
 Ficheros sustituidos: `mipmap-<densidad>/ic_launcher_foreground.webp` y `ic_launcher_background.webp`, los iconos antiguos (`ic_launcher.png`, `ic_launcher_round.png`) y `drawable/ic_launcher_monochrome.xml`. El emblema del arranque (`art_emblem_hologram.webp`) **no cambia**. La *splash* del sistema muestra ahora la versión simplificada (apunta al primer plano del icono).
 
+### 12.2 Tercera vuelta: sin rueda
+
+**El problema:** sin sello ni cinta el icono mejoró mucho, pero en el móvil sigue **demasiado denso**: rueda con remaches, fondo oscuro con cables, cráneo, haz y molécula. La rueda es el elemento que **más superficie ocupa y menos información da** (el cráneo con implantes ya dice «Mechanicus» por sí solo).
+
+**La decisión:** en el **icono** se quita la rueda; quedan el **cráneo** y la **proyección de la molécula**, y la molécula gana peso (es lo que hace la app). La rueda **no desaparece del proyecto**: sigue en el emblema completo del arranque y en el emblema de la cabecera. El icono es el signo mínimo; el emblema, la versión completa (sección 12).
+
+**Riesgos de quitar la rueda:**
+
+| Riesgo | Por qué | Qué se pide para evitarlo |
+|--------|---------|---------------------------|
+| **Leerse como «tóxico»** | Una calavera junto a una estructura química es, literalmente, el pictograma de peligro de toxicidad | Sin tibias cruzadas, sin rombos ni triángulos de aviso, sin verde «veneno» goteante; el cráneo claramente **cibernético** y el verde como **pantalla holográfica** |
+| **Silueta menos redonda** | La rueda llenaba el círculo; un cráneo y una molécula no | Composición **en diagonal** que use el círculo; nada cortado en el borde |
+| **Objeto pequeño en un campo vacío** | Sin marco, el generador tiende a dejar la figura pequeña | Pedido explícito: molécula del tamaño del cráneo, llenar el círculo |
+| **Pierde «Mechanicus»** | La rueda era el símbolo más reconocible | Se mantienen el ocular de latón, la placa y unos pocos cables; el fondo puede llevar una rejilla de consola muy tenue |
+
+Se piden **dos composiciones**: en diagonal (cráneo y molécula con el mismo peso) y «molécula primero» (la molécula protagonista, el cráneo como escáner).
+
+*Prompt* (adjuntar `composite_on_dark.png` de la versión simplificada):
+
+```text
+Follow-up to the Swifty Proteins icon v3 "Hologram Lite" (attached). The painting is right, but as a
+launcher icon it is still too DENSE. Remove the cog. Keep only the SKULL and the HOLOGRAM.
+
+## What stays (same painting style, same skull, same light)
+- The same aged bone skull with the brass bionic eyepiece and its glowing PHOSPHOR-GREEN lens (#43E07A),
+  the small brass plate and the red marking on the cranium, a FEW short cables at the back of the skull
+  (they say "machine", but they must not become a mass).
+- The green scanning beam from the lens, and the HOLOGRAM of a ball-and-stick molecule.
+
+## What goes
+- The cog ring, its rivets and everything inside it (the dark backing, the cable bundle). No frame, no
+  ring, no badge shape around the composition. No seal, no strip, no text, no numbers.
+
+## The molecule gets MORE focus
+- Make the hologram molecule bigger: roughly as big as the skull. 6–8 atoms, clear 3D ball-and-stick,
+  CPK colours (carbon dark grey, oxygen red, nitrogen blue, hydrogen white), each atom with a thin
+  green holographic rim; bonds as light sticks. Sharp and readable: at 48 px the molecule must still read
+  as "coloured balls joined by sticks".
+- The beam is a soft, semi-transparent green cone from the lens to the molecule, with a few faint scan
+  lines. It must not hide the atoms.
+
+## Composition — make TWO variants
+1. DIAGONAL: the skull in three-quarter view, lower-left; the beam goes up-right to the molecule,
+   upper-right. Skull and molecule about the same visual weight.
+2. MOLECULE FIRST: the molecule large in the centre-right; the skull smaller, lower-left, looking at it.
+   The molecule is the hero, the skull is the "scanner".
+
+## Do NOT let it read as a poison / toxic warning
+A skull next to a chemical structure can look like the hazard symbol for "toxic". Avoid that:
+no crossbones, no toxic-green slime or dripping, no warning-sign shapes (diamonds, triangles). The skull
+must clearly be a CYBERNETIC scanner (bionic eye, brass, cables) and the green must read as a
+holographic DISPLAY (light, scan lines), not as poison.
+
+## Canvas rules (unchanged)
+- 1024 × 1024 px = 108 dp. ALL content inside the central circle of 626 px diameter. Without the cog the
+  shape is no longer round: use the circle well (diagonal composition), do not leave it a small object in
+  an empty field, and do not cut any part at the circle edge.
+- Strong value contrast: light bone, bright green lens and hologram, dark background.
+
+## Deliverables (per variant, same as before)
+1. ic_launcher_foreground.png — 1024 × 1024 RGBA, real transparency, no halo. The beam may be
+   semi-transparent (soft alpha), but no white or grey fringe around the skull.
+2. ic_launcher_background.png — 1024 × 1024, opaque, very dark (#050806 to #08120B). May carry a very
+   faint green console grid or scanlines in the centre (now that the cog is gone, a hint of "screen"
+   behind the hologram helps), nothing that competes with the skull.
+3. ic_launcher_monochrome.svg + .png — white on transparent, simplified silhouette: skull (with the eye
+   socket and the eyepiece ring) + molecule (balls and sticks). The PNG rendered from the SVG.
+4. composite_on_dark.png and a preview sheet: circle, squircle and rounded-square masks at 48, 96 and
+   192 px, cropping the VISIBLE 72 dp area (the central 683 × 683 px), on dark and light wallpaper.
+```
+
 ---
 
 ## 13. La integración, paso a paso
@@ -362,5 +433,6 @@ Detalles que merecen explicación:
 - **42 = `101010`** en binario.
 - Lo que devuelva el generador **se mide** (radio del contenido, canal alfa, halo), no se integra a ojo.
 - **Las vistas previas ajenas se comprueban:** recortar el lienzo entero en vez de la zona visible de 72 dp hace el icono 1,5 veces más pequeño de lo real.
-- **Emblema completo para lo grande, signo simplificado para lo pequeño.**
+- **Emblema completo para lo grande, signo simplificado para lo pequeño;** el signo se queda con lo que dice más por superficie (aquí: cráneo + molécula, sin rueda).
+- **Calavera + química = pictograma de «tóxico»:** el contexto (implantes, holograma) tiene que dejar claro que no lo es.
 - Iconos en **`mipmap-*`**; una silueta monocroma, mejor en **vector**.
