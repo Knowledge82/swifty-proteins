@@ -82,6 +82,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D36 | **Share Tech Mono** sustituye a Silkscreen; pasada de «luz»: brillo de fósforo, metal con degradado, cristal con resplandor, barrido tenue | Decidida | Silkscreen (fuente de píxeles) daba aspecto de consola de 8 bits. Documento 08c, 17. |
 | D37 | Las compilaciones debug se firman con **una clave de depuración común en el repositorio** (`app/debug.keystore`) | Decidida | Instalar desde cualquier máquina sin desinstalar. Documento 11. |
 | D38 | Icono **pictórico**: **emblema completo** (cráneo en la rueda, ligando en holograma, «42» y `101010`) en el arranque; en el lanzador, el **signo mínimo**: cráneo cibernético que proyecta la molécula, sin rueda | Decidida | Más reconocible que el plano; la molécula cumple «acorde con el tema»; sin rueda el icono deja de estar cargado. Documento 08d. |
+| D39 | La *splash* del sistema (obligatoria en Android 12+) se hace **invisible**: color abismo e icono vacío | Decidida | No se puede quitar; con el icono se veían dos emblemas seguidos. Documento 08d, 12.4. |
 
 ---
 

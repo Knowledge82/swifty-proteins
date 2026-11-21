@@ -59,7 +59,7 @@ Conclusión: la **dirección** es buena y ya está probada; falta una **composic
 
 - **Monocromo** (Android 13+, «iconos temáticos»): una tercera capa de una sola tinta; el sistema la colorea con la paleta del fondo de pantalla. Si falta, el icono sale con sus colores aunque el usuario active los iconos temáticos.
 - **Icono antiguo** (API 24–25, que soportamos: `minSdk 24`): un PNG de **48 × 48 dp** por densidad (`mipmap-mdpi` 48 px … `mipmap-xxxhdpi` 192 px), cuadrado y redondo.
-- **Splash del sistema** (Android 12+): usa `windowSplashScreenAnimatedIcon`, que apunta al primer plano del icono (hoy `@mipmap/ic_launcher_foreground`, `themes.xml`). El sistema lo recorta a un círculo de **2/3** del lienzo. Nuestro contenido va en el 61 % (66/108), así que cabe.
+- **Splash del sistema** (Android 12+): usa `windowSplashScreenAnimatedIcon` (si falta, el icono del lanzador). El sistema lo recorta a un círculo de **2/3** del lienzo. Al final la nuestra lleva un icono **vacío** (sección 12.4).
 
 **Tamaño real:** el A33 tiene una densidad de unos 2,6× (≈ 411 ppp, cálculo), así que el icono de 48 dp mide **≈ 125 px físicos**. El caso peor (48 px) es el de pantallas `mdpi`, raras hoy, pero es la prueba de que la silueta funciona.
 
@@ -412,7 +412,26 @@ El borde semitransparente **total** sale con luminancia ~115: es el **haz y el r
 2. **El haz apunta algo alto:** el cono sale del ocular y cubre la parte **inferior izquierda** de la molécula, no su centro. Detalle de dibujo; si molesta en el móvil, se pide al generador corregir solo el ángulo.
 3. **Menos «Mechanicus»** que con la rueda: lo sostienen el ocular, la placa de latón y la marca roja. La rueda sigue en el emblema del arranque y en la cabecera.
 
-**Ficheros sustituidos:** los mismos que en la sección 12.1 (`mipmap-<densidad>/ic_launcher_foreground.webp` y `ic_launcher_background.webp`, los iconos antiguos y `drawable/ic_launcher_monochrome.xml`, convertido del SVG: diferencia 0 con el original). La *splash* del sistema muestra este primer plano.
+**Ficheros sustituidos:** los mismos que en la sección 12.1 (`mipmap-<densidad>/ic_launcher_foreground.webp` y `ic_launcher_background.webp`, los iconos antiguos y `drawable/ic_launcher_monochrome.xml`, convertido del SVG: diferencia 0 con el original). La *splash* del sistema **ya no** lo muestra: es invisible (sección 12.4).
+
+### 12.4 La *splash* del sistema, invisible
+
+**La pregunta:** si ya tenemos pantalla de arranque propia, ¿se puede quitar la *splash* del sistema?
+
+**No, en Android 12+.** La documentación oficial: *«a partir de Android 12, el sistema aplica la pantalla de inicio por defecto a todas las apps en el arranque en frío y en templado»*, y no describe ninguna forma de desactivarla. Si no la configuras, la construye ella sola con **el icono del lanzador** y el `windowBackground`. En Android 7–11 (API 24–30) la biblioteca `core-splashscreen` la imita con el tema de arranque.
+
+**Lo que sí se puede: hacerla invisible.** Fondo `swifty_abyss` (el mismo color que el primer fotograma de `BootScreen`) y un icono **vacío** (`drawable/splash_icon_blank.xml`: una forma transparente). El arranque se ve como **una sola pantalla oscura** que pasa a la consola del cogitador.
+
+| Opción | Qué se ve | A favor | En contra |
+|--------|-----------|---------|-----------|
+| Icono = primer plano del icono (lo que había) | Un instante el cráneo del icono, luego **otro** emblema en el arranque | La *splash* «de marca» | **Dos imágenes seguidas** y distintas: parece un salto |
+| **Icono vacío** (elegida) | Pantalla oscura → arranque | Continuo; el arranque propio hace de *launch screen* | Si la app tardara en arrancar, se vería solo negro, **sin señal** de que algo pasa |
+| Quitar el tema de arranque y `installSplashScreen()` | En 12+, el **icono del lanzador** en un círculo sobre el fondo de la ventana | Menos código | Justo lo que no queremos, y en API 24–30 un parpadeo del tema |
+| `android:windowDisablePreview` | (truco antiguo) | — | No es una forma soportada de quitar la *splash* de 12+; quitar la ventana de vista previa hace que tocar el icono parezca **no hacer nada** hasta el primer fotograma |
+
+**El riesgo de la elegida, medido a ojo:** el arranque en frío del A33 hasta el primer fotograma de Compose es corto (fracción de segundo, **estimado**, no medido); la pantalla oscura dura eso. La exigencia de la hoja de evaluación (*launch screen* visible ≥ 1 s) la cumple `BootScreen` (D32), no la *splash* del sistema.
+
+**Sin comprobar en el móvil:** que el sistema acepte la forma transparente como icono sin dibujar nada encima (la documentación pide «un *drawable*» y no pone condiciones). Si apareciera un círculo o la máscara del icono, la alternativa es un vector de 108 dp sin trazados visibles.
 
 ---
 
@@ -425,7 +444,7 @@ El borde semitransparente **total** sale con luminancia ~115: es el **haz y el r
 | `drawable/ic_launcher_monochrome.xml` | Monocromo, **vector** | El SVG del generador con nuestro conversor (documento 08c, 5) |
 | `mipmap-<densidad>/ic_launcher.png`, `ic_launcher_round.png` | Icono antiguo (48 dp, API 24–25): 48…192 px | **Guion:** fondo + primer plano, recorte de la zona visible (683 px centrales), máscara de cuadrado redondeado (radio 18 %) o círculo |
 | `mipmap-anydpi-v26/ic_launcher*.xml` | Icono adaptativo | Capas de `@drawable/…` (vectores v2) a `@mipmap/…`; el monocromo sigue en `@drawable` |
-| `values/themes.xml` | *Splash* del sistema | `windowSplashScreenAnimatedIcon` → `@mipmap/ic_launcher_foreground` |
+| `values/themes.xml` | *Splash* del sistema | `windowSplashScreenAnimatedIcon` → `@mipmap/ic_launcher_foreground`; después, icono vacío `@drawable/splash_icon_blank` (12.4) |
 | `drawable-nodpi/art_emblem_hologram.webp` | El emblema completo | Primer plano recortado a su contenido (590 × 603 px) |
 | `ui/BootScreen.kt` | Pantalla de arranque | `art_skull_cog_art` (200 dp) → `art_emblem_hologram` (240 dp) |
 | `drawable/ic_launcher_foreground.xml`, `ic_launcher_background.xml` | Vectores del icono v2 | **Borrados**: ya no los usa nadie (comprobado con `grep`) |
@@ -453,6 +472,7 @@ Detalles que merecen explicación:
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
 | D38 | El icono pasa a ser **pictórico**: el cráneo en la rueda, con **ligando** en holograma y **«42»** (números propios + `101010`), como icono adaptativo de mapas de bits; **dos versiones**: emblema completo en el arranque, icono simplificado en el lanzador | Decidida e integrada (emblema completo en el arranque; icono: cráneo + holograma, sección 12.3) | Mucho más reconocible que el icono plano; cumple «acorde con el tema» con la molécula; el 42 en binario conecta con el *binharic* del Mechanicus |
+| D39 | La *splash* del sistema (obligatoria en Android 12+) se hace **invisible**: color abismo e icono vacío | Decidida | No se puede quitar; con el icono había dos emblemas seguidos. El *launch screen* es `BootScreen` (D32) |
 
 ---
 

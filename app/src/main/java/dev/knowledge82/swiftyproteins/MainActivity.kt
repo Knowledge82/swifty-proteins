@@ -19,9 +19,9 @@ class MainActivity : ComponentActivity() {
     private val viewModel: LigandsViewModel by viewModels { LigandsViewModelFactory(applicationContext) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // MUST come before super.onCreate: it swaps the "starting" theme for the normal one. The system splash (only
-        // the emblem) now stays just as long as Android needs; the LAUNCH SCREEN that lasts over one second is the
-        // cogitator boot screen drawn by the app itself (BootScreen, document 08c).
+        // MUST come before super.onCreate: it swaps the "starting" theme for the normal one. The system splash (plain
+        // abyss, empty icon: invisible) stays just as long as Android needs; the LAUNCH SCREEN that lasts over one
+        // second is the cogitator boot screen drawn by the app itself (BootScreen, documents 08c and 08d).
         installSplashScreen()
 
         super.onCreate(savedInstanceState)

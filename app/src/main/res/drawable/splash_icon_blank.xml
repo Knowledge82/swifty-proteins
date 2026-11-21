@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- An EMPTY icon for the system splash (Android 12+ cannot switch the splash off): with it, the splash is just the
+     abyss colour, the same as the first frame of BootScreen, so the start looks like one continuous dark screen.
+     Without an icon attribute the system would use the launcher icon instead. Document 08d. -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+    <solid android:color="@android:color/transparent" />
+</shape>

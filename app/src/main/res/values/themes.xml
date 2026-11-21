@@ -12,12 +12,13 @@
     <!--
         The theme of the LAUNCH SCREEN (splash). The system applies it while the app starts; when the activity is ready,
         installSplashScreen() (MainActivity) swaps it for postSplashScreenTheme. It works on every API from 24.
-        Design v2, screen 01: only the skull-cog emblem over the abyss colour, for as long as Android needs. The
-        launch screen that lasts over one second is the in-app boot screen (BootScreen).
+        Android 12+ ALWAYS shows a system splash (it cannot be switched off). Ours is made invisible: abyss colour and an
+        EMPTY icon, for as long as Android needs, so it blends into BootScreen, the launch screen that lasts over one
+        second (document 08d).
     -->
     <style name="Theme.SwiftyProteins.Starting" parent="Theme.SplashScreen">
         <item name="windowSplashScreenBackground">@color/swifty_abyss</item>
-        <item name="windowSplashScreenAnimatedIcon">@mipmap/ic_launcher_foreground</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon_blank</item>
         <item name="postSplashScreenTheme">@style/Theme.SwiftyProteins</item>
     </style>
 </resources>

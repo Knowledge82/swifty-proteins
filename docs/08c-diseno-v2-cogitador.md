@@ -185,7 +185,7 @@ El conversor SVG → VectorDrawable del documento 08b **falló con error** (como
 
 **Cambio de decisión (D32 sustituye a D25).** Antes, la *splash* del sistema se **retenía** 1500 ms (documento 07b). Con la v2 hay una **pantalla de arranque propia** (el cogitador «despertando»), que es un *launch screen* mucho más rico; retener **además** la del sistema daría **3 s** de espera. Ahora:
 
-- La *splash* del sistema solo enseña el emblema **el tiempo que Android necesite** (`installSplashScreen()` sin condición; `SplashHold` y sus pruebas se **borraron**).
+- La *splash* del sistema solo enseña el emblema **el tiempo que Android necesite** (`installSplashScreen()` sin condición; `SplashHold` y sus pruebas se **borraron**). *(Después, documento 08d, 12.4: ni siquiera el emblema; la* splash *del sistema es **invisible**: color abismo e icono vacío.)*
 - La **pantalla de arranque** (`BootScreen`) dura **3200 ms** si nadie la toca (primero eran 1600; el equipo pidió el doble): líneas de consola que aparecen una a una (cada 500 ms), barra de progreso `[##]`, la calavera-engranaje.
 - **Un toque la salta**, pero **nunca antes de 1 s** (`MIN_VISIBLE_MILLIS`): un toque más temprano **se recuerda** y surte efecto al llegar al segundo. Así el evaluador ve siempre el segundo que exige la hoja, aunque toque la pantalla nada más abrir. Desde ese segundo aparece «> TAP TO CONTINUE» con el cursor parpadeando. El toque se recoge en toda la pantalla con `clickable(indication = null)`: sin onda (no es un botón), pero TalkBack anuncia la acción («Skip the boot sequence»).
 - Se muestra **una vez por arranque**: `rememberSaveable { booted }` en `SwiftyApp` (girar el móvil no la repite; un arranque nuevo sí).
