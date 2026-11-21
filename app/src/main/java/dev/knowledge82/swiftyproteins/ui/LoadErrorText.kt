@@ -10,14 +10,17 @@ import dev.knowledge82.swiftyproteins.net.LoadError
  *
  * The technical detail (the reason text, the parser failure) is NOT shown: the user cannot act on it.
  * It goes to Logcat instead (see `LoadStateDialogs`).
+ *
+ * The four cases the subject names (VI.3) use the subject's OWN words, so an evaluator recognises them at once:
+ * no connection, 404, corrupt file, timeout. The ligand id is shown on its own line of the dialog ("LIGAND 001").
  */
 fun LoadError.userMessage(id: String): String = when (this) {
     is LoadError.NoConnection ->
-        "There is no network connection. Check your Wi-Fi or mobile data and try again."
+        "No internet connection. Please check your network."
     is LoadError.Timeout ->
-        "The server took too long to answer. Try again in a moment."
+        "Request timeout. Please try again."
     is LoadError.NotFound ->
-        "The ligand \"$id\" does not exist on the server (error 404)."
+        "Ligand not found (404). This ligand may not exist in the database."
     is LoadError.ServerError ->
         "The server had a problem (error $code). Try again later."
     is LoadError.Incomplete ->
@@ -25,7 +28,7 @@ fun LoadError.userMessage(id: String): String = when (this) {
     is LoadError.TooLarge ->
         "The file for \"$id\" is far bigger than any ligand file can be, so it was discarded."
     is LoadError.Corrupt ->
-        "The file for \"$id\" arrived, but it is damaged or has an unexpected format."
+        "Failed to parse ligand data. The file may be corrupted."
     is LoadError.InvalidId ->
         "\"$id\" is not a valid ligand identifier."
     is LoadError.NetworkError ->

@@ -300,9 +300,9 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 | VI.2 Cuentas, contraseña con requisitos, biometría, diálogo de fallo, alternativa sin biometría, **login siempre**, hash, teclados y etiquetas | ✅ | Documentos 05 y 05a; comprobado en el A33 |
 | VI.3 Todos los ligandos, lista desplazable (`LazyColumn` ≡ `RecyclerView`), búsqueda en tiempo real sin mayúsculas | ✅ | Documento 06b/06c |
 | VI.3 Carga: indicador, descarga, *parsing*, navegación; el indicador desaparece siempre | ✅ | Probado en el móvil (06c) |
-| VI.3 Avisos de error claros | ✅ / 🟡 | Hechos; acercar los textos a los del enunciado |
+| VI.3 Avisos de error claros | ✅ | Los cuatro del enunciado, con sus palabras exactas (prueba `theFourCasesOfTheSubjectUseItsWordsExactly`) |
 | VI.4 CPK, bolas y varillas, radios proporcionales, varillas más finas | ✅ | Documento 07 |
-| VI.4 Ficha del átomo y cuándo desaparece | ✅ / 🟡 | Falta: tocar un panel también debe quitarla |
+| VI.4 Ficha del átomo y cuándo desaparece | ✅ | También al tocar cualquier panel (sin probar en el móvil) |
 | VI.4 Giro y zoom | ✅ | Comprobado en el móvil |
 | VI.4 Desplazamiento con dos dedos (recomendado) | 🟡 | Sin comprobar (07, sección 12) |
 | VI.4 Compartir captura | 🟡 | Escrito (09), sin probar en el móvil |

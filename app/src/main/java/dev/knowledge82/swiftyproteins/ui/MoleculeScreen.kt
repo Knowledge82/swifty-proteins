@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -124,6 +126,17 @@ fun MoleculeScreen(
         ?.let { molecule.atoms[it] }
         ?.takeIf { showHydrogens || it.element != "H" }
 
+    // The subject (VI.4): the atom information disappears when the user taps ANYWHERE else. A tap on the empty scene or
+    // on another atom already does it (MoleculeScene); this makes a tap on a PANEL do it too. Only on the panels: the
+    // middle of the screen must keep sending every touch to the molecule. The keys inside the panels (H, SHR, back)
+    // keep their own action: they take the tap first. No ripple; TalkBack announces the action.
+    val deselect = Modifier.clickable(
+        interactionSource = remember { MutableInteractionSource() },
+        indication = null,
+        enabled = atom != null,
+        onClickLabel = "Hide the atom information",
+    ) { selected = null }
+
     Box(modifier = modifier.fillMaxSize()) {
         MoleculeScene(
             molecule = molecule,
@@ -138,6 +151,7 @@ fun MoleculeScreen(
         // middle let every touch through to the molecule.
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
             TopPanel(
+                modifier = deselect,
                 molecule = molecule,
                 hasHydrogens = hasHydrogens,
                 showHydrogens = showHydrogens,
@@ -149,13 +163,13 @@ fun MoleculeScreen(
             )
             CornerBrackets(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 14.dp))
             share.label?.let { text ->
-                ShareStatusPanel(text = text, status = share)
+                ShareStatusPanel(text = text, status = share, modifier = deselect)
                 Spacer(Modifier.height(14.dp))
             }
-            ReadoutPanel(atom = atom, hydrogensHidden = hasHydrogens && !showHydrogens)
+            ReadoutPanel(atom = atom, hydrogensHidden = hasHydrogens && !showHydrogens, modifier = deselect)
             if (legend.isNotEmpty()) {
                 Spacer(Modifier.height(10.dp))
-                ElementKey(legend)
+                ElementKey(legend, modifier = deselect)
             }
         }
     }
@@ -164,6 +178,7 @@ fun MoleculeScreen(
 /** "AUSPEX // RUNNING": back, "Pattern 001", "87 ATOMS :: 90 BONDS", the H key and the SHR key. */
 @Composable
 private fun TopPanel(
+    modifier: Modifier,
     molecule: Molecule,
     hasHydrogens: Boolean,
     showHydrogens: Boolean,
@@ -173,7 +188,7 @@ private fun TopPanel(
     onShare: () -> Unit,
     fps: FpsReading,
 ) {
-    CogitatorPanel(label = "AUSPEX // RUNNING", fill = SwiftyColors.ConsoleOverlay, contentPadding = 8.dp, modifier = Modifier.fillMaxWidth()) {
+    CogitatorPanel(label = "AUSPEX // RUNNING", fill = SwiftyColors.ConsoleOverlay, contentPadding = 8.dp, modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BackKey(onClick = onBack)
             Column(modifier = Modifier.weight(1f)) {
@@ -225,7 +240,7 @@ private const val FPS_REFRESH_MILLIS = 250L
 
 /** "PICT-CAPTURE ACTIVE" / "SYSTEM MESSAGE": what the Share key is doing. */
 @Composable
-private fun ShareStatusPanel(text: String, status: ShareStatus) {
+private fun ShareStatusPanel(text: String, status: ShareStatus, modifier: Modifier) {
     val failed = status is ShareStatus.Failed
     CogitatorPanel(
         label = when (status) {
@@ -236,7 +251,7 @@ private fun ShareStatusPanel(text: String, status: ShareStatus) {
         accent = if (failed) SwiftyColors.OpticRed else SwiftyColors.Brass,
         fill = SwiftyColors.ConsoleOverlay,
         contentPadding = 12.dp,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+        modifier = modifier.fillMaxWidth().padding(horizontal = 24.dp),
     ) {
         Text(
             text,
@@ -250,8 +265,8 @@ private fun ShareStatusPanel(text: String, status: ShareStatus) {
 
 /** "AUSPEX READOUT": help, "hydrogens hidden", or the selected atom with X / Y / Z in two columns. */
 @Composable
-private fun ReadoutPanel(atom: Atom?, hydrogensHidden: Boolean) {
-    CogitatorPanel(label = "AUSPEX READOUT", fill = SwiftyColors.ConsoleOverlay, modifier = Modifier.fillMaxWidth()) {
+private fun ReadoutPanel(atom: Atom?, hydrogensHidden: Boolean, modifier: Modifier) {
+    CogitatorPanel(label = "AUSPEX READOUT", fill = SwiftyColors.ConsoleOverlay, modifier = modifier.fillMaxWidth()) {
         if (atom == null) {
             Text(
                 if (hydrogensHidden) "Hydrogens hidden" else "No atom selected",
@@ -279,8 +294,8 @@ private fun ReadoutPanel(atom: Atom?, hydrogensHidden: Boolean) {
 
 /** "ELEMENTS / CPK KEY": the colour of each element that is drawn. The letter is always written. */
 @Composable
-private fun ElementKey(elements: List<String>) {
-    CogitatorPanel(fill = SwiftyColors.ConsoleOverlay, contentPadding = 10.dp, scanlines = false, modifier = Modifier.fillMaxWidth()) {
+private fun ElementKey(elements: List<String>, modifier: Modifier) {
+    CogitatorPanel(fill = SwiftyColors.ConsoleOverlay, contentPadding = 10.dp, scanlines = false, modifier = modifier.fillMaxWidth()) {
         Text("Elements / CPK key", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash)
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {

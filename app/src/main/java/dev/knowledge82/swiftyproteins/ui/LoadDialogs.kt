@@ -22,6 +22,7 @@ import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.loading.LoadState
 import dev.knowledge82.swiftyproteins.net.LoadError
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
+import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
 import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 private const val TAG = "SwiftyProteins"
@@ -95,6 +96,8 @@ private fun ErrorDialog(id: String, error: LoadError, onRetry: () -> Unit, onClo
                 ArtImage(glyphArt(error.glyph()), size = 140.dp)
                 Spacer(Modifier.height(12.dp))
                 Text(error.flavourTitle(), style = MaterialTheme.typography.titleLarge.glowing(SwiftyColors.Gold, 0.3f), color = SwiftyColors.Gold, textAlign = TextAlign.Center)
+                // Which ligand: on its own line, because the subject's messages (used word for word) do not name it.
+                Text("LIGAND $id", style = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(6.dp))
                 Text(error.userMessage(id), style = MaterialTheme.typography.bodyMedium, color = SwiftyColors.Bone, textAlign = TextAlign.Center)
                 Spacer(Modifier.height(18.dp))

@@ -38,9 +38,12 @@ class LoadErrorTextTest {
     }
 
     @Test
-    fun notFoundNamesTheLigandAndTheCode() {
-        val text = LoadError.NotFound.userMessage("ZZZ")
-        assertTrue(text, "ZZZ" in text && "404" in text)
+    fun theFourCasesOfTheSubjectUseItsWordsExactly() {
+        // VI.3 of the subject, word for word: what an evaluator expects to read.
+        assertEquals("No internet connection. Please check your network.", LoadError.NoConnection.userMessage("001"))
+        assertEquals("Ligand not found (404). This ligand may not exist in the database.", LoadError.NotFound.userMessage("001"))
+        assertEquals("Failed to parse ligand data. The file may be corrupted.", LoadError.Corrupt(CifFailure.NoAtoms).userMessage("001"))
+        assertEquals("Request timeout. Please try again.", LoadError.Timeout.userMessage("001"))
     }
 
     @Test
