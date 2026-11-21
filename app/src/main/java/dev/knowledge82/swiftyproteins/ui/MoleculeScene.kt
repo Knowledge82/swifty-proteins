@@ -1,6 +1,9 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -11,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import dev.knowledge82.swiftyproteins.molecule.Molecule
+import dev.knowledge82.swiftyproteins.scene.AtomLabels
 import dev.knowledge82.swiftyproteins.scene.BondGeometry
 import dev.knowledge82.swiftyproteins.scene.BondPose
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
@@ -25,6 +29,8 @@ import io.github.sceneview.math.Position
 import io.github.sceneview.math.Rotation
 import io.github.sceneview.createDefaultCameraManipulator
 import io.github.sceneview.rememberCameraManipulator
+import io.github.sceneview.rememberCameraNode
+import io.github.sceneview.node.Node as NodeImpl
 import io.github.sceneview.rememberEngine
 import io.github.sceneview.rememberFillLightNode
 import io.github.sceneview.rememberMainLightNode
@@ -85,6 +91,7 @@ private fun colorOf(element: String): Color {
  * @param highlightElement every drawn atom of this element gets a gold halo, or `null`
  * @param focus            index of the atom the camera orbits around, or `null` for the whole molecule
  * @param measured         atoms of the ruler (bonus VII.3, document 16), in tap order: halos and a line between each pair
+ * @param showLabels       the element symbol on every drawn atom (bonus VII.3, document 19)
  * @param onTap            what a single tap hit: an atom, a bond, or `null` (empty space)
  * @param onDoubleTap      the same for a double tap
  * @param onFrame          called once per frame that really reached the screen (the FPS counter)
@@ -98,6 +105,7 @@ fun MoleculeScene(
     highlightElement: String?,
     focus: Int?,
     measured: List<Int>,
+    showLabels: Boolean,
     onTap: (ScenePick?) -> Unit,
     onDoubleTap: (ScenePick?) -> Unit,
     modifier: Modifier = Modifier,
@@ -105,6 +113,9 @@ fun MoleculeScene(
 ) {
     val engine = rememberEngine()
     val materialLoader = rememberMaterialLoader(engine)
+    // Our own camera node (SceneView would make one anyway): the labels need to know where the camera is.
+    val cameraNode = rememberCameraNode(engine)
+    val context = LocalContext.current
 
     // One material per ELEMENT, created the first time it is needed (a ligand has a handful of elements, not 256 colors).
     val materials = remember(materialLoader) { HashMap<String, MaterialInstance>() }
@@ -144,6 +155,33 @@ fun MoleculeScene(
     }
     val target = Position(orbit.x, orbit.y, orbit.z)
 
+    // LABELS (document 19). One small picture per ELEMENT, shared by all its atoms (256 labels of TextNode would be
+    // 256 pictures of 512 x 128 pixels: 64 MB). Each label node is kept here to be moved toward the camera.
+    val labelPictures = remember { HashMap<String, Bitmap>() }
+    fun labelOf(element: String): Bitmap = labelPictures.getOrPut(element) { LabelPicture.draw(context, element) }
+    val labelNodes = remember { HashMap<Int, NodeImpl>() }
+    val drawnBonded by rememberUpdatedState(bonded)
+    val currentRepresentation by rememberUpdatedState(representation)
+    val currentMolecule by rememberUpdatedState(molecule)
+    // Called by SceneView AFTER each presented frame: an observer, it does not keep the scene drawing. A label is
+    // moved only if the camera moved; with the camera still nothing changes and the scene goes idle (document 12).
+    val currentOnFrame by rememberUpdatedState(onFrame)
+    val afterFrame: (Long) -> Unit = remember {
+        { frameTime ->
+            currentOnFrame(frameTime)
+            if (labelNodes.isNotEmpty()) {
+                val cam = cameraNode.worldPosition
+                for ((i, node) in labelNodes) {
+                    val atom = currentMolecule.atoms.getOrNull(i) ?: continue
+                    val r = currentRepresentation.atomRadius(atom.element, drawnBonded.getOrElse(i) { false })
+                    val (x, y, z) = AtomLabels.position(atom.x, atom.y, atom.z, r, cam.x, cam.y, cam.z)
+                    val p = node.position
+                    if (AtomLabels.needsMove(p.x, p.y, p.z, x, y, z)) node.position = Position(x, y, z)
+                }
+            }
+        }
+    }
+
     // The gesture listener is created once and remembers the FIRST lambdas it receives; these always call the latest.
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
@@ -160,7 +198,8 @@ fun MoleculeScene(
             lightDirection = FILL_LIGHT_DIRECTION
             intensity = FILL_LIGHT_LUX
         },
-        onFrame = onFrame,
+        cameraNode = cameraNode,
+        onFrame = afterFrame,
         cameraManipulator = rememberCameraManipulator(
             orbitRadius = orbit.distance,
             targetPosition = target,
@@ -281,6 +320,32 @@ fun MoleculeScene(
                             apply = { this.isTouchable = false },
                         )
                     }
+                }
+            }
+        }
+
+        // LABELS: the element symbol, facing the camera, on the visible face of each drawn atom.
+        if (showLabels) {
+            for ((i, atom) in molecule.atoms.withIndex()) {
+                if (!drawn(i)) continue
+                val r = representation.atomRadius(atom.element, bonded[i])
+                key("label", i, representation, bonded[i]) {
+                    // Which node THIS group made. When the model changes, Compose builds the NEW label group first
+                    // (it registers itself) and disposes of the OLD one after: the old one must not remove the new.
+                    val mine = remember { arrayOfNulls<NodeImpl>(1) }
+                    BillboardNode(
+                        bitmap = labelOf(atom.element),
+                        widthMeters = AtomLabels.width(r),
+                        heightMeters = AtomLabels.height(r),
+                        position = Position(atom.x, atom.y, atom.z),   // moved toward the camera after the first frame
+                        cameraPositionProvider = { cameraNode.worldPosition },
+                        apply = {
+                            this.isTouchable = false   // a tap on a label must reach its atom
+                            labelNodes[i] = this
+                            mine[0] = this
+                        },
+                    )
+                    DisposableEffect(mine) { onDispose { if (labelNodes[i] === mine[0]) labelNodes.remove(i) } }
                 }
             }
         }

@@ -51,4 +51,12 @@ object Drawn {
         bond != null -> ScenePick.Bond(bond).takeIf { bond(molecule, bond, showHydrogens, representation) }
         else -> null
     }
+
+    /**
+     * Which element gets the gold halos (bonus VII.3: "when selecting an atom, highlight all atoms of the same element
+     * type", document 19): the one chosen in the key if any, otherwise the element of the selected atom; a bond or
+     * nothing selected, none.
+     */
+    fun highlight(molecule: Molecule, chosenInKey: String?, selection: ScenePick?): String? =
+        chosenInKey ?: (selection as? ScenePick.Atom)?.let { molecule.atoms.getOrNull(it.index)?.element }
 }

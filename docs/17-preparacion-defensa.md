@@ -273,7 +273,7 @@ Detalles que suman: la comparación del hash es de **tiempo constante** (no reve
 
 > *Otros modelos además de bolas y varillas, con un control para cambiar, sin recargar, correctos según los estándares.*
 
-**Qué decir.** **Cuatro** modelos con la tecla **MODEL**:
+**Qué decir.** **Cuatro** modelos en la lista desplegable **MODEL…** (documentos 15 y 19):
 
 | Modelo | Cómo | Estándar |
 |--------|------|----------|
@@ -284,7 +284,7 @@ Detalles que suman: la comparación del hash es de **tiempo constante** (no reve
 
 **Sin recargar:** cambiar el modelo solo vuelve a dibujar la misma molécula en memoria; no se descarga ni se interpreta nada (no aparece el diálogo de carga). El modelo con el que se abre cada molécula se elige en **Ajustes**.
 
-🎯 MODEL cuatro veces en ATP; en espacio lleno, tocar el **borde** de una esfera grande: se selecciona.
+🎯 MODEL… → los cuatro en ATP; en espacio lleno, tocar el **borde** de una esfera grande: se selecciona.
 
 **Dónde.** `scene/Representation.kt`, `scene/VanDerWaals.kt`. Documento 15.
 
@@ -295,8 +295,8 @@ Detalles que suman: la comparación del hash es de **tiempo constante** (no reve
 | Categoría de la hoja | Lo que hay |
 |----------------------|------------|
 | **UI/UX avanzada** (celdas, animaciones, modo oscuro) | Diseño propio completo «Culto de la Máquina»: celdas de consola, paneles con esquinas cortadas, arranque animado, cráneo flotante, cursor parpadeante; **oscuro en toda la app y en el 3D**; **sonidos sintetizados** propios (documento 14); **ajustes** |
-| **Interacciones** (resaltar átomos, medir) | Resaltar **todos** los átomos de un elemento (tocarlo en la leyenda); **información de enlaces** (orden, longitud); **regla**: distancia, ángulo y **torsión**; **doble toque** para orbitar un átomo; ocultar hidrógenos |
-| **Rendimiento** (caché, 60 FPS) | **Caché** de `.cif` 30 días, funciona **sin conexión** (documento 13); **contador de FPS** siempre visible; *parsing* fuera del hilo principal; lista perezosa |
+| **Interacciones** (resaltar átomos, medir) | **Seleccionar un átomo resalta todos los de su elemento** (o elegirlo en la leyenda); **información de enlaces** (orden, longitud); **regla**: distancia, ángulo y **torsión**; **etiquetas** de elementos en 3D (LABELS); **doble toque** para orbitar un átomo; ocultar hidrógenos |
+| **Rendimiento** (caché, 60 FPS) | **Caché** de `.cif` 30 días, funciona **sin conexión** (documento 13); **60 FPS comprobados en el A33** (no bajan), con su **contador** siempre visible; *parsing* fuera del hilo principal; lista perezosa |
 | **Compartir ampliado** (mensajes, varios formatos) | **Mensaje propio** con nombre, fórmula, átomos y enlaces; **seis formatos**: PNG, JPEG, galería, `.cif` original, **`.mol`** (validado con RDKit en los 1242) y **modelo 3D `.glb`** (glTF 2.0, validador de Khronos: 0 errores) — documento 18 |
 | Además | **Favoritos por cuenta**; nombre y **fórmula** del ligando (comprobada contra RCSB en los 1242); **452 pruebas** automáticas y pruebas de mutación |
 

@@ -193,6 +193,8 @@ En el código fuente de SceneView, `SphereNode` **sí** actualiza su geometría 
 
 ### 5.5 En pantalla
 
+> **Nota posterior (documento 19):** la tecla pasó a ser **MODEL…**, una **lista desplegable** con los cuatro modelos (VII.1 pide «control segmentado, desplegable o botones»).
+
 La tecla del modelo está en la cabecera del panel **Elements / CPK key** y muestra el modelo actual («BALL & STICK», «SPACE-FILLING», «STICKS», «WIREFRAME»). No cabía en el panel superior: con «Pattern 001» a 32 sp, la tecla atrás y las teclas H y SHR, una tercera tecla dejaba ~95 dp para el título. Su lugar natural es junto a la leyenda: los dos dicen **cómo** se dibuja la molécula. TalkBack la anuncia como «Model: Ball & stick. Change the model».
 
 ---

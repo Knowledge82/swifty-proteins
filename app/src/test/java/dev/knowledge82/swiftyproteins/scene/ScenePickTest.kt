@@ -74,4 +74,13 @@ class ScenePickTest {
         // The screen keeps at most one, but the rule does not depend on it.
         assertEquals(ScenePick.Atom(0), Drawn.selection(m, atom = 0, bond = 1, showHydrogens = true, Representation.BALL_AND_STICK))
     }
+
+    @Test
+    fun selectingAnAtomHighlightsItsElementUnlessTheKeyChoseOne() {
+        assertEquals("O", Drawn.highlight(m, chosenInKey = null, selection = ScenePick.Atom(2)))
+        assertEquals("H", Drawn.highlight(m, chosenInKey = "H", selection = ScenePick.Atom(2)))   // the key wins
+        assertNull(Drawn.highlight(m, chosenInKey = null, selection = ScenePick.Bond(1)))
+        assertNull(Drawn.highlight(m, chosenInKey = null, selection = null))
+        assertNull(Drawn.highlight(m, chosenInKey = null, selection = ScenePick.Atom(99)))       // never crashes
+    }
 }

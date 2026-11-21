@@ -44,6 +44,8 @@ import dev.knowledge82.swiftyproteins.scene.Representation
 import dev.knowledge82.swiftyproteins.scene.ScenePick
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -114,6 +116,7 @@ fun MoleculeScreen(
     var focus by rememberSaveable { mutableStateOf<Int?>(null) }                                // bonus VII.3
     // The ruler (bonus VII.3, document 16): on or off, and the tapped atoms (an IntArray: a type a Bundle can hold).
     var ruler by rememberSaveable { mutableStateOf(false) }
+    var showLabels by rememberSaveable { mutableStateOf(false) }   // bonus VII.3, document 19
     var measuredIds by rememberSaveable { mutableStateOf(IntArray(0)) }
     val hasHydrogens = remember(molecule) { molecule.atoms.any { it.element == "H" } }
     val legend = remember(molecule, showHydrogens) { ElementLegend.of(molecule, showHydrogens) }
@@ -205,9 +208,11 @@ fun MoleculeScreen(
             representation = representation,
             showHydrogens = showHydrogens,
             selection = selection,
-            highlightElement = highlightElement,
+            // VII.3: selecting an atom highlights every atom of its element. A choice made in the key wins.
+            highlightElement = Drawn.highlight(molecule, highlightElement, selection),
             focus = focus,
             measured = if (ruler) measured else emptyList(),
+            showLabels = showLabels,
             onTap = { pick ->
                 if (!ruler) select(pick)
                 else when (pick) {
@@ -268,7 +273,9 @@ fun MoleculeScreen(
                 highlighted = highlightElement,
                 onToggle = { element -> highlightElement = if (highlightElement == element) null else element },
                 representation = representation,
-                onNextRepresentation = { representation = representation.next() },
+                labels = showLabels,
+                onToggleLabels = { showLabels = !showLabels },
+                onModel = { representation = it },
                 ruler = ruler,
                 onToggleRuler = {
                     ruler = !ruler
@@ -509,30 +516,63 @@ private fun ElementKey(
     highlighted: String?,
     onToggle: (String) -> Unit,
     representation: Representation,
-    onNextRepresentation: () -> Unit,
+    onModel: (Representation) -> Unit,
+    labels: Boolean,
+    onToggleLabels: () -> Unit,
     ruler: Boolean,
     onToggleRuler: () -> Unit,
     modifier: Modifier,
 ) {
     val sounds = LocalSounds.current
     CogitatorPanel(fill = SwiftyColors.ConsoleOverlay, contentPadding = 10.dp, scanlines = false, modifier = modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Elements / CPK key", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash)
-                Text(representation.label, style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor, maxLines = 1)
+        Text("Elements / CPK key · ${representation.label}", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash, maxLines = 1)
+        Spacer(Modifier.height(6.dp))
+        // Three keys sharing the width: the MODEL list (VII.1: "dropdown"), the RULER and the LABELS (VII.3).
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            var open by remember { mutableStateOf(false) }
+            Box(modifier = Modifier.weight(1f)) {
+                ConsoleKey(
+                    text = "MODEL…",   // "…" = opens a choice (and ▾ is not in our font)
+                    onClick = { open = true },
+                    contentDescription = "Model: ${representation.label}. Choose another",
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                DropdownMenu(expanded = open, onDismissRequest = { open = false }, containerColor = SwiftyColors.Console) {
+                    for (model in Representation.entries) {
+                        val current = model == representation
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    (if (current) "> " else "  ") + model.label,
+                                    style = SwiftyDataText.medium.glowing(if (current) SwiftyColors.Phosphor else SwiftyColors.Gold),
+                                    color = if (current) SwiftyColors.Phosphor else SwiftyColors.Gold,
+                                )
+                            },
+                            onClick = {
+                                sounds.play(SoundCue.KEY)
+                                open = false
+                                onModel(model)
+                            },
+                            modifier = Modifier.semantics { if (current) stateDescription = "current" },
+                        )
+                    }
+                }
             }
-            ConsoleKey(
-                text = "MODEL",
-                onClick = onNextRepresentation,
-                contentDescription = "Model: ${representation.label}. Change the model",
-            )
-            Spacer(Modifier.width(8.dp))
             ConsoleKey(
                 text = "RULER",
                 onClick = onToggleRuler,
                 contentDescription = "Ruler: measure distances and angles",
                 active = ruler,
                 stateDescription = if (ruler) "on" else "off",
+                modifier = Modifier.weight(1f),
+            )
+            ConsoleKey(
+                text = "LABELS",
+                onClick = onToggleLabels,
+                contentDescription = "Element labels on the atoms",
+                active = labels,
+                stateDescription = if (labels) "on" else "off",
+                modifier = Modifier.weight(1f),
             )
         }
         Spacer(Modifier.height(4.dp))

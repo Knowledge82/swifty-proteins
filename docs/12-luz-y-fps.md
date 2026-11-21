@@ -1,6 +1,6 @@
 # 12 · Luz de la escena y contador de FPS
 
-> **Estado:** **escrito**. El contador (`FpsMeter`) está probado en la JVM (10 pruebas, 6 mutantes muertos). La luz y el contador en pantalla **compilan contra *stubs*** hechos con el código fuente de SceneView 4.69.4 (etiqueta `v4.69.4` de GitHub); **sin probar en el móvil**. Los valores de la luz son un **primer ajuste**: se juzgan a ojo en el A33.
+> **Estado:** **escrito**. **Comprobado en el A33: 60 FPS, sin bajadas.** El contador (`FpsMeter`) está probado en la JVM (10 pruebas, 6 mutantes muertos). La luz y el contador en pantalla **compilan contra *stubs*** hechos con el código fuente de SceneView 4.69.4 (etiqueta `v4.69.4` de GitHub); en el móvil se ha comprobado el contador (60 FPS). Los valores de la luz son un **primer ajuste**: se juzgan a ojo en el A33.
 
 ## Índice
 
