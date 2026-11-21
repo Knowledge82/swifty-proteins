@@ -418,11 +418,16 @@ fun BackKey(onClick: () -> Unit, modifier: Modifier = Modifier) {
 // ---------------------------------------------------------------------------------------------------------------
 // Art
 
-/** One of the painted illustrations (servo-skull, servitor...), scaled to fit [size]. Decorative: no description. */
+/**
+ * One of the painted illustrations (servo-skull, servitor...), scaled to fit [size]. Decorative: no description.
+ *
+ * Only for RASTER art (the art_*.webp files): it is loaded as an ImageBitmap because only the bitmap overload of
+ * Image takes a filterQuality (the painter overload does not; a vector drawable would not load this way).
+ */
 @Composable
 fun ArtImage(@DrawableRes art: Int, modifier: Modifier = Modifier, size: Dp = 150.dp) {
     Image(
-        painter = painterResource(art),
+        bitmap = ImageBitmap.imageResource(art),
         contentDescription = null,
         contentScale = ContentScale.Fit,
         // The paintings are ~424 px and get scaled: the high-quality filter keeps them smooth instead of blocky.
