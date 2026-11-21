@@ -20,6 +20,7 @@ import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.export.GlbWriter
 import dev.knowledge82.swiftyproteins.export.MolfileWriter
 import dev.knowledge82.swiftyproteins.molecule.Molecule
+import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.scene.Representation
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -57,7 +58,15 @@ object MoleculeSharer {
      * Does [format]. [representation] and [showHydrogens] are what is on screen: the .glb exports exactly that.
      * Saving to the gallery on Android 7-9 needs the storage permission: the SCREEN asks for it before calling this.
      */
-    suspend fun export(context: Context, root: View, molecule: Molecule, format: ExportFormat, representation: Representation, showHydrogens: Boolean) {
+    suspend fun export(
+        context: Context,
+        root: View,
+        molecule: Molecule,
+        format: ExportFormat,
+        representation: Representation,
+        showHydrogens: Boolean,
+        atomColors: AtomColors = AtomColors.JMOL,
+    ) {
         val store = ShareImageStore(File(context.cacheDir, ShareImageStore.DIRECTORY))
         when (format) {
             ExportFormat.PNG, ExportFormat.JPEG -> {
@@ -90,7 +99,7 @@ object MoleculeSharer {
                 val file = withContext(Dispatchers.Default) {
                     val bytes = try {
                         if (format == ExportFormat.MOL) MolfileWriter.write(molecule).toByteArray(Charsets.US_ASCII)
-                        else GlbWriter.write(molecule, representation, showHydrogens)
+                        else GlbWriter.write(molecule, representation, showHydrogens, atomColors)
                     } catch (e: IllegalArgumentException) {
                         throw CaptureException(CaptureFailure.OTHER, e)   // more than 999 atoms for a .mol
                     }

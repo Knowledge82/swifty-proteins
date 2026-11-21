@@ -66,4 +66,20 @@ class FileLigandCacheTest {
         c.write("ATP", "abc")          // cannot write inside a file: silently not kept
         assertNull(c.read("ATP"))
     }
+
+    @Test
+    fun idsListsTheCopiesAndNothingElse() {
+        val c = cache()
+        c.write("ATP", "a"); c.write("HEM", "h")
+        File(dir, "stray.tmp").writeText("half")
+        assertEquals(setOf("ATP", "HEM"), c.ids())
+        c.remove("ATP")
+        assertEquals(setOf("HEM"), c.ids())
+    }
+
+    @Test
+    fun idsOfAMissingFolderIsEmpty() {
+        assertEquals(emptySet<String>(), FileLigandCache(File(dir, "nope")) { clock }.ids())
+        assertEquals(emptySet<String>(), NoLigandCache.ids())
+    }
 }

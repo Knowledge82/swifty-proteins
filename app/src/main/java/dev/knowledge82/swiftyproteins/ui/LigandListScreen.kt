@@ -1,5 +1,17 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import dev.knowledge82.swiftyproteins.scene.ElementStyle
+import dev.knowledge82.swiftyproteins.scene.AtomColors
+import dev.knowledge82.swiftyproteins.molecule.MolecularFormula
+import dev.knowledge82.swiftyproteins.catalog.LigandIndex
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.border
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,11 +60,16 @@ import dev.knowledge82.swiftyproteins.ui.theme.glowing
  * That is what lets [SwiftyApp] keep them while the user looks at a molecule and comes back.
  * Only the LOOK changed with the design; the logic (search, keys, hiding the keyboard) is the same as before.
  *
- * @param catalog the ligands, or `null` if the file could not be read
+ * @param catalog  the ligands, or `null` if the file could not be read
+ * @param index    name, formula and size of each ligand, for the cells and the search by name (document 21)
+ * @param archived the ids with a copy on the phone: their cells say ARCHIVED
  */
 @Composable
 fun LigandListScreen(
     catalog: LigandCatalog?,
+    index: LigandIndex = LigandIndex.EMPTY,
+    archived: Set<String> = emptySet(),
+    atomColors: AtomColors = AtomColors.JMOL,
     query: String,
     onQueryChange: (String) -> Unit,
     listState: LazyListState,
@@ -66,8 +83,8 @@ fun LigandListScreen(
 ) {
     // Recomputed ONLY when the catalog, the text or the favourites filter change (not on every recomposition). It is
     // the "real time" search: each keystroke changes `query`, this line runs again and the list below redraws.
-    val results = remember(catalog, query, favorites, onlyFavorites) {
-        Favorites.filter(catalog?.search(query) ?: emptyList(), favorites, onlyFavorites)
+    val results = remember(catalog, index, query, favorites, onlyFavorites) {
+        Favorites.filter(catalog?.search(query, index::nameOf) ?: emptyList(), favorites, onlyFavorites)
     }
     val total = remember(catalog) { catalog?.search("")?.size ?: 0 }
     val available = catalog != null
@@ -144,6 +161,9 @@ fun LigandListScreen(
                             items(results, key = { it }) { id ->
                                 PatternRow(
                                     id = id,
+                                    entry = index[id],
+                                    archived = id in archived,
+                                    atomColors = atomColors,
                                     favorite = id in favorites,
                                     onToggleFavorite = { onToggleFavorite(id) },
                                     onClick = {
@@ -172,7 +192,7 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
         singleLine = true,
         modifier = Modifier.fillMaxWidth(),
         textStyle = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor),
-        placeholder = { Text("Search by ligand ID", style = SwiftyDataText.medium) },
+        placeholder = { Text("Search by ID or name", style = SwiftyDataText.medium) },
         leadingIcon = { Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor) },
         trailingIcon = if (query.isEmpty()) null else {
             {
@@ -199,17 +219,68 @@ private fun QueryField(query: String, onQueryChange: (String) -> Unit, enabled: 
     )
 }
 
-/** One ligand as a console line: "> 001 ........ [INSPECT] ☆". 56 dp tall, all of it tappable; the star is its own key. */
+/**
+ * One ligand as a rich console cell (bonus VII.2 "custom cells", document 21), all of it tappable, the star its own key:
+ *
+ *     > ATP   ADENOSINE-5'-TRIPHOSPHATE                    ☆
+ *             C10H16N5O13P3 · 47 ATOMS            ARCHIVED
+ *             ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇  (the share of each element, in its colour)
+ *
+ * Without an index entry (the file is missing, or a ligand added later) it is the old line: the id alone.
+ */
 @Composable
-private fun PatternRow(id: String, favorite: Boolean, onToggleFavorite: () -> Unit, onClick: () -> Unit) {
+private fun PatternRow(
+    id: String,
+    entry: LigandIndex.Entry?,
+    archived: Boolean,
+    atomColors: AtomColors,
+    favorite: Boolean,
+    onToggleFavorite: () -> Unit,
+    onClick: () -> Unit,
+) {
+    val parts = remember(entry) { entry?.formula?.let { MolecularFormula.parse(it) } }
+    val spoken = ListTexts.cellDescription(id, entry?.name, entry?.formula, entry?.atoms, archived)
     Column {
-        Surface(onClick = onClick, color = Color.Transparent, modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp)) {
-            Row(modifier = Modifier.padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Surface(
+            onClick = onClick,
+            color = Color.Transparent,
+            modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).semantics { contentDescription = spoken },
+        ) {
+            Row(modifier = Modifier.padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(">", style = SwiftyDataText.large.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
-                Spacer(Modifier.width(16.dp))
-                Text(id, style = SwiftyDataText.large.glowing(SwiftyColors.Bone, 0.25f), color = SwiftyColors.Bone, modifier = Modifier.width(72.dp))
-                Text("·······", style = SwiftyDataText.small, color = SwiftyColors.PhosphorDim, modifier = Modifier.weight(1f))
-                Text("[INSPECT]", style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f).clearAndSetSemantics { }) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(id, style = SwiftyDataText.large.glowing(SwiftyColors.Bone, 0.25f), color = SwiftyColors.Bone, modifier = Modifier.width(64.dp))
+                        Text(
+                            entry?.name?.takeIf { it.isNotEmpty() } ?: "·······",
+                            style = SwiftyDataText.small,
+                            color = if (entry == null) SwiftyColors.PhosphorDim else SwiftyColors.Ash,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (entry != null) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                if (parts != null) formulaText(parts) else AnnotatedString(entry.formula),
+                                style = SwiftyDataText.small.glowing(SwiftyColors.Phosphor),
+                                color = SwiftyColors.Phosphor,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f, fill = false),
+                            )
+                            Text(" · ${ListTexts.atoms(entry.atoms)}", style = SwiftyDataText.small, color = SwiftyColors.Ash, maxLines = 1)
+                            Spacer(Modifier.weight(1f))
+                            if (archived) Text("ARCHIVED", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Brass, maxLines = 1)
+                        }
+                        if (parts != null) {
+                            Spacer(Modifier.height(4.dp))
+                            CompositionBar(parts, atomColors)
+                        }
+                    }
+                }
                 StarKey(
                     on = favorite,
                     onClick = onToggleFavorite,
@@ -219,6 +290,17 @@ private fun PatternRow(id: String, favorite: Boolean, onToggleFavorite: () -> Un
             }
         }
         ConsoleRule()
+    }
+}
+
+/** A 3 dp strip cut into the share of each element, in the colours of the 3D view (decoration: TalkBack has the words). */
+@Composable
+private fun CompositionBar(parts: List<MolecularFormula.Part>, atomColors: AtomColors) {
+    Row(modifier = Modifier.fillMaxWidth().height(3.dp).border(0.5.dp, SwiftyColors.Bronze)) {
+        for ((element, share) in ListTexts.composition(parts)) {
+            val rgb = ElementStyle.colorOf(element, atomColors)
+            Box(Modifier.weight(share).fillMaxHeight().background(Color(((rgb shr 16) and 0xFF), ((rgb shr 8) and 0xFF), rgb and 0xFF)))
+        }
     }
 }
 

@@ -3,6 +3,7 @@ package dev.knowledge82.swiftyproteins.export
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.BondGeometry
 import dev.knowledge82.swiftyproteins.scene.Drawn
+import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
 import dev.knowledge82.swiftyproteins.scene.Representation
 import java.io.ByteArrayOutputStream
@@ -35,7 +36,7 @@ object GlbWriter {
     private const val STICK_RGB = 0xB3B3B3   // the grey of the scene's sticks (0.7, 0.7, 0.7)
 
     /** The groups of what is drawn: one per element present, plus the sticks (grey, or in halves of each colour). */
-    fun groupsOf(molecule: Molecule, representation: Representation, showHydrogens: Boolean): List<Group> {
+    fun groupsOf(molecule: Molecule, representation: Representation, showHydrogens: Boolean, colors: AtomColors = AtomColors.JMOL): List<Group> {
         val byColour = LinkedHashMap<String, Group>()
         fun groupFor(key: String, rgb: Int) = byColour.getOrPut(key) { Group(key, rgb, Mesh()) }
 
@@ -47,7 +48,7 @@ object GlbWriter {
             if (!Drawn.atom(molecule, i, showHydrogens)) continue
             val r = representation.atomRadius(atom.element, bonded[i])
             val detail = if (r < 0.3f) SMALL_BALL else BALL_STACKS
-            groupFor(atom.element, ElementStyle.colorOf(atom.element))
+            groupFor(atom.element, ElementStyle.colorOf(atom.element, colors))
                 .mesh.addSphere(atom.x, atom.y, atom.z, r, detail, if (r < 0.3f) SMALL_BALL else BALL_SLICES)
         }
         val bondRadius = representation.bondRadius
@@ -58,8 +59,8 @@ object GlbWriter {
                 if (representation.bondsInAtomColours) {
                     if (BondGeometry.halvesOf(a, b) == null) continue
                     val mx = (a.x + b.x) / 2; val my = (a.y + b.y) / 2; val mz = (a.z + b.z) / 2
-                    groupFor(a.element, ElementStyle.colorOf(a.element)).mesh.addCylinder(a.x, a.y, a.z, mx, my, mz, bondRadius, TUBE_SEGMENTS)
-                    groupFor(b.element, ElementStyle.colorOf(b.element)).mesh.addCylinder(mx, my, mz, b.x, b.y, b.z, bondRadius, TUBE_SEGMENTS)
+                    groupFor(a.element, ElementStyle.colorOf(a.element, colors)).mesh.addCylinder(a.x, a.y, a.z, mx, my, mz, bondRadius, TUBE_SEGMENTS)
+                    groupFor(b.element, ElementStyle.colorOf(b.element, colors)).mesh.addCylinder(mx, my, mz, b.x, b.y, b.z, bondRadius, TUBE_SEGMENTS)
                 } else {
                     groupFor("bonds", STICK_RGB).mesh.addCylinder(a.x, a.y, a.z, b.x, b.y, b.z, bondRadius, TUBE_SEGMENTS)
                 }
@@ -68,9 +69,9 @@ object GlbWriter {
         return byColour.values.filter { it.mesh.triangleCount > 0 }
     }
 
-    /** The whole .glb file. */
-    fun write(molecule: Molecule, representation: Representation, showHydrogens: Boolean): ByteArray =
-        write(groupsOf(molecule, representation, showHydrogens), "Swifty Proteins · ${molecule.id}")
+    /** The whole .glb file, in the colours on screen ([colors], document 21). */
+    fun write(molecule: Molecule, representation: Representation, showHydrogens: Boolean, colors: AtomColors = AtomColors.JMOL): ByteArray =
+        write(groupsOf(molecule, representation, showHydrogens, colors), "Swifty Proteins · ${molecule.id}")
 
     fun write(groups: List<Group>, title: String): ByteArray {
         val bin = ByteArrayOutputStream()

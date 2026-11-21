@@ -1,6 +1,8 @@
 package dev.knowledge82.swiftyproteins.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shadow
@@ -47,6 +49,13 @@ object SwiftyDataText {
 /**
  * The CRT phosphor glow: the same colour, blurred, behind the letters (a text shadow with no offset). It is what
  * turns "green text" into "a lit tube". Kept faint (45 %) so the letters stay sharp.
+ *
+ * Scaled by the palette's `glow` (document 21): ink on parchment does not glow, and a blur behind it only smudges.
  */
-fun TextStyle.glowing(color: Color, strength: Float = 0.45f): TextStyle =
-    copy(shadow = Shadow(color = color.copy(alpha = strength), offset = Offset.Zero, blurRadius = 10f))
+@Composable
+@ReadOnlyComposable
+fun TextStyle.glowing(color: Color, strength: Float = 0.45f): TextStyle {
+    val glow = LocalSwiftyPalette.current.spec.glow
+    if (glow <= 0f) return this
+    return copy(shadow = Shadow(color = color.copy(alpha = strength * glow), offset = Offset.Zero, blurRadius = 10f))
+}

@@ -16,7 +16,7 @@ class PrefsSettingsStore(context: Context) : SettingsStore {
     private val prefs = context.applicationContext.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
     override fun load(): Settings = try {
-        SettingsCodec.decode(KEYS.associateWith { prefs.getString(it, null) })
+        SettingsCodec.decode(SettingsCodec.KEYS.associateWith { prefs.getString(it, null) })
     } catch (e: Exception) {
         Settings()   // a value of another type in the file (getString on an int throws): defaults
     }
@@ -30,7 +30,6 @@ class PrefsSettingsStore(context: Context) : SettingsStore {
 
     private companion object {
         const val FILE = "settings"
-        val KEYS = listOf(SettingsCodec.MODEL, SettingsCodec.HYDROGENS, SettingsCodec.SOUNDS)
     }
 }
 

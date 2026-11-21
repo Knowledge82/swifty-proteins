@@ -24,6 +24,11 @@ class PreferencesController(
     private val mutableSettings = MutableStateFlow(Settings())
     val settings: StateFlow<Settings> = mutableSettings.asStateFlow()
 
+    // False until the saved settings were read (document 21): before that, `settings` holds the DEFAULTS, and a screen
+    // that trusted them would show the first-run tutorial to someone who finished it long ago.
+    private val mutableLoaded = MutableStateFlow(false)
+    val loaded: StateFlow<Boolean> = mutableLoaded.asStateFlow()
+
     private val mutableFavorites = MutableStateFlow<Set<String>>(emptySet())
     val favorites: StateFlow<Set<String>> = mutableFavorites.asStateFlow()
 
@@ -41,7 +46,10 @@ class PreferencesController(
     val ready: Boolean get() = user != null && loadedGeneration == generation
 
     init {
-        scope.launch(io) { mutableSettings.value = settingsStore.load() }
+        scope.launch(io) {
+            mutableSettings.value = settingsStore.load()
+            mutableLoaded.value = true
+        }
     }
 
     fun updateSettings(change: (Settings) -> Settings) {

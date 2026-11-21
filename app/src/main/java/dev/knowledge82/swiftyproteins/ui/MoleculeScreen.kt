@@ -51,6 +51,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.getValue
@@ -71,6 +72,8 @@ import dev.knowledge82.swiftyproteins.scene.ElementLegend
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
 import dev.knowledge82.swiftyproteins.net.Origin
 import dev.knowledge82.swiftyproteins.scene.Assembly
+import dev.knowledge82.swiftyproteins.scene.AtomColors
+import dev.knowledge82.swiftyproteins.scene.SceneLook
 import dev.knowledge82.swiftyproteins.scene.FpsMeter
 import dev.knowledge82.swiftyproteins.sound.LocalSounds
 import dev.knowledge82.swiftyproteins.sound.SoundCue
@@ -103,6 +106,7 @@ fun MoleculeScreen(
     startModel: Representation = Representation.BALL_AND_STICK,
     startWithHydrogens: Boolean = true,
     favorite: Boolean = false,
+    atomColors: AtomColors = AtomColors.JMOL,
     onToggleFavorite: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
@@ -153,7 +157,7 @@ fun MoleculeScreen(
         sounds.play(SoundCue.SHUTTER)
         scope.launch {
             share = try {
-                MoleculeSharer.export(context, view, molecule, format, representation, showHydrogens)
+                MoleculeSharer.export(context, view, molecule, format, representation, showHydrogens, atomColors)
                 ShareStatus.Done(format)
             } catch (e: CancellationException) {
                 throw e   // the screen went away: not a failure, just stop
@@ -239,6 +243,8 @@ fun MoleculeScreen(
             modifier = Modifier.fillMaxSize(),
             onFrame = fpsMeter::onFrame,
             onAssembly = { built, total -> assembly = built to total },
+            look = SceneLook.of(SwiftyColors.palette.isDark),
+            atomColors = atomColors,
         )
 
         // The frame AROUND the scene. Only the panels catch touches (they are Surfaces); the brackets and the empty
@@ -284,6 +290,7 @@ fun MoleculeScreen(
                 highlighted = highlightElement,
                 onToggle = { element -> highlightElement = if (highlightElement == element) null else element },
                 representation = representation,
+                atomColors = atomColors,
                 labels = showLabels,
                 onToggleLabels = { showLabels = !showLabels },
                 onModel = { representation = it },
@@ -360,6 +367,8 @@ private fun TopPanel(
 }
 
 /** Phosphor when smooth, amber when it drops under 55, optic red under 30 (the subject's "poor performance"). */
+@Composable
+@ReadOnlyComposable
 private fun fpsColor(level: FpsText.Level): Color = when (level) {
     FpsText.Level.GOOD -> SwiftyColors.Phosphor
     FpsText.Level.FAIR -> SwiftyColors.Amber
@@ -528,19 +537,8 @@ private fun ReadoutRow(label: String, value: String) {
     }
 }
 
-/**
- * The formula with real subscripts drawn in OUR font: each count is the same digits, lowered and at 75 % size. Not
- * Unicode subscripts (₁₀): neither of our fonts has those glyphs, and Android would take them from another font in the
- * middle of the formula (document 15).
- */
-private fun formulaText(molecule: Molecule): AnnotatedString = buildAnnotatedString {
-    for (part in MolecularFormula.of(molecule.atoms)) {
-        append(part.element)
-        if (part.count > 1) {
-            withStyle(SpanStyle(fontSize = 0.75.em, baselineShift = BaselineShift.Subscript)) { append(part.count.toString()) }
-        }
-    }
-}
+/** The formula of [molecule] with real subscripts (the shared [formulaText], document 15). */
+private fun formulaText(molecule: Molecule): AnnotatedString = formulaText(MolecularFormula.of(molecule.atoms))
 
 /**
  * "ELEMENTS / CPK KEY": the colour of each element that is drawn, and the MODEL key (bonus VII.1). Tapping an element
@@ -553,6 +551,7 @@ private fun ElementKey(
     highlighted: String?,
     onToggle: (String) -> Unit,
     representation: Representation,
+    atomColors: AtomColors,
     onModel: (Representation) -> Unit,
     labels: Boolean,
     onToggleLabels: () -> Unit,
@@ -562,7 +561,7 @@ private fun ElementKey(
 ) {
     val sounds = LocalSounds.current
     CogitatorPanel(fill = SwiftyColors.ConsoleOverlay, contentPadding = 10.dp, scanlines = false, modifier = modifier.fillMaxWidth()) {
-        Text("Elements / CPK key · ${representation.label}", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash, maxLines = 1)
+        Text("Elements / ${atomColors.label} · ${representation.label}", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash, maxLines = 1)
         Spacer(Modifier.height(6.dp))
         // Three keys sharing the width: the MODEL list (VII.1: "dropdown"), the RULER and the LABELS (VII.3).
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -631,7 +630,8 @@ private fun ElementKey(
                         .border(if (on) 1.5.dp else 0.dp, if (on) SwiftyColors.Gold else Color.Transparent, CutCornerShape(4.dp))
                         .padding(horizontal = 8.dp),
                 ) {
-                    Box(Modifier.size(10.dp).background(cpkColor(element), CircleShape))
+                    // A thin bronze ring: a white hydrogen dot must stay visible on parchment too.
+                    Box(Modifier.size(10.dp).background(cpkColor(element, atomColors), CircleShape).border(0.5.dp, SwiftyColors.Bronze, CircleShape))
                     Spacer(Modifier.width(6.dp))
                     Text(element, style = SwiftyDataText.small, color = if (on) SwiftyColors.Gold else SwiftyColors.Bone)
                 }
@@ -640,8 +640,8 @@ private fun ElementKey(
     }
 }
 
-/** The same colour the scene paints the element with (ElementStyle), as a Compose colour. */
-private fun cpkColor(element: String): Color {
-    val rgb = ElementStyle.colorOf(element)
+/** The same colour the scene paints the element with (ElementStyle, in the chosen scheme), as a Compose colour. */
+private fun cpkColor(element: String, scheme: AtomColors): Color {
+    val rgb = ElementStyle.colorOf(element, scheme)
     return Color((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
 }

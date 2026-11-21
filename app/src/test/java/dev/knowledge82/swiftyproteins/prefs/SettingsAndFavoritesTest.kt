@@ -1,5 +1,6 @@
 package dev.knowledge82.swiftyproteins.prefs
 
+import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.scene.Representation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -149,5 +150,66 @@ class SettingsAndFavoritesTest {
         c.onUserChanged(null)                    // locked before adept42's file was read
         while (pending.isNotEmpty()) pending.removeAt(0).run()
         assertEquals(emptySet<String>(), c.favorites.value)
+    }
+
+    // ---------------------------------------------------------------- theme, colours, tutorial (document 21)
+
+    @Test
+    fun theNewSettingsSurviveARoundTrip() {
+        val s = Settings(theme = ThemeMode.LIGHT, atomColors = AtomColors.RASMOL, tutorialSeen = true)
+        assertEquals(s, SettingsCodec.decode(SettingsCodec.encode(s)))
+    }
+
+    @Test
+    fun aStoreThatPredatesTheNewSettingsGivesTheirDefaults() {
+        // A settings file written before document 21: only the three old keys.
+        val old = mapOf(SettingsCodec.MODEL to "STICKS", SettingsCodec.HYDROGENS to "false", SettingsCodec.SOUNDS to "true")
+        val s = SettingsCodec.decode(old)
+        assertEquals(Representation.STICKS, s.defaultModel)
+        assertEquals(ThemeMode.SYSTEM, s.theme)
+        assertEquals(AtomColors.JMOL, s.atomColors)
+        assertFalse(s.tutorialSeen)
+    }
+
+    @Test
+    fun oddNewValuesResetOnlyThemselves() {
+        val s = SettingsCodec.decode(mapOf(SettingsCodec.THEME to "SEPIA", SettingsCodec.ATOM_COLORS to "1", SettingsCodec.TUTORIAL to "yes", SettingsCodec.SOUNDS to "false"))
+        assertEquals(Settings(sounds = false), s)
+    }
+
+    @Test
+    fun everyEncodedKeyIsReadBack() {
+        // The store reads KEYS: a key written by encode and missing there would be saved and never read again.
+        assertEquals(SettingsCodec.encode(Settings()).keys, SettingsCodec.KEYS.toSet())
+        assertEquals(SettingsCodec.KEYS.size, SettingsCodec.KEYS.toSet().size)
+    }
+
+    @Test
+    fun theThemeFollowsThePhoneOnlyWhenAskedTo() {
+        assertTrue(ThemeMode.SYSTEM.isDark(phoneIsDark = true))
+        assertFalse(ThemeMode.SYSTEM.isDark(phoneIsDark = false))
+        assertTrue(ThemeMode.DARK.isDark(phoneIsDark = false))
+        assertFalse(ThemeMode.LIGHT.isDark(phoneIsDark = true))
+    }
+
+    @Test
+    fun theKeysCycleThroughEveryChoice() {
+        assertEquals(listOf(ThemeMode.DARK, ThemeMode.LIGHT, ThemeMode.SYSTEM), ThemeMode.entries.map { it.next() })
+        assertEquals(listOf(AtomColors.RASMOL, AtomColors.JMOL), AtomColors.entries.map { it.next() })
+    }
+
+    @Test
+    fun loadedTurnsTrueOnlyAfterTheStoreWasRead() {
+        val pending = ArrayList<Runnable>()
+        val manual = object : kotlinx.coroutines.CoroutineDispatcher() {
+            override fun dispatch(context: kotlin.coroutines.CoroutineContext, block: Runnable) { pending += block }
+        }
+        val stored = MemorySettingsStore(Settings(tutorialSeen = true))
+        val c = PreferencesController(stored, favs, CoroutineScope(Dispatchers.Unconfined), manual)
+        assertFalse("before the read, the settings are only the defaults", c.loaded.value)
+        assertFalse(c.settings.value.tutorialSeen)
+        while (pending.isNotEmpty()) pending.removeAt(0).run()
+        assertTrue(c.loaded.value)
+        assertTrue(c.settings.value.tutorialSeen)
     }
 }

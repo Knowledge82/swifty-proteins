@@ -17,6 +17,9 @@ interface LigandCache {
     fun read(id: String): CachedLigand?
     fun write(id: String, text: String)
     fun remove(id: String)
+
+    /** The ids that have a copy (the "archived" mark of the list, document 21). Best effort: empty if unreadable. */
+    fun ids(): Set<String> = emptySet()
 }
 
 /** No cache at all (the default of the repository, and what the old tests use). */
@@ -64,6 +67,14 @@ class FileLigandCache(
 
     override fun remove(id: String) {
         fileOf(id).delete()
+    }
+
+    override fun ids(): Set<String> = try {
+        dir.listFiles { f -> f.isFile && f.name.endsWith(SUFFIX) }
+            ?.map { it.name.removeSuffix(SUFFIX) }
+            ?.toSet() ?: emptySet()
+    } catch (e: SecurityException) {
+        emptySet()
     }
 
     /** Deletes the oldest files until the total fits in [maxBytes]. */

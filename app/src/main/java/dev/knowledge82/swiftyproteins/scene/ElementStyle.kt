@@ -9,10 +9,10 @@ package dev.knowledge82.swiftyproteins.scene
  * The keys are the symbols AS THE PARSER NORMALIZES THEM: first letter upper case, the rest lower case ("Cl", "Fe",
  * never "CL"). The lookup is case sensitive on purpose.
  *
- * **Colors** follow the table that Jmol (a well-known molecule viewer) calls "CPK": hydrogen white, carbon grey,
- * nitrogen blue, oxygen red, sulfur yellow, phosphorus orange, halogens green, and so on. Written from memory: it is
- * a widely used convention and not an official standard, and the exact shade of each metal was NOT checked against
- * the original table.
+ * **Colors** come in two schemes ([AtomColors], document 21). The default is the table that Jmol (a well-known
+ * molecule viewer) calls "CPK": hydrogen white, carbon grey, nitrogen blue, oxygen red, sulfur yellow, phosphorus
+ * orange, halogens green, and so on. First written from memory; on 2026-11-21 every value below was compared with
+ * 3Dmol.js's copy of the Jmol table and all 54 matched. The second scheme is RasMol's ([rasmol]).
  */
 object ElementStyle {
 
@@ -33,6 +33,29 @@ object ElementStyle {
         "Hg" to 0xB8B8D0, "Tl" to 0xA6544D, "Pb" to 0x575961, "U" to 0x008FFF,
     )
 
+    /**
+     * RasMol's "cpk" scheme (UMass "RasMol/Chime Color RGB Values"): sixteen named colours shared by groups of
+     * elements. Elements it does not list are deep pink in RasMol, which is our [UNKNOWN_COLOR] too.
+     */
+    private val rasmol: Map<String, Int> = buildMap {
+        fun all(color: Int, vararg elements: String) = elements.forEach { put(it, color) }
+        all(0xC8C8C8, "C")                                       // light grey
+        all(0xF00000, "O")                                       // red
+        all(0xFFFFFF, "H")                                       // white
+        all(0x8F8FFF, "N")                                       // light blue
+        all(0xFFC832, "S")                                       // sulphur yellow
+        all(0x00FF00, "Cl", "B")                                 // green
+        all(0xFFA500, "P", "Fe", "Ba")                           // orange
+        all(0x0000FF, "Na")                                      // blue
+        all(0x228B22, "Mg")                                      // forest green
+        all(0xA52A2A, "Zn", "Cu", "Ni", "Br")                    // brown
+        all(0x808090, "Ca", "Mn", "Al", "Ti", "Cr", "Ag")        // dark grey
+        all(0xDAA520, "F", "Si", "Au")                           // goldenrod
+        all(0xA020F0, "I")                                       // purple
+        all(0xB22222, "Li")                                      // firebrick
+        all(0xFFC0CB, "He")                                      // pink
+    }
+
     private val names: Map<String, String> = mapOf(
         "H" to "Hydrogen", "He" to "Helium", "Li" to "Lithium", "Be" to "Beryllium", "B" to "Boron",
         "C" to "Carbon", "N" to "Nitrogen", "O" to "Oxygen", "F" to "Fluorine", "Ne" to "Neon",
@@ -47,8 +70,11 @@ object ElementStyle {
         "Hg" to "Mercury", "Tl" to "Thallium", "Pb" to "Lead", "U" to "Uranium", "X" to "Unknown element",
     )
 
-    /** `0xRRGGBB` of the element, or [UNKNOWN_COLOR]. */
-    fun colorOf(element: String): Int = colors[element] ?: UNKNOWN_COLOR
+    /** `0xRRGGBB` of the element in [scheme] (Jmol by default), or [UNKNOWN_COLOR]. */
+    fun colorOf(element: String, scheme: AtomColors = AtomColors.JMOL): Int = when (scheme) {
+        AtomColors.JMOL -> colors[element]
+        AtomColors.RASMOL -> rasmol[element]
+    } ?: UNKNOWN_COLOR
 
     /** Is the element in the color table? ("X" and anything unlisted are not.) */
     fun isKnown(element: String): Boolean = element in colors

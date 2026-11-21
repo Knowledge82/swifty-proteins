@@ -1,5 +1,6 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import dev.knowledge82.swiftyproteins.molecule.MolecularFormula
 import java.util.Locale
 
 /** The status texts of the Data-Vault Index (design v2, screens 06-09). Pure Kotlin, tested. */
@@ -27,6 +28,33 @@ object ListTexts {
     /** The empty list with "favourites only" on (document 16): none at all yet, or none matching the search. */
     fun noFavorites(query: String): String =
         if (query.isBlank()) "No favourites yet. Tap the star of a ligand to keep it here." else "No favourite matches '${query.trim()}'."
+
+    /** "47 ATOMS", "1 ATOM" (a cell of the list, document 21). */
+    fun atoms(n: Int): String = if (n == 1) "1 ATOM" else "${count(n)} ATOMS"
+
+    /**
+     * What TalkBack reads for a cell (document 21): everything the eye gets from it, in one sentence. The formula is
+     * spaced ("C10 H16 N5") so it is read as parts, not as one strange word.
+     */
+    fun cellDescription(id: String, name: String?, formula: String?, atoms: Int?, archived: Boolean): String = buildString {
+        append("Ligand ").append(id)
+        if (!name.isNullOrBlank()) append(", ").append(name)
+        val parts = formula?.let { MolecularFormula.parse(it) }
+        if (parts != null) append(", formula ").append(parts.joinToString(" ") { if (it.count == 1) it.element else "${it.element} ${it.count}" })
+        if (atoms != null) append(", ").append(atoms(atoms).lowercase())
+        if (archived) append(", saved on the phone")
+        append(". Inspect")
+    }
+
+    /**
+     * The composition bar of a cell (document 21): each element's SHARE of the atoms, in formula order, summing to 1.
+     * A small picture of the molecule's make-up before it is even downloaded: mostly carbon and hydrogen, or a metal ion.
+     */
+    fun composition(parts: List<MolecularFormula.Part>): List<Pair<String, Float>> {
+        val total = parts.sumOf { it.count }
+        if (total <= 0) return emptyList()
+        return parts.map { it.element to it.count.toFloat() / total }
+    }
 
     /** 1243 -> "1,243" always (Locale.US), whatever the phone's language. */
     private fun count(n: Int): String = String.format(Locale.US, "%,d", n)

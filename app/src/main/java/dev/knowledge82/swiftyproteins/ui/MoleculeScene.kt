@@ -19,6 +19,8 @@ import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.Assembly
+import dev.knowledge82.swiftyproteins.scene.AtomColors
+import dev.knowledge82.swiftyproteins.scene.SceneLook
 import dev.knowledge82.swiftyproteins.scene.AtomLabels
 import dev.knowledge82.swiftyproteins.scene.MeshDetail
 import dev.knowledge82.swiftyproteins.scene.BondGeometry
@@ -37,7 +39,10 @@ import io.github.sceneview.createDefaultCameraManipulator
 import io.github.sceneview.rememberCameraManipulator
 import io.github.sceneview.rememberCameraNode
 import io.github.sceneview.node.Node as NodeImpl
+import io.github.sceneview.createEnvironment
 import io.github.sceneview.rememberEngine
+import io.github.sceneview.rememberEnvironment
+import io.github.sceneview.rememberEnvironmentLoader
 import io.github.sceneview.rememberFillLightNode
 import io.github.sceneview.rememberMainLightNode
 import io.github.sceneview.rememberMaterialLoader
@@ -48,36 +53,29 @@ import kotlin.math.max
 
 // Mesh detail (how many bands a ball is cut into, how many sides a stick has): by molecule size, MeshDetail (document 20).
 
-// The halos (document 07 and 15). Selection: phosphor green; atoms of the highlighted element: brass gold, fainter.
-private const val SELECTION_ALPHA = 0.35f
-private const val ELEMENT_ALPHA = 0.28f
+// The halos (document 07 and 15): colours and opacities come from the SceneLook of the theme (document 21).
 // A bond's halo: a translucent tube around the stick, this many times thicker (and never thinner than an atom's halo).
 private const val BOND_HALO_SCALE = 2.2f
-// The ruler's line between two measured atoms: thin, phosphor green, more opaque than a halo (it is a line, not a glow).
+// The ruler's line between two measured atoms: thin, the selection colour, more opaque than a halo (a line, not a glow).
 private const val RULER_LINE_RADIUS = 0.06f
-private const val RULER_LINE_ALPHA = 0.7f
 
 // A finger is much wider than a hydrogen (radius 0.25): the area that answers to a tap is never smaller than this.
 private const val MIN_TOUCH_RADIUS = 0.35f
 
 // LIGHTING (subject VI.4: "lighting should highlight the 3D structure ... consider multiple light sources").
 // Three directional lights + the image-based ambient light (IBL) SceneView adds by default. A Direction is where the
-// light TRAVELS, in world space; the camera starts in front (+z), slightly above. Values in lux, like SceneView's own
-// defaults (main 10 000, fill 3 000, IBL 10 000). The lights stay put while the camera orbits, as in a real room.
+// light TRAVELS, in world space; the camera starts in front (+z), slightly above. Intensities in lux come from the
+// SceneLook of the theme (dark: main 10 000, fill 3 000, rim 5 000, like SceneView's own defaults; light: less rim).
+// The lights stay put while the camera orbits, as in a real room.
 // KEY: the main light, from upper-front-left: lights the faces the user sees first and gives each ball its shading.
 private val KEY_LIGHT_DIRECTION = Direction(0.45f, -0.65f, -0.6f)
-private const val KEY_LIGHT_LUX = 10_000f
 // FILL: weaker, from the front-right and a little below: lifts the dark side, so no ball turns into a flat black disc.
 private val FILL_LIGHT_DIRECTION = Direction(-0.6f, 0.15f, -0.8f)
-private const val FILL_LIGHT_LUX = 3_000f
-// RIM: from behind and above, toward the camera: a bright edge on the outline separates the balls from the black.
+// RIM: from behind and above, toward the camera: a bright edge on the outline separates the balls from the background.
 private val RIM_LIGHT_DIRECTION = Direction(0f, -0.4f, 0.9f)
-private const val RIM_LIGHT_LUX = 5_000f
 
-private fun colorOf(element: String): Color {
-    val rgb = ElementStyle.colorOf(element)
-    return Color((rgb shr 16) and 0xFF, (rgb shr 8) and 0xFF, rgb and 0xFF)
-}
+private fun rgbColor(rgb: Int, alpha: Float = 1f): Color =
+    Color(((rgb shr 16) and 0xFF) / 255f, ((rgb shr 8) and 0xFF) / 255f, (rgb and 0xFF) / 255f, alpha)
 
 /**
  * The 3D view of a molecule, in one of four models (bonus VII.1), coloured by element, with a camera that orbits the
@@ -97,6 +95,8 @@ private fun colorOf(element: String): Color {
  * @param onDoubleTap      the same for a double tap
  * @param onFrame          called once per frame that really reached the screen (the FPS counter)
  * @param onAssembly       how many pieces (atoms, then bonds) are already in the scene, of how many (document 20)
+ * @param look             background, halos and lights of the theme (document 21)
+ * @param atomColors       the colour scheme of the atoms (document 21)
  */
 @Composable
 fun MoleculeScene(
@@ -113,6 +113,8 @@ fun MoleculeScene(
     modifier: Modifier = Modifier,
     onFrame: (Long) -> Unit = {},
     onAssembly: (built: Int, total: Int) -> Unit = { _, _ -> },
+    look: SceneLook = SceneLook.DARK,
+    atomColors: AtomColors = AtomColors.JMOL,
 ) {
     // LEVEL OF DETAIL (bonus VII.4): from the size of the MOLECULE, so hiding hydrogens never rebuilds every mesh.
     val atomCount = molecule.atoms.size
@@ -143,17 +145,27 @@ fun MoleculeScene(
     val context = LocalContext.current
 
     // One material per ELEMENT, created the first time it is needed (a ligand has a handful of elements, not 256 colors).
-    val materials = remember(materialLoader) { HashMap<String, MaterialInstance>() }
+    // Keyed by the scheme too: another scheme is another set of materials.
+    val materials = remember(materialLoader, atomColors) { HashMap<String, MaterialInstance>() }
     fun materialOf(element: String): MaterialInstance =
-        materials.getOrPut(element) { materialLoader.createColorInstance(colorOf(element)) }
+        materials.getOrPut(element) { materialLoader.createColorInstance(rgbColor(ElementStyle.colorOf(element, atomColors))) }
 
     val stick = remember(materialLoader) { materialLoader.createColorInstance(Color(0.7f, 0.7f, 0.7f, 1f)) }
     // SELECTION: the atom keeps its CPK colour (recolouring it would lie about the element: yellow is sulfur, green is
     // chlorine...). Instead a translucent shell is drawn AROUND it. UNLIT: a glow, not an object, so the lights do not
     // shade it; alpha < 1 makes SceneView pick its transparent material.
-    val selectionHalo = remember(materialLoader) { materialLoader.createUnlitColorInstance(Color(0.26f, 0.88f, 0.48f, SELECTION_ALPHA)) }
-    val elementHalo = remember(materialLoader) { materialLoader.createUnlitColorInstance(Color(0.88f, 0.71f, 0.36f, ELEMENT_ALPHA)) }
-    val rulerLine = remember(materialLoader) { materialLoader.createUnlitColorInstance(Color(0.26f, 0.88f, 0.48f, RULER_LINE_ALPHA)) }
+    val selectionHalo = remember(materialLoader, look) { materialLoader.createUnlitColorInstance(rgbColor(look.selection, look.selectionAlpha)) }
+    val elementHalo = remember(materialLoader, look) { materialLoader.createUnlitColorInstance(rgbColor(look.element, look.elementAlpha)) }
+    val rulerLine = remember(materialLoader, look) { materialLoader.createUnlitColorInstance(rgbColor(look.selection, look.rulerAlpha)) }
+
+    // THE BACKGROUND (document 21): SceneView's own black in the dark theme; in the light one, its skybox painted
+    // parchment (SceneLook.skyboxColor compensates the tone mapper). Keyed by the backdrop: a new theme, a new one.
+    val environmentLoader = rememberEnvironmentLoader(engine)
+    val environment = rememberEnvironment(environmentLoader, key = look.backdrop) {
+        createEnvironment(environmentLoader).also { env ->
+            look.backdrop?.let { env.skybox?.setColor(SceneLook.skyboxColor(it)) }
+        }
+    }
 
     // All of this depends only on the molecule (and on the hydrogen switch): computed once, not at every recomposition.
     val wholeDistance = remember(molecule) { SceneFraming.cameraDistance(SceneFraming.radiusOf(molecule)) }
@@ -217,12 +229,14 @@ fun MoleculeScene(
         // Written out (SceneView would add a main and a fill light anyway) so the lighting is OURS and visible here.
         mainLightNode = rememberMainLightNode(engine) {
             lightDirection = KEY_LIGHT_DIRECTION
-            intensity = KEY_LIGHT_LUX
+            intensity = look.keyLux
         },
         fillLightNode = rememberFillLightNode(engine) {
             lightDirection = FILL_LIGHT_DIRECTION
-            intensity = FILL_LIGHT_LUX
+            intensity = look.fillLux
         },
+        environmentLoader = environmentLoader,
+        environment = environment,
         cameraNode = cameraNode,
         onFrame = afterFrame,
         cameraManipulator = rememberCameraManipulator(
@@ -245,7 +259,7 @@ fun MoleculeScene(
         ),
     ) {
         // The third light (SceneView only has parameters for two): the rim, declared like any other node.
-        LightNode(type = LightManager.Type.DIRECTIONAL, intensity = RIM_LIGHT_LUX, direction = RIM_LIGHT_DIRECTION)
+        LightNode(type = LightManager.Type.DIRECTIONAL, intensity = look.rimLux, direction = RIM_LIGHT_DIRECTION)
 
         for ((i, atom) in molecule.atoms.withIndex()) {
             if (drawn(i) && Assembly.hasAtom(i, built)) {

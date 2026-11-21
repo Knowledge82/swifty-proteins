@@ -4,6 +4,7 @@ import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Bond
 import dev.knowledge82.swiftyproteins.molecule.BondOrder
 import dev.knowledge82.swiftyproteins.molecule.Molecule
+import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.scene.Representation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -139,5 +140,15 @@ class MeshAndGlbTest {
     @Test
     fun namesAreEscapedForJson() {
         assertEquals("\"A \\\"B\\\" \\\\ \\u000a\"", GlbWriter.json("A \"B\" \\ \n"))
+    }
+
+    @Test
+    fun theExportTakesTheColoursOnScreen() {
+        // Document 21: the .glb is painted in the scheme the user chose, like the 3D view.
+        val jmol = GlbWriter.groupsOf(water, Representation.BALL_AND_STICK, true).associate { it.name to it.rgb }
+        val rasmol = GlbWriter.groupsOf(water, Representation.BALL_AND_STICK, true, AtomColors.RASMOL).associate { it.name to it.rgb }
+        assertEquals(0xFF0D0D, jmol["O"])
+        assertEquals(0xF00000, rasmol["O"])
+        assertEquals(jmol["bonds"], rasmol["bonds"])   // the grey sticks are not an element
     }
 }

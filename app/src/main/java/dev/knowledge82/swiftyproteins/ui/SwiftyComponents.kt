@@ -67,6 +67,7 @@ import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.sound.LocalSounds
 import dev.knowledge82.swiftyproteins.sound.SoundCue
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
+import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
 import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
@@ -104,9 +105,6 @@ private fun chamfer(width: Float, height: Float, cut: Float, inset: Float = 0f):
     lineTo(r - c, b); lineTo(l + c, b); lineTo(l, b - c); lineTo(l, t + c); close()
 }
 
-/** Light from above on the bronze: a highlight at the top, the plain bronze, a shadow at the bottom. */
-private val MetalHighlight = Color(0xFFD6AA60)
-private val MetalShadow = Color(0xFF4A361B)
 
 /**
  * The frame of a cogitator panel (refined against the "8-bit" look, document 08c section 17):
@@ -116,15 +114,16 @@ private val MetalShadow = Color(0xFF4A361B)
  * - rivets with a small highlight.
  * Smooth gradients and soft light are what separate "aged metal and glass" from flat 8-bit blocks.
  */
-private fun DrawScope.cogitatorFrame(cut: Dp, fill: Color, texture: ShaderBrush?, scanlines: Boolean, accent: Color) {
+private fun DrawScope.cogitatorFrame(cut: Dp, fill: Color, texture: ShaderBrush?, scanlines: Boolean, accent: Color, p: SwiftyPalette) {
     val c = cut.toPx()
     val outer = chamfer(size.width, size.height, c)
     drawPath(outer, fill)
-    if (texture != null) drawPath(outer, texture, alpha = 0.55f)
+    // The CRT texture is dark: on parchment its opacity is 0 (PaletteSpec.crtTexture, document 21).
+    if (texture != null && p.spec.crtTexture > 0f) drawPath(outer, texture, alpha = p.spec.crtTexture)
     drawPath(
         outer,
         Brush.radialGradient(
-            colors = listOf(SwiftyColors.Phosphor.copy(alpha = 0.07f), Color.Transparent),
+            colors = listOf(p.phosphor.copy(alpha = 0.07f), Color.Transparent),
             center = Offset(size.width / 2, size.height / 2),
             radius = maxOf(size.width, size.height) * 0.7f,
         ),
@@ -134,21 +133,21 @@ private fun DrawScope.cogitatorFrame(cut: Dp, fill: Color, texture: ShaderBrush?
         val step = 3.dp.toPx()
         var y = c * 0.5f
         while (y < size.height - c * 0.5f) {
-            drawLine(SwiftyColors.PhosphorDim.copy(alpha = 0.05f), Offset(c * 0.3f, y), Offset(size.width - c * 0.3f, y), strokeWidth = 1f)
+            drawLine(p.phosphorDim.copy(alpha = 0.05f), Offset(c * 0.3f, y), Offset(size.width - c * 0.3f, y), strokeWidth = 1f)
             y += step
         }
     }
     drawPath(
         outer,
-        Brush.verticalGradient(listOf(MetalHighlight, SwiftyColors.Bronze, MetalShadow)),
+        Brush.verticalGradient(listOf(p.metalHighlight, p.bronze, p.metalShadow)),
         style = Stroke(width = 2.5.dp.toPx()),
     )
     drawPath(chamfer(size.width, size.height, c, inset = 4.dp.toPx()), accent.copy(alpha = 0.6f), style = Stroke(width = 1.dp.toPx()))
     val r = 2.5.dp.toPx()
     val d = 8.dp.toPx() + c * 0.3f
     for ((x, y) in listOf(d to d, size.width - d to d, d to size.height - d, size.width - d to size.height - d)) {
-        drawCircle(SwiftyColors.Bronze, radius = r, center = Offset(x, y))
-        drawCircle(MetalHighlight, radius = r * 0.45f, center = Offset(x - r * 0.3f, y - r * 0.3f))
+        drawCircle(p.bronze, radius = r, center = Offset(x, y))
+        drawCircle(p.metalHighlight, radius = r * 0.45f, center = Offset(x - r * 0.3f, y - r * 0.3f))
     }
 }
 
@@ -182,13 +181,14 @@ fun CogitatorPanel(
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val texture = rememberCrtBrush()
+    val palette = SwiftyColors.palette   // read HERE: the drawing lambda below is not composable
     val size = if (fillHeight) Modifier.fillMaxSize() else Modifier.fillMaxWidth()
     Box(modifier = modifier) {
         // A transparent Surface: no drawing of its own, but it is a touch target (taps do not go through).
         Surface(color = Color.Transparent, modifier = size) {
             Column(
                 modifier = size
-                    .drawBehind { cogitatorFrame(cut, fill, texture, scanlines, accent) }
+                    .drawBehind { cogitatorFrame(cut, fill, texture, scanlines, accent, palette) }
                     .padding(
                         start = contentPadding,
                         end = contentPadding,
@@ -231,19 +231,20 @@ fun TabLabel(text: String, modifier: Modifier = Modifier, ink: Color = SwiftyCol
 fun CogitatorBackground(modifier: Modifier = Modifier, content: @Composable BoxScope.() -> Unit) {
     val iron = ImageBitmap.imageResource(R.drawable.tex_iron)
     val brush = remember(iron) { ShaderBrush(ImageShader(iron, TileMode.Repeated, TileMode.Repeated)) }
+    val p = SwiftyColors.palette   // read HERE: the drawing lambda below is not composable
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(SwiftyColors.Abyss)
-            .background(brush, alpha = 0.5f)
+            .background(p.abyss)
+            .background(brush, alpha = p.spec.ironTexture)
             .drawBehind {
                 val x1 = 5.dp.toPx(); val x2 = size.width - 5.dp.toPx()
                 for (x in listOf(x1, x2)) {
-                    drawLine(SwiftyColors.Bronze, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.5.dp.toPx())
+                    drawLine(p.bronze, Offset(x, 0f), Offset(x, size.height), strokeWidth = 1.5.dp.toPx())
                     var y = 24.dp.toPx()
                     while (y < size.height) {
-                        drawCircle(SwiftyColors.Brass, radius = 2.dp.toPx(), center = Offset(x, y))
-                        drawCircle(SwiftyColors.Abyss, radius = 0.9.dp.toPx(), center = Offset(x, y))
+                        drawCircle(p.brass, radius = 2.dp.toPx(), center = Offset(x, y))
+                        drawCircle(p.abyss, radius = 0.9.dp.toPx(), center = Offset(x, y))
                         y += 64.dp.toPx()
                     }
                 }
@@ -341,16 +342,18 @@ fun TitlePlate(title: String, subtitle: String?, modifier: Modifier = Modifier) 
  */
 @Composable
 fun CornerBrackets(modifier: Modifier = Modifier) {
+    val brass = SwiftyColors.Brass
+    val bronze = SwiftyColors.Bronze
     Canvas(modifier.fillMaxSize()) {
         val len = 44.dp.toPx(); val inner = 18.dp.toPx(); val gap = 6.dp.toPx(); val w = 1.5.dp.toPx()
         val corners = listOf(Offset(0f, 0f) to Offset(1f, 1f), Offset(size.width, 0f) to Offset(-1f, 1f),
             Offset(0f, size.height) to Offset(1f, -1f), Offset(size.width, size.height) to Offset(-1f, -1f))
         for ((p, dir) in corners) {
-            drawLine(SwiftyColors.Brass, p, Offset(p.x + dir.x * len, p.y), strokeWidth = w)
-            drawLine(SwiftyColors.Brass, p, Offset(p.x, p.y + dir.y * len), strokeWidth = w)
+            drawLine(brass, p, Offset(p.x + dir.x * len, p.y), strokeWidth = w)
+            drawLine(brass, p, Offset(p.x, p.y + dir.y * len), strokeWidth = w)
             val q = Offset(p.x + dir.x * gap, p.y + dir.y * gap)
-            drawLine(SwiftyColors.Bronze, q, Offset(q.x + dir.x * inner, q.y), strokeWidth = 1.dp.toPx())
-            drawLine(SwiftyColors.Bronze, q, Offset(q.x, q.y + dir.y * inner), strokeWidth = 1.dp.toPx())
+            drawLine(bronze, q, Offset(q.x + dir.x * inner, q.y), strokeWidth = 1.dp.toPx())
+            drawLine(bronze, q, Offset(q.x, q.y + dir.y * inner), strokeWidth = 1.dp.toPx())
         }
     }
 }
@@ -366,10 +369,10 @@ fun ConsoleRule(modifier: Modifier = Modifier, color: Color = SwiftyColors.Phosp
 // ---------------------------------------------------------------------------------------------------------------
 // Controls (every one at least 48 dp)
 
-/** The main action: mars-red FILL, gold edge, bone text (6.6:1). Never red text. */
+/** The main action: mars-red FILL, gold edge, light text on it (6.6:1 dark, 7.6:1 light). Never red text. */
 @Composable
 fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true) {
-    ConsoleButton(text, onClick, modifier, enabled, fill = SwiftyColors.MarsRed, edge = SwiftyColors.Gold, ink = SwiftyColors.Bone)
+    ConsoleButton(text, onClick, modifier, enabled, fill = SwiftyColors.MarsRed, edge = SwiftyColors.Gold, ink = SwiftyColors.OnMarsRed)
 }
 
 /** The other action: console glass, brass edge, phosphor text. */

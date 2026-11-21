@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,8 +24,9 @@ import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
 import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 /**
- * "Configuration rites" (bonus VII.2, document 16): the model and hydrogens a molecule opens with, and the sounds.
- * Every change is saved at once; there is no "save" button to forget.
+ * "Configuration rites" (bonus VII.2, documents 16 and 21): the model and hydrogens a molecule opens with, the theme,
+ * the atom colours, the sounds, and the tutorial again. Every change is saved at once; there is no "save" button to
+ * forget.
  *
  * @param onChange receives a CHANGE (a function of the current settings), not new settings: two quick taps can never
  *                 undo each other by both starting from the same old value
@@ -33,12 +36,14 @@ fun SettingsScreen(
     settings: Settings,
     onChange: ((Settings) -> Settings) -> Unit,
     onBack: () -> Unit,
+    onReplayTutorial: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     BackHandler(onBack = onBack)
     CogitatorBackground(modifier) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+            // Scrolls: with the new panels, a small phone (or large text) would cut the last ones.
+            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             CogitatorPanel(label = "COGITATOR // CONFIGURATION", contentPadding = 8.dp, modifier = Modifier.fillMaxWidth()) {
@@ -74,6 +79,24 @@ fun SettingsScreen(
                 )
             }
 
+            CogitatorPanel(label = "PICT-DISPLAY", modifier = Modifier.fillMaxWidth()) {
+                SettingRow(
+                    title = "Theme",
+                    value = settings.theme.label,
+                    key = "CHANGE",
+                    keyDescription = "Theme: ${settings.theme.label}. Change it",
+                    onKey = { onChange { it.copy(theme = it.theme.next()) } },
+                )
+                Spacer(Modifier.height(8.dp))
+                SettingRow(
+                    title = "Atom colours",
+                    value = settings.atomColors.label,
+                    key = "CHANGE",
+                    keyDescription = "Atom colours: ${settings.atomColors.label}. Change them",
+                    onKey = { onChange { it.copy(atomColors = it.atomColors.next()) } },
+                )
+            }
+
             CogitatorPanel(label = "VOX-CASTER", modifier = Modifier.fillMaxWidth()) {
                 SettingRow(
                     title = "Sounds",
@@ -85,7 +108,17 @@ fun SettingsScreen(
                 )
             }
 
-            Spacer(Modifier.weight(1f))
+            CogitatorPanel(label = "NOVITIATE", modifier = Modifier.fillMaxWidth()) {
+                SettingRow(
+                    title = "Tutorial",
+                    value = "The four rites of the first start",
+                    key = "SHOW",
+                    keyDescription = "Show the tutorial again",
+                    onKey = onReplayTutorial,
+                )
+            }
+
+            Spacer(Modifier.height(4.dp))
             StatusFooter(line = "RITES OF CONFIGURATION // SAVED", detail = "EVERY CHANGE IS KEPT AT ONCE")
         }
     }

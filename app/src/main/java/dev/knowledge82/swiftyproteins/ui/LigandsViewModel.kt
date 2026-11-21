@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import dev.knowledge82.swiftyproteins.catalog.LigandCatalog
+import dev.knowledge82.swiftyproteins.catalog.LigandIndex
 import dev.knowledge82.swiftyproteins.loading.LigandLoader
 import dev.knowledge82.swiftyproteins.loading.LigandSource
 import dev.knowledge82.swiftyproteins.loading.LoadState
@@ -13,7 +14,10 @@ import dev.knowledge82.swiftyproteins.net.FileLigandCache
 import dev.knowledge82.swiftyproteins.net.HttpUrlConnectionFetcher
 import dev.knowledge82.swiftyproteins.net.LigandRepository
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 private const val TAG = "SwiftyProteins"
 
@@ -26,10 +30,14 @@ private const val TAG = "SwiftyProteins"
  *
  * @param readCatalogText returns the whole text of `ligands.txt` (may throw if the file cannot be read)
  * @param source          loads one ligand (blocking; it is run on `Dispatchers.IO` by the loader)
+ * @param readIndexText   the text of `ligand_index.tsv`: names and formulas for the cells (document 21)
+ * @param archivedIds     the ids with a copy on the phone (blocking: run on `Dispatchers.IO`)
  */
 class LigandsViewModel(
     readCatalogText: () -> String,
     source: LigandSource,
+    readIndexText: () -> String = { "" },
+    private val archivedIds: () -> Set<String> = { emptySet() },
 ) : ViewModel() {
 
     /** The ligand list, or `null` if `ligands.txt` could not be read (a broken installation: the screen says so). */
@@ -38,6 +46,26 @@ class LigandsViewModel(
     } catch (e: Exception) {
         Log.e(TAG, "ligands.txt could not be read", e)
         null
+    }
+
+    /** Names, formulas and sizes for the cells (document 21); empty if the file is missing: cells show the id only. */
+    val index: LigandIndex = try {
+        LigandIndex.fromText(readIndexText())
+    } catch (e: Exception) {
+        Log.w(TAG, "ligand_index.tsv could not be read: the cells show only the ids", e)
+        LigandIndex.EMPTY
+    }
+
+    private val mutableArchived = MutableStateFlow<Set<String>>(emptySet())
+
+    /** The ligands with a copy on the phone: the cells mark them "ARCHIVED" (they open without a connection). */
+    val archived: StateFlow<Set<String>> = mutableArchived.asStateFlow()
+
+    init { refreshArchived() }
+
+    /** Reads the phone's copies again (after a load: the new ligand is now among them). Off the main thread. */
+    fun refreshArchived() {
+        viewModelScope.launch(Dispatchers.IO) { mutableArchived.value = archivedIds() }
     }
 
     private val loader = LigandLoader(source, viewModelScope, Dispatchers.IO)
@@ -69,20 +97,21 @@ class LigandsViewModelFactory(context: Context) : ViewModelProvider.Factory {
             "This factory only builds LigandsViewModel, not ${modelClass.name}"
         }
         // The ligand files already downloaded are kept in the app's CACHE folder (document 13): offline they still open.
-        val repository = LigandRepository(
-            HttpUrlConnectionFetcher(),
-            cache = FileLigandCache(java.io.File(appContext.cacheDir, LIGAND_CACHE_DIR)),
-        )
+        val cache = FileLigandCache(java.io.File(appContext.cacheDir, LIGAND_CACHE_DIR))
+        val repository = LigandRepository(HttpUrlConnectionFetcher(), cache = cache)
         return LigandsViewModel(
             readCatalogText = {
                 appContext.assets.open(CATALOG_FILE).bufferedReader().use { it.readText() }
             },
             source = { id, isCancelled, onStage -> repository.load(id, isCancelled, onStage) },
+            readIndexText = { appContext.assets.open(INDEX_FILE).bufferedReader().use { it.readText() } },
+            archivedIds = cache::ids,
         ) as T
     }
 
     private companion object {
         const val CATALOG_FILE = "ligands.txt"
+        const val INDEX_FILE = "ligand_index.tsv"
         const val LIGAND_CACHE_DIR = "ligands"
     }
 }

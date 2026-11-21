@@ -53,4 +53,22 @@ class MolecularFormulaTest {
         val parts = MolecularFormula.of(atoms("O C H H O"))
         assertEquals(listOf(MolecularFormula.Part("C", 1), MolecularFormula.Part("H", 2), MolecularFormula.Part("O", 2)), parts)
     }
+
+    // ---------------------------------------------------------------- parse (document 21)
+
+    @Test
+    fun parseReadsWhatPlainWrites() {
+        assertEquals(
+            listOf(MolecularFormula.Part("C", 10), MolecularFormula.Part("H", 16), MolecularFormula.Part("N", 5), MolecularFormula.Part("O", 13), MolecularFormula.Part("P", 3)),
+            MolecularFormula.parse("C10H16N5O13P3"),
+        )
+        assertEquals(listOf(MolecularFormula.Part("K", 1)), MolecularFormula.parse("K"))
+        assertEquals(listOf(MolecularFormula.Part("C", 34), MolecularFormula.Part("H", 32), MolecularFormula.Part("Fe", 1), MolecularFormula.Part("N", 4), MolecularFormula.Part("O", 4)), MolecularFormula.parse("C34H32FeN4O4"))
+    }
+
+    @Test
+    fun parseRefusesAnythingPlainWouldNeverWrite() {
+        for (bad in listOf("", "c10", "C1", "C0H2", "C10 H16", "Cl-", "10C", "CL2x", "Ç2"))
+            assertEquals(bad, null, MolecularFormula.parse(bad))
+    }
 }

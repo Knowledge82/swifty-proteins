@@ -69,7 +69,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D23 | La escena es **un nodo por átomo y dos por enlace**, con la cámara inicial a **5,5 × radio** | Provisional | Lo más simple, con selección gratis; el rendimiento (H6) y el encuadre se miden en el A33; plan B: una malla. Detalle en el documento 07, 7, 12 y 15. |
 | D24 | Los límites de zoom son **absolutos en ångström** (acercamiento mínimo 4 Å; alejamiento máximo 3 × la distancia inicial), no relativos al tamaño del ligando | Provisional | La causa del tope de `15P` se **leyó en el código de SceneView** (0,15 × la distancia inicial); el valor se ajusta en el móvil. Documento 07, 7.1. |
 | D25 | La pantalla de inicio es la **del sistema** (`core-splashscreen`), **retenida 1500 ms** por una regla que solo mira el reloj | **Sustituida por D32** | Cumple «lanzamiento visible ≥ 1 s» con poco código y sin riesgo de colgarse. Documento 07b. |
-| D26 | Dirección visual **Adeptus Mechanicus** reconocible (consolas CRT verdes, calaveras, servidores, gótico industrial); solo tema oscuro; emblema propio (calavera en engranaje). **v1** («Culto de la Máquina» sobrio) **rechazada en el móvil**; **v2** del prompt en curso | Dirección decidida; diseño pendiente | La v1 era demasiado prudente (sin símbolos, solo vectores, fuentes neutras). Documento 08a, sección 12. |
+| D26 | Dirección visual **Adeptus Mechanicus** reconocible (consolas CRT verdes, calaveras, servidores, gótico industrial); solo tema oscuro (**sustituido por D68**: claro y oscuro); emblema propio (calavera en engranaje). **v1** («Culto de la Máquina» sobrio) **rechazada en el móvil**; **v2** del prompt en curso | Dirección decidida; diseño pendiente | La v1 era demasiado prudente (sin símbolos, solo vectores, fuentes neutras). Documento 08a, sección 12. |
 | D27 | El diseño se aplica **como piel** (tema de Material 3 + componentes propios finos); **la lógica no se toca** y lo que decide algo va a funciones puras con pruebas | Decidida | Romper lo que funciona es el riesgo real. Documento 08b. |
 | D28 | Fuentes **incluidas** (OFL, licencias en `assets/licenses/fonts/`; **las familias cambiarán** con la v2: **Pirata One** (títulos) + **Silkscreen** (resto), elegidas por el equipo), cortes estáticos de las variables; iconos como **VectorDrawable** generados con un conversor verificado píxel a píxel | Decidida | Sin red para verse bien; compatible con API 24. Documento 08b, 4 y 5. |
 | D29 | El fondo de la escena **se queda negro** (el diseño pedía `#100F10`) | Provisional | Cambiar el cielo sin perder la luz ni arriesgar un cierre requiere más trabajo. Documento 08b, 10. |
@@ -111,6 +111,14 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D65 | **Etapas de carga** con porcentaje solo si la longitud merece confianza; el estado lo escribe solo el hilo principal, si la carga sigue viva y es la actual | Decidida | VII.4. Documento 20. |
 | D66 | **Nivel de detalle** por número de átomos: presupuesto de triángulos anclado a lo medido a 60 FPS | Decidida | VII.4. Documento 20. |
 | D67 | **Montaje de la escena por lotes** adaptativos, con panel ASSEMBLY; SHR bloqueado mientras tanto | Decidida | VII.4. Documento 20. |
+| D68 | **Tema claro «pergamino» y oscuro «cogitador»**, por defecto según el móvil; mismos papeles, contraste AA probado en ambos; sustituye a «solo oscuro» de D26 | Decidida | VII.2. Documento 21. |
+| D69 | Paleta por **`CompositionLocal` estático** con getters `@Composable`; el arranque siempre oscuro | Decidida | Documento 21. |
+| D70 | El **3D sigue al tema**: skybox compensado para el *tone mapper* PBR Neutral; halos y contraluz por tema | Decidida (sin probar en el móvil) | Documento 21. |
+| D71 | **Colores de átomos** CPK Jmol y RasMol, verificados contra fuentes; en 3D, leyenda, lista y .glb | Decidida | Documento 21. |
+| D72 | **Pantalla elegida por función pura** (`Navigation`) y animada con `AnimatedContent`; amplía D19 | Decidida | Documento 21. |
+| D73 | **Tutorial** de 4 páginas antes del acceso, una vez, repetible desde ajustes | Decidida | Documento 21. |
+| D74 | **Celdas ricas** desde un índice incluido (`ligand_index.tsv`) generado con el parser de la app; búsqueda por nombre | Decidida | Documento 21. |
+| D75 | **Reglas de Compose comprobadas** con el plugin de `kotlinc` sobre los *stubs* | Decidida | Documento 21. |
 
 ---
 
@@ -121,6 +129,7 @@ app/                  proyecto Android (paquete dev.knowledge82.swiftyproteins)
 docs/                 un documento por etapa (en español de España)
 tools/art/            limpieza del arte (documento 08c)
 tools/corpus-check/   comprobación del parser contra el corpus
+tools/index/          índice de nombres y fórmulas de la lista: BuildLigandIndex.kt (documento 21)
 tools/sound/          síntesis de los sonidos: make_sounds.py (documento 14)
 gradle/, gradlew      wrapper de Gradle
 build.gradle.kts, settings.gradle.kts, gradle.properties
@@ -166,6 +175,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/18-exportar-y-galeria.md`](docs/18-exportar-y-galeria.md) | Exportar: **guardar en la galería** (`MediaStore`, `IS_PENDING`, permisos por versión), PNG/JPEG, `.cif` original, **`.mol` V2000** (columnas fijas, cargas) y **modelo 3D `.glb`** (glTF 2.0: mallas en Kotlin, orientación, alineación, colores lineales); cargas formales; validación con **RDKit** (1242) y el **validador de Khronos** | **Escrito** (validado con herramientas externas; menú y galería sin probar en el móvil) |
 | [`docs/19-etiquetas-y-resaltado.md`](docs/19-etiquetas-y-resaltado.md) | **Etiquetas** de átomos en 3D (por qué no `TextNode`: 64 MB; una imagen por elemento; colocación hacia la cámara; moverlas sin impedir el descanso de la escena; una carrera de Compose), **resaltado al seleccionar**, **lista desplegable** de modelos | **Escrito** (reglas probadas; sin probar en el móvil) |
 | [`docs/20-carga-por-etapas-y-detalle.md`](docs/20-carga-por-etapas-y-detalle.md) | **Etapas de carga** (archivo, conexión, descarga con %, *parsing*) y quién escribe el estado entre hilos; **nivel de detalle** por tamaño (lo que cuesta una bola en GPU y en el montón); **montaje de la escena por lotes** adaptativos | **Escrito** (reglas probadas; sin probar en el móvil) |
+| [`docs/21-interfaz-avanzada.md`](docs/21-interfaz-avanzada.md) | **Tema claro y oscuro** (papeles y contraste probado, `CompositionLocal`, barras del sistema), **3D en cada tema** (skybox y *tone mapper*), **colores Jmol/RasMol** verificados, **transiciones** entre pantallas, **tutorial**, **celdas ricas** con índice incluido y búsqueda por nombre; comprobación de reglas de Compose sin Android | **Escrito** (reglas probadas; sin probar en el móvil) |
 | [`docs/17-preparacion-defensa.md`](docs/17-preparacion-defensa.md) | **Preparación de la defensa**: lista de comprobación previa; las 18 preguntas de la hoja de evaluación con qué comprueban, qué decir, qué enseñar, dónde está en el código, repreguntas y el Kotlin que aparece; riesgos marcados (guardar en galería, varios formatos, popup de la huella) | **En curso** (parte 1 escrita; partes 2 y 3 pendientes) |
 | [`docs/09-captura-y-compartir.md`](docs/09-captura-y-compartir.md) | Captura del 3D y «compartir» (H4): por qué `view.draw()` da negro con un `SurfaceView`, `PixelCopy` como `suspend`, banda con el nombre, escritura atómica en la caché, `FileProvider` y permisos de URI, hoja del sistema, simulación, plan B | **Escrito** (parte pura probada; captura sin probar en el móvil) |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |

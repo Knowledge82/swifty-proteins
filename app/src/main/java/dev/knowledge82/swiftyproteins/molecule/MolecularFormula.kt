@@ -34,6 +34,29 @@ object MolecularFormula {
     /** "C10 H16 N5 O13 P3": the style of the CCD's `_chem_comp.formula` (used to compare against it). */
     fun spaced(atoms: List<Atom>): String = of(atoms).joinToString(" ") { it.element + countText(it.count) }
 
+    /**
+     * "C10H16N5O13P3" back into parts (the formulas of the list's index, document 21), or null if it is not a formula
+     * written by [plain]: every part is an element symbol (an upper-case letter, maybe a lower-case one) and an optional
+     * count of 2 or more. Nothing is skipped silently: one wrong character and the answer is null.
+     */
+    fun parse(plain: String): List<Part>? {
+        if (plain.isEmpty()) return null
+        val parts = mutableListOf<Part>()
+        var i = 0
+        while (i < plain.length) {
+            if (plain[i] !in 'A'..'Z') return null
+            var end = i + 1
+            if (end < plain.length && plain[end] in 'a'..'z') end++
+            val element = plain.substring(i, end)
+            var digits = end
+            while (digits < plain.length && plain[digits] in '0'..'9') digits++
+            val count = if (digits == end) 1 else plain.substring(end, digits).toIntOrNull()?.takeIf { it >= 2 } ?: return null
+            parts += Part(element, count)
+            i = digits
+        }
+        return parts
+    }
+
     private fun hillRank(element: String) = when (element) {
         "C" -> 0
         "H" -> 1

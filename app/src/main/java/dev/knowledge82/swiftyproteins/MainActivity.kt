@@ -24,7 +24,6 @@ import dev.knowledge82.swiftyproteins.ui.AuthViewModelFactory
 import dev.knowledge82.swiftyproteins.ui.LigandsViewModel
 import dev.knowledge82.swiftyproteins.ui.LigandsViewModelFactory
 import dev.knowledge82.swiftyproteins.ui.SwiftyApp
-import dev.knowledge82.swiftyproteins.ui.theme.SwiftyProteinsTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -48,33 +47,36 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
 
         super.onCreate(savedInstanceState)
-        // The app is always dark (D26): light icons on the system bars, whatever the phone's own theme. With the
-        // default, a phone in LIGHT mode would draw dark icons on our dark background (invisible clock and battery).
-        enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-            navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT),
-        )
+        // Dark until the app knows its theme (the boot screen is always dark): light icons on the system bars. Then
+        // SwiftyApp says which theme is on screen (document 21) and the bars follow it. "auto" would follow the PHONE,
+        // which is wrong when the user chose a theme other than the phone's: invisible clock and battery.
+        paintSystemBars(dark = true)
         // The "Recent apps" screen keeps a picture of the app; without this it would show the molecule WITHOUT signing
         // in (D43). Android 13+; not FLAG_SECURE, which would also blank our own share capture (document 05, 9).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) setRecentsScreenshotEnabled(false)
 
         setContent {
-            SwiftyProteinsTheme {
-                val auth = authViewModel.controller
-                val authState by auth.state.collectAsStateWithLifecycle()
-                // A biometric dialog requested by the controller is shown ONCE (keyed by its id), then handed back.
-                val prompt = authState.prompt
-                LaunchedEffect(prompt?.id) {
-                    if (prompt != null) {
-                        biometricLauncher.launch(prompt.toAuthenticationRequest())
-                        auth.onPromptShown(prompt.id)
-                    }
-                }
-                // The cogitator's voice (document 14): one player for the whole app, reachable from every screen.
-                CompositionLocalProvider(LocalSounds provides CogitatorSounds.of(this)) {
-                    SwiftyApp(viewModel, auth, prefsViewModel.controller)
+            val auth = authViewModel.controller
+            val authState by auth.state.collectAsStateWithLifecycle()
+            // A biometric dialog requested by the controller is shown ONCE (keyed by its id), then handed back.
+            val prompt = authState.prompt
+            LaunchedEffect(prompt?.id) {
+                if (prompt != null) {
+                    biometricLauncher.launch(prompt.toAuthenticationRequest())
+                    auth.onPromptShown(prompt.id)
                 }
             }
+            // The cogitator's voice (document 14): one player for the whole app, reachable from every screen.
+            CompositionLocalProvider(LocalSounds provides CogitatorSounds.of(this)) {
+                SwiftyApp(viewModel, auth, prefsViewModel.controller, onSystemBarsDark = ::paintSystemBars)
+            }
         }
+    }
+
+    /** Light icons for a dark screen, dark icons for a light one; the bars themselves stay transparent (edge to edge). */
+    private fun paintSystemBars(dark: Boolean) {
+        val clear = android.graphics.Color.TRANSPARENT
+        val style = if (dark) SystemBarStyle.dark(clear) else SystemBarStyle.light(clear, clear)
+        enableEdgeToEdge(statusBarStyle = style, navigationBarStyle = style)
     }
 }
