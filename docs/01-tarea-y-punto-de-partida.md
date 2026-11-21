@@ -297,7 +297,7 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 |-----------|--------|------|
 | VI.1 Icono en todas las resoluciones | ✅ | Documento 08d |
 | VI.1 *Launch screen* ≥ 1–2 s, de marca, que no parezca «carga eterna» | ✅ | `BootScreen`, 4,2 s, salto con toque tras 1 s; la *splash* del sistema invisible (08d, 12.4) |
-| VI.2 Cuentas, contraseña con requisitos, biometría, diálogo de fallo, alternativa sin biometría, **login siempre**, hash, teclados y etiquetas | 🔴 | **Nada hecho.** Lo más importante que queda |
+| VI.2 Cuentas, contraseña con requisitos, biometría, diálogo de fallo, alternativa sin biometría, **login siempre**, hash, teclados y etiquetas | 🟡 | **Implementado** (documentos 05 y 05a); lógica probada, **sin compilar con Gradle ni probar en el móvil** |
 | VI.3 Todos los ligandos, lista desplazable (`LazyColumn` ≡ `RecyclerView`), búsqueda en tiempo real sin mayúsculas | ✅ | Documento 06b/06c |
 | VI.3 Carga: indicador, descarga, *parsing*, navegación; el indicador desaparece siempre | ✅ | Probado en el móvil (06c) |
 | VI.3 Avisos de error claros | ✅ / 🟡 | Hechos; acercar los textos a los del enunciado |
@@ -313,7 +313,7 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 | Red en segundo plano, UI siempre fluida | ✅ | Corrutinas en `Dispatchers.IO` |
 | Sin fugas de memoria | 🟡 | Sin herramienta que lo demuestre (LeakCanary en depuración lo haría) |
 | Pantallas distintas, horizontal, tableta, densidades | 🟡 | La orientación no está bloqueada; sin comprobar horizontal ni tableta |
-| Seguridad: nada en texto plano, Keystore, validar datos de red, fallos de biometría | 🔴 / ✅ | Validar la red: ✅ (límites de tamaño, *parser* estricto). El resto llega con el login |
+| Seguridad: nada en texto plano, Keystore, validar datos de red, fallos de biometría | 🟡 / ✅ | Validar la red: ✅. Argon2id, fichero cifrado con el Keystore, huella con `CryptoObject`: implementados (05/05a), sin probar en el móvil |
 | Sin conexión para ligandos ya cargados | 🔴 | Caché de `.cif` |
 | Accesibilidad | 🟡 | Contraste medido (08a/08c); falta una pasada con TalkBack |
 | Versiones más recientes | ✅ | Revisar justo antes de la defensa |

@@ -1,6 +1,6 @@
 # 05 · Acceso y seguridad: cuentas, contraseñas, biometría y bloqueo
 
-> **Estado:** **diseño** (teoría, decisiones, arquitectura, plan de pruebas). Aún sin código. Las firmas de API de `androidx.biometric` y `lifecycle-process` se comprobaron en los ficheros de API publicados del repositorio de AndroidX (`api/1.4.0-rc01.txt`, `api/current.txt`); los parámetros de Argon2 salen de la guía de OWASP; **los tiempos en el A33 son estimaciones** hasta medirlos.
+> **Estado:** **diseño implementado** (código línea a línea en [`05a-codigo-acceso.md`](05a-codigo-acceso.md)): lógica probada en la JVM con criptografía real y mutación; la parte Android compila contra *stubs*, **sin compilar con Gradle ni probar en el móvil**. Las firmas de API de `androidx.biometric` y `lifecycle-process` se comprobaron en los ficheros de API publicados del repositorio de AndroidX (`api/1.4.0-rc01.txt`, `api/current.txt`); los parámetros de Argon2 salen de la guía de OWASP; **los tiempos en el A33 son estimaciones** hasta medirlos.
 
 ## Índice
 
@@ -134,7 +134,7 @@ Por qué no lo demás:
 1. Tras crear la cuenta (o tras entrar con contraseña, si aún no se ofreció), la app pregunta: **«Enable bio-auspex for *adept42*?»**. Activarla **pide la huella en ese momento** (confirma que el dueño del dedo está de acuerdo).
 2. Al activarla se crea en el Keystore una clave AES **de esa cuenta** que **exige huella en cada uso** y **se invalida** si se registra una huella nueva. Con ella se cifra un **testigo** aleatorio de 32 bytes; en la cuenta se guardan el testigo cifrado y su IV.
 3. **Para entrar:** el campo de usuario viene **relleno con el último que entró**; si esa cuenta tiene la huella activada, aparece el botón **«BIO-AUSPEX SCAN»**. El diálogo del sistema recibe un `Cipher` de **descifrado** con esa clave (`CryptoObject`); si el sistema acepta el dedo, el `Cipher` descifra el testigo, y **coincide** con el de la cuenta → dentro.
-4. El botón de la huella **se oculta** si el dispositivo no tiene biometría de Clase 3 o no hay huellas registradas (con una línea que explica por qué y cómo activarla), y **se desactiva** si la cuenta escrita no la tiene activada.
+4. El botón de la huella **se oculta** si el dispositivo no tiene biometría de Clase 3 o no hay huellas registradas (con una línea que explica por qué y cómo activarla). **Corrección al implementar:** el botón **no** depende de la cuenta escrita (no se «desactiva» para cuentas sin huella): un botón que se encendiera solo para algunos nombres diría qué cuentas existen. Para «no existe» y «existe sin huella», el mismo texto: «Fingerprint sign-in is not set up for this user name. Sign in with your password.».
 
 **API:** `androidx.biometric` 1.4 trae una interfaz nueva, **`registerForAuthenticationResult(activity, callback)`** con `AuthenticationRequest.Biometric` y `Strength.Class3(cryptoObject)`, al estilo de *Activity Result*, que funciona con `ComponentActivity` (nuestra `MainActivity` no tiene que cambiar a `FragmentActivity`). Según las notas de versión, **sustituye** a la clásica `BiometricPrompt` (que sigue existiendo y no está marcada obsoleta). Se usa la **nueva**; la clásica queda como alternativa. El botón negativo del diálogo es una opción propia, **«Use password»** (`Fallback.CustomOption`), que vuelve al campo de contraseña.
 

@@ -54,6 +54,13 @@ android {
     buildFeatures {
         compose = true
     }
+    // Bouncy Castle ships as a multi-release jar; this OSGi file is metadata only. Excluded so that, if another
+    // Bouncy Castle jar ever arrives through a dependency, packaging does not fail on the duplicate (document 05, 14).
+    packaging {
+        resources {
+            excludes += "/META-INF/versions/9/OSGI-INF/MANIFEST.MF"
+        }
+    }
 }
 
 dependencies {
@@ -68,6 +75,11 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    // Sign-in (document 05): ProcessLifecycleOwner (lock when the app goes to the background), the system biometric
+    // dialog, and Argon2id for the passwords.
+    implementation(libs.androidx.lifecycle.process)
+    implementation(libs.androidx.biometric)
+    implementation(libs.bouncycastle.bcprov)
     implementation(libs.kotlinx.coroutines.android)
     testImplementation(libs.junit)
     androidTestImplementation(platform(libs.androidx.compose.bom))
