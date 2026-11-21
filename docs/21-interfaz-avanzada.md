@@ -450,3 +450,15 @@ El aspecto entra **redondeado a 0,05** (`aspectKey`): la cámara se reconstruye 
 4. Soltar la molécula: en uno o dos segundos el contador dice **IDLE**.
 5. Tocar un átomo con la imagen quieta: sigue la selección y vuelve a IDLE.
 
+### 18.6 Un error que solo vio Gradle: `maxWidth` desde un ámbito exterior
+
+`./gradlew installDebug` falló: *DSL_SCOPE_VIOLATION*, «`val maxWidth: Dp` cannot be called in this context with an implicit receiver».
+
+**Causa:** `maxWidth` pertenece a `BoxWithConstraintsScope`, y se leía **dentro** de un `Row` y un `Column`. Los ámbitos de maquetación de Compose llevan `@LayoutScopeMarker`, un `@DslMarker` de Kotlin: dentro de un ámbito marcado, el compilador **prohíbe** usar sin nombrarlo el receptor de **otro** ámbito marcado de fuera. Es lo que impide escribir por error, dentro de una `Row`, un `Modifier.weight` que pertenece a la `Column` de fuera.
+
+**Arreglo:** leer el valor en el propio ámbito de `BoxWithConstraints` (`val sideWidth = …`) y usar la variable dentro.
+
+**Por qué no lo vimos aquí:** los *stubs* declaraban `RowScope`, `ColumnScope`, `BoxScope` y `BoxWithConstraintsScope` **sin** el marcador. Ahora lo llevan, igual que en Compose, y también `SceneScope` y `NodeScope` llevan `@SceneDsl`, como en SceneView. Se comprobó que con los *stubs* corregidos el código anterior da **el mismo error en la misma línea y columna** (353:53) que Gradle, y que el corregido compila.
+
+**Lección:** un *stub* tiene que copiar también las **anotaciones** que cambian las reglas del compilador, no solo las firmas.
+

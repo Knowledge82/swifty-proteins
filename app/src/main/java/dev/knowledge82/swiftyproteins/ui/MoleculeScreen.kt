@@ -240,6 +240,9 @@ fun MoleculeScreen(
 
     BoxWithConstraints(modifier = modifier.fillMaxSize().onGloballyPositioned { screenBounds = it.boundsInWindow() }) {
         val landscape = maxWidth > maxHeight
+        // Read HERE, in the BoxWithConstraints scope itself: inside the Row and the Column below, `maxWidth` would be
+        // taken from an OUTER layout scope, which Compose forbids (@LayoutScopeMarker, a Kotlin @DslMarker).
+        val sideWidth = minOf(maxWidth * 0.46f, SIDE_COLUMN_MAX)
         if (cover != null) MoleculeScene(
             molecule = molecule,
             representation = representation,
@@ -350,7 +353,7 @@ fun MoleculeScreen(
                 window(Modifier.weight(1f).fillMaxHeight())
                 Spacer(Modifier.width(10.dp))
                 Column(
-                    modifier = Modifier.width(minOf(maxWidth * 0.46f, SIDE_COLUMN_MAX)).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    modifier = Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
                     topPanel()
