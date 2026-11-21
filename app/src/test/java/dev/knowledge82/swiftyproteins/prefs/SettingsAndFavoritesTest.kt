@@ -166,7 +166,7 @@ class SettingsAndFavoritesTest {
         val old = mapOf(SettingsCodec.MODEL to "STICKS", SettingsCodec.HYDROGENS to "false", SettingsCodec.SOUNDS to "true")
         val s = SettingsCodec.decode(old)
         assertEquals(Representation.STICKS, s.defaultModel)
-        assertEquals(ThemeMode.SYSTEM, s.theme)
+        assertEquals(ThemeMode.DARK, s.theme)   // the default is the dark cogitator (fixed after the first look on the phone)
         assertEquals(AtomColors.JMOL, s.atomColors)
         assertFalse(s.tutorialSeen)
     }

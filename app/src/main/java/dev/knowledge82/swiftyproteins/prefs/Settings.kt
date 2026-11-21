@@ -5,8 +5,10 @@ import dev.knowledge82.swiftyproteins.scene.Representation
 
 /** Light or dark (bonus VII.2 "dark mode", document 21). */
 enum class ThemeMode(val label: String) {
-    /** What the phone says (Quick Settings "Dark theme"): the default. */
+    /** What the phone says (Quick Settings "Dark theme"). */
     SYSTEM("Follow the phone"),
+
+    /** The default: the app's own look (D26, D68). */
     DARK("Dark (cogitator)"),
     LIGHT("Light (parchment)");
 
@@ -35,7 +37,7 @@ data class Settings(
     val defaultModel: Representation = Representation.BALL_AND_STICK,
     val showHydrogens: Boolean = true,
     val sounds: Boolean = true,
-    val theme: ThemeMode = ThemeMode.SYSTEM,
+    val theme: ThemeMode = ThemeMode.DARK,
     val atomColors: AtomColors = AtomColors.JMOL,
     val tutorialSeen: Boolean = false,
 )

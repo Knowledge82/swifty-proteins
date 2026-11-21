@@ -111,7 +111,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D65 | **Etapas de carga** con porcentaje solo si la longitud merece confianza; el estado lo escribe solo el hilo principal, si la carga sigue viva y es la actual | Decidida | VII.4. Documento 20. |
 | D66 | **Nivel de detalle** por número de átomos: presupuesto de triángulos anclado a lo medido a 60 FPS | Decidida | VII.4. Documento 20. |
 | D67 | **Montaje de la escena por lotes** adaptativos, con panel ASSEMBLY; SHR bloqueado mientras tanto | Decidida | VII.4. Documento 20. |
-| D68 | **Tema claro «pergamino» y oscuro «cogitador»**, por defecto según el móvil; mismos papeles, contraste AA probado en ambos; sustituye a «solo oscuro» de D26 | Decidida | VII.2. Documento 21. |
+| D68 | **Tema claro «pergamino» y oscuro «cogitador»**, por defecto **oscuro**; mismos papeles, contraste AA probado en ambos; sustituye a «solo oscuro» de D26 | Decidida | VII.2. Documento 21. |
 | D69 | Paleta por **`CompositionLocal` estático** con getters `@Composable`; el arranque siempre oscuro | Decidida | Documento 21. |
 | D70 | El **3D sigue al tema**: skybox compensado para el *tone mapper* PBR Neutral; halos y contraluz por tema | Decidida (sin probar en el móvil) | Documento 21. |
 | D71 | **Colores de átomos** CPK Jmol y RasMol, verificados contra fuentes; en 3D, leyenda, lista y .glb | Decidida | Documento 21. |
@@ -119,6 +119,8 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D73 | **Tutorial** de 4 páginas antes del acceso, una vez, repetible desde ajustes | Decidida | Documento 21. |
 | D74 | **Celdas ricas** desde un índice incluido (`ligand_index.tsv`) generado con el parser de la app; búsqueda por nombre | Decidida | Documento 21. |
 | D75 | **Reglas de Compose comprobadas** con el plugin de `kotlinc` sobre los *stubs* | Decidida | Documento 21. |
+| D76 | `autoCenterContent = false` en SceneView: la molécula ya viene centrada, y el centrado automático de la biblioteca, con el montaje por lotes, la descentraba | Decidida | Visto en el A33. Documento 21, §17. |
+| D77 | **Relleno de los paneles** por una regla pura (`PanelGeometry`): igual arriba y abajo, nunca sobre remaches ni etiqueta | Decidida | Visto en el A33. Documento 21, §17. |
 
 ---
 

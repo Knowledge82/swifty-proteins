@@ -1,6 +1,6 @@
 # 21 · Interfaz avanzada: tema claro y oscuro, colores de átomos, transiciones, tutorial y celdas ricas
 
-> **Estado:** **escrito**. Reglas puras **probadas en la JVM** (577 pruebas en total; 53 nuevas; 28 mutantes: 27 muertos y 1 equivalente, eliminado del código). La interfaz **compila contra *stubs*** y, nuevo en este paso, **pasa las comprobaciones del compilador de Compose** (§9). **Sin probar en el móvil** (§11).
+> **Estado:** **escrito**, con **correcciones tras la primera prueba en el A33** (§17). Reglas puras **probadas en la JVM** (582 pruebas en total; 58 nuevas; 32 mutantes: 31 muertos y 1 equivalente, eliminado del código). La interfaz **compila contra *stubs*** y, nuevo en este paso, **pasa las comprobaciones del compilador de Compose** (§9). **Sin probar en el móvil** (§11).
 
 ## Índice
 
@@ -20,6 +20,7 @@
 14. [Decisiones](#14-decisiones)
 15. [Fuentes](#15-fuentes)
 16. [Qué recordar](#16-qué-recordar)
+17. [Tras la primera prueba en el móvil](#17-tras-la-primera-prueba-en-el-móvil)
 
 ---
 
@@ -90,7 +91,7 @@ Ajustes.theme (SYSTEM | DARK | LIGHT)  +  isSystemInDarkTheme()
             → LocalSwiftyPalette + el esquema de Material 3 (claro u oscuro, con los MISMOS papeles)
 ```
 
-**Por defecto: «Follow the phone»**. Es lo que se espera de un «modo oscuro»: en la defensa basta con tocar «Tema oscuro» en los ajustes rápidos del móvil. Android **recrea la actividad** al cambiar el modo del sistema, así que todo se redibuja solo. Si se prefiere que la app sea oscura por defecto (su identidad, D26), es cambiar **un valor** en `Settings`.
+**Por defecto: oscuro** (la identidad de la app, D26), decidido tras verla en el móvil (§17). «Follow the phone» sigue disponible: con él, basta con tocar «Tema oscuro» en los ajustes rápidos del móvil. Android **recrea la actividad** al cambiar el modo del sistema, así que todo se redibuja solo.
 
 ### 2.6 Las barras del sistema
 
@@ -230,7 +231,7 @@ Una vez, **antes** del acceso: no enseña nada privado, y quien instala la app v
 | Panel | Ajuste | Valores |
 |-------|--------|---------|
 | AUSPEX DEFAULTS | Modelo al abrir, hidrógenos al abrir | (documento 16) |
-| **PICT-DISPLAY** | **Tema** | Follow the phone · Dark (cogitator) · Light (parchment) |
+| **PICT-DISPLAY** | **Tema** | Dark (cogitator, por defecto) · Light (parchment) · Follow the phone |
 | | **Colores de átomos** | CPK · Jmol · CPK · RasMol |
 | VOX-CASTER | Sonidos | (documento 14) |
 | **NOVITIATE** | **Tutorial** | SHOW |
@@ -313,7 +314,7 @@ Con ella se encontraron y corrigieron **19 errores en cuatro sitios**: 12 lectur
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D68 | **Tema claro «pergamino» y oscuro «cogitador»**, por defecto **según el móvil**; mismos papeles, otros valores; contraste AA **probado** para ambos. **Sustituye** a «solo tema oscuro» de D26 | Decidida | VII.2 «modo oscuro» de verdad (con algo que oscurecer) |
+| D68 | **Tema claro «pergamino» y oscuro «cogitador»**, por defecto **oscuro** (§17); mismos papeles, otros valores; contraste AA **probado** para ambos. **Sustituye** a «solo tema oscuro» de D26 | Decidida | VII.2 «modo oscuro» de verdad (con algo que oscurecer) |
 | D69 | La paleta por **`CompositionLocal` estático**, con getters `@Composable`; el arranque, siempre oscuro | Decidida | Una parte del árbol puede tener otra paleta |
 | D70 | El **3D sigue al tema**: skybox compensado para el *tone mapper* PBR Neutral, halos y contraluz por tema | Decidida (sin probar en el móvil) | VII.2 «también en el 3D» |
 | D71 | **Dos esquemas CPK** (Jmol, RasMol), verificados contra fuentes; en 3D, leyenda, lista y .glb | Decidida | VII.2 «ajustes: colores» |
@@ -339,3 +340,46 @@ Con ella se encontraron y corrigieron **19 errores en cuatro sitios**: 12 lectur
 - Los valores por defecto **antes de cargar** no son la verdad: hay que esperar a lo guardado.
 - Entre el color que pides y el que se ve hay un ***tone mapper***.
 - Si una herramienta del entorno puede comprobar algo que solo vería Gradle, **úsala**: aquí encontró 19 errores.
+
+## 17. Tras la primera prueba en el móvil
+
+Lo que se vio en el A33 el 21-11-2026 y lo que se cambió.
+
+### 17.1 ¿Pide el enunciado dos temas?
+
+**No con esas palabras.** VII.2 pide «modo oscuro, también en la vista 3D» (documento 01). Una app que **siempre** es oscura ya lo cumple en sentido literal, y hasta este paso esa era nuestra respuesta (documento 15). El tema claro es una **interpretación**: un «modo» implica algo que activar y desactivar, y la plantilla Android de la que partimos ya tenía tema claro y oscuro. Se mantiene porque no cuesta nada al evaluador (la app abre oscura) y, si pregunta, se le enseña el cambio en vivo, también en el 3D. En la defensa hay que decirlo así: «el enunciado pide modo oscuro; la app es oscura, y además se puede cambiar».
+
+### 17.2 La molécula no salía centrada
+
+**Causa:** SceneView 4.69.4 tiene `autoCenterContent = true` **por defecto** (`SceneView.kt`, `SceneAutoCenter.kt`). En el primer fotograma en que hay contenido, **traslada todo el contenido una vez** para llevar el centro de su caja al origen. Con el **montaje por lotes** del documento 20, ese primer fotograma solo tenía los primeros 16 átomos: SceneView centró **esos**, y el resto de la molécula quedó desplazado para siempre.
+
+**Arreglo:** `autoCenterContent = false`. Nuestro parser **ya** centra cada molécula en su centroide (`CifExtractor`), y la cámara, las etiquetas, la regla y el doble toque trabajan con esas coordenadas. Antes del montaje por lotes el desplazamiento también existía, pero era pequeño (la diferencia entre el centro de la caja y el centroide), y el doble toque orbitaba **un poco fuera** del átomo.
+
+**Lección:** dos piezas correctas por separado (el montaje por lotes y un valor por defecto de la biblioteca) pueden dar un fallo juntas. Al leer el código de SceneView para el documento 20 se vio el parámetro, pero no se leyó qué hacía.
+
+### 17.3 El sirviente se veía alrededor del primer campo
+
+**Causa:** el dibujo va **detrás** del formulario, y un degradado lo funde con el panel. Ese degradado solo llegaba al 92 % y al final del dibujo. Sobre el cristal oscuro no se notaba. Sobre el pergamino, la parte baja del dibujo (oscura) se veía **entre los campos** y en el hueco del contorno donde flota la etiqueta «User name».
+
+**Arreglo:** el degradado es **opaco desde 10 dp por encima del formulario** (`SOLID_FROM`). La cabeza y la consola se siguen viendo enteras.
+
+### 17.4 El cuadro de búsqueda (y el panel VOX-CASTER) no estaban centrados
+
+**Causa:** el relleno era `contentPadding` por todos los lados **más 6 dp arriba** si el panel tenía etiqueta: el contenido quedaba **más abajo** que el centro. Además, con un relleno pequeño (6 dp en el cuadro de búsqueda) el campo **tapaba el remache** de abajo a la izquierda.
+
+**Arreglo:** `PanelGeometry` (puro, probado), con una sola regla para todos los paneles. Arriba y abajo, **el mismo** relleno, nunca menor que lo que despeja los remaches y la etiqueta. Los lados conservan el relleno pedido, porque los remaches viven en las franjas de arriba y de abajo. El dibujo de los remaches usa **los mismos** números que la regla.
+
+| Panel | Antes (arriba / abajo) | Ahora |
+|-------|------------------------|-------|
+| Cuadro de búsqueda (6 dp, con etiqueta) | 12 / 6, remache tapado | 14,7 / 14,7 |
+| Ajustes y diálogos (16 dp, con etiqueta) | 22 / 16 | 16 / 16 |
+| Leyenda de la molécula (10 dp, sin etiqueta) | 10 / 10, remaches justos | 14,7 / 14,7 |
+
+### 17.5 Tema oscuro por defecto
+
+Pedido tras verlo: la app abre como siempre se diseñó. Los ajustes guardados antes de este cambio con «Follow the phone» **no** se tocan, y los que no tengan valor de tema reciben «Dark».
+
+### 17.6 Pruebas
+
+`PanelGeometryTest` (5): el contenido nunca tapa un remache ni pasa por debajo de la etiqueta (para todos los cortes y rellenos usados), un relleno generoso se respeta, el cuadro de búsqueda recibe 14,7, y la regla de la etiqueta vale **por sí sola**. Este último caso nació de un mutante superviviente: con los cortes de hoy, los remaches ya exigen más que la etiqueta. Mutantes: sin remaches, sin etiqueta, sin holgura y tema por defecto: los cuatro muertos.
+

@@ -143,8 +143,8 @@ private fun DrawScope.cogitatorFrame(cut: Dp, fill: Color, texture: ShaderBrush?
         style = Stroke(width = 2.5.dp.toPx()),
     )
     drawPath(chamfer(size.width, size.height, c, inset = 4.dp.toPx()), accent.copy(alpha = 0.6f), style = Stroke(width = 1.dp.toPx()))
-    val r = 2.5.dp.toPx()
-    val d = 8.dp.toPx() + c * 0.3f
+    val r = PanelGeometry.RIVET_RADIUS.dp.toPx()
+    val d = PanelGeometry.rivetInset(cut.value).dp.toPx()   // the same numbers the padding rule uses
     for ((x, y) in listOf(d to d, size.width - d to d, d to size.height - d, size.width - d to size.height - d)) {
         drawCircle(p.bronze, radius = r, center = Offset(x, y))
         drawCircle(p.metalHighlight, radius = r * 0.45f, center = Offset(x - r * 0.3f, y - r * 0.3f))
@@ -189,12 +189,8 @@ fun CogitatorPanel(
             Column(
                 modifier = size
                     .drawBehind { cogitatorFrame(cut, fill, texture, scanlines, accent, palette) }
-                    .padding(
-                        start = contentPadding,
-                        end = contentPadding,
-                        top = contentPadding + if (label != null) 6.dp else 0.dp,
-                        bottom = contentPadding,
-                    ),
+                    // The same room above and below (the content is centred), never over the rivets or the label.
+                    .padding(horizontal = contentPadding, vertical = PanelGeometry.verticalPadding(contentPadding.value, cut.value, label != null).dp),
                 content = content,
             )
         }

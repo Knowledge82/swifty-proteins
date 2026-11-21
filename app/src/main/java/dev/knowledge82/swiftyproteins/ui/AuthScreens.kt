@@ -204,9 +204,14 @@ private fun CreateForm(state: AuthUiState, controller: AuthController) {
 }
 
 /**
- * The painted figure, LARGE and BEHIND the form: the fields are drawn over its lower part (they have an opaque
- * console fill, so they stay readable). A gradient darkens the lower part of the figure, so the checklist and the
- * messages written over it keep their contrast, while the upper part (head, console, staff) is seen whole.
+ * The painted figure, LARGE and BEHIND the form: the fields are drawn over its lower part. A gradient melts the lower
+ * part of the figure into the panel, so the checklist and the messages written over it keep their contrast, while the
+ * upper part (head, console, staff) is seen whole.
+ *
+ * The gradient is SOLID from just above where the form starts ([FORM_TOP]): nothing of the painting is left between
+ * the fields or behind the floating label of a field (it is drawn in a gap of the outline, over whatever is behind).
+ * At first it only reached 92 % at the very bottom: invisible on the dark console, but on the parchment of the light
+ * theme the dark painting showed through around the first field (document 21, §17).
  *
  * The art is about 424 px wide; at [FIGURE_SIZE] on a 2.6x screen it is enlarged about 2x, so a little soft
  * (document 05a, 8.3). Larger art from the generator would fix it.
@@ -219,7 +224,7 @@ private fun FigureBehindForm(@DrawableRes art: Int, content: @Composable ColumnS
             Modifier
                 .align(Alignment.TopCenter)
                 .size(FIGURE_SIZE)
-                .background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to SwiftyColors.Console.copy(alpha = 0.92f))),
+                .background(Brush.verticalGradient(0.42f to Color.Transparent, SOLID_FROM to SwiftyColors.Console, 1f to SwiftyColors.Console)),
         )
         Column(Modifier.fillMaxWidth().padding(top = FORM_TOP), content = content)
     }
@@ -228,6 +233,8 @@ private fun FigureBehindForm(@DrawableRes art: Int, content: @Composable ColumnS
 private val FIGURE_SIZE = 330.dp
 // Where the form starts over the figure: the head and the console (or the hood and the staff) stay above the fields.
 private val FORM_TOP = 205.dp
+// Where the gradient becomes solid: 10 dp above the form (its first field's label floats there). 195 / 330.
+private const val SOLID_FROM = 0.59f
 
 /** "Verifying..." while a hash runs, or the error of the last attempt. */
 @Composable

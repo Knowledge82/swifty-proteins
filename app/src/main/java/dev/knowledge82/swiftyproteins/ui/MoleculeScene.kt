@@ -237,6 +237,12 @@ fun MoleculeScene(
         },
         environmentLoader = environmentLoader,
         environment = environment,
+        // OFF. SceneView's default (true) moves all the content ONCE, on the first frame that has any, so that the centre
+        // of its bounding box lands on the origin. Our parser already centres every molecule (CifExtractor), and the
+        // scene is built a batch per frame (document 20): the first frame holds only the first atoms, so SceneView
+        // centred THOSE and the whole molecule stayed off-centre (seen on the A33). It also moved the content away from
+        // the coordinates the camera, the labels and the double tap use. Document 21, §17.
+        autoCenterContent = false,
         cameraNode = cameraNode,
         onFrame = afterFrame,
         cameraManipulator = rememberCameraManipulator(
