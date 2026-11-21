@@ -322,11 +322,11 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 
 | Bloque | Ya hecho | Barato de añadir |
 |--------|----------|------------------|
-| VII.1 Modelos | — | Espacio lleno y *stick*: solo cambian los radios; cambio sin recargar |
-| VII.2 Interfaz | Celdas propias (líneas de consola), animaciones (cursor, vaivén, arranque), tema oscuro en toda la app y el 3D | Ajustes (modelo por defecto) si se hace VII.1 |
-| VII.3 Interacción | — | Resaltar átomos del mismo elemento; centrar con doble toque (resuelve además ver de cerca los extremos, 07) |
+| VII.1 Modelos | **Hecho** (documento 15): bolas y varillas, espacio lleno, varillas, alambre; cambio sin recargar | — |
+| VII.2 Interfaz | Celdas propias (líneas de consola), animaciones (cursor, vaivén, arranque), tema oscuro en toda la app y el 3D; sonidos (documento 14) | Ajustes (modelo por defecto, hidrógenos) |
+| VII.3 Interacción | **Hecho** (documento 15): resaltar un elemento, información de enlaces (orden y longitud), doble toque para orbitar un átomo | Medir distancias y ángulos |
 | VII.4 Rendimiento y caché | Lista perezosa (`LazyColumn`), *parsing* fuera del hilo principal, **caché local de `.cif`** (documento 13), contador de FPS (documento 12) | — |
-| VII.5 Compartir | Mensaje con nombre, átomos y enlaces | **Fórmula** molecular en el mensaje: completa el punto; favoritos |
+| VII.5 Compartir | **Mensaje con nombre, fórmula, átomos y enlaces** (documento 15) | Favoritos |
 
 ### 15.4 Orden de trabajo resultante
 
@@ -334,7 +334,7 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 2. **Luces explícitas** y **contador de FPS** en depuración; **textos de error** como los del enunciado; **tocar un panel quita la ficha**.
 3. **Caché de `.cif`** (sin conexión).
 4. **Ronda de comprobación en el móvil**: desplazamiento, horizontal, tableta (emulador), TalkBack, compartir, LeakCanary, compilación *release* (también la *splash* invisible).
-5. **Bonus** baratos: fórmula, resaltado y doble toque, modelos de visualización, favoritos.
+5. **Bonus** baratos: fórmula, resaltado y doble toque, modelos de visualización — **hechos** (documento 15), con nombre del ligando e información de enlaces; quedan favoritos, ajustes, medir distancias.
 6. **Añadidos del equipo** (21-11-2026): contador de FPS **también en *release*** (proyecto de aprendizaje: se enseña siempre); **sonidos** del cogitador (no se piden; calidad) — **hecho**: diez sonidos sintetizados, documento 14; **la selección de un átomo deja de ser amarilla** (el amarillo es el azufre en CPK) — **hecho**: halo translúcido alrededor, el átomo conserva su color (documento 07, nota).
 7. **Documento de pruebas completo** (para enseñar a los evaluadores): todas las pruebas automáticas por área, los casos límite y situaciones raras que cubren, la mutación, y la lista de pruebas manuales en el móvil con su resultado.
 8. Documento de **defensa** y **presentación**.

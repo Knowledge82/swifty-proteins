@@ -30,6 +30,17 @@ class CifParserTest {
     }
 
     @Test
+    fun theNameOfTheRealFileIsReadAcrossItsTwoLines() {
+        // In 001 the name is a multi-line text field (";...;"): the line break becomes one space.
+        val molecule = (CifParser.parse(real001) as ParseResult.Success).molecule
+        assertEquals(
+            "1-[2,2-DIFLUORO-2-(3,4,5-TRIMETHOXY-PHENYL)-ACETYL]-PIPERIDINE-2-CARBOXYLIC ACID " +
+                "4-PHENYL-1-(3-PYRIDIN-3-YL-PROPYL)-BUTYL ESTER",
+            molecule.name,
+        )
+    }
+
+    @Test
     fun windowsLineEndingsAndBomGiveTheSameMolecule() {
         val plain = CifParser.parse(real001)
         val windows = CifParser.parse("﻿" + real001.replace("\n", "\r\n"))

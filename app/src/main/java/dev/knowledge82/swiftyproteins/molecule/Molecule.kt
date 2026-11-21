@@ -49,6 +49,8 @@ data class Molecule(
     val id: String,
     val atoms: List<Atom>,
     val bonds: List<Bond>,
+    /** The chemical name from the file ("ADENOSINE-5'-TRIPHOSPHATE"), cleaned; null when the file has none. */
+    val name: String? = null,
 ) {
     init {
         require(atoms.isNotEmpty()) { "A molecule needs at least one atom" }

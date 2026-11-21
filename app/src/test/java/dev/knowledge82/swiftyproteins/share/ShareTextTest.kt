@@ -19,13 +19,34 @@ class ShareTextTest {
     )
 
     @Test
-    fun theCaptionNamesTheAppTheLigandAndItsSize() {
-        assertEquals("Swifty Proteins · 001 · 87 atoms · 90 bonds", ShareText.caption(molecule("001", 87, 90)))
+    fun theCaptionNamesTheAppTheLigandItsFormulaAndItsSize() {
+        assertEquals("Swifty Proteins · 001 · C87 · 87 atoms · 90 bonds", ShareText.caption(molecule("001", 87, 90)))
     }
 
     @Test
     fun aSingleAtomIonIsWrittenInSingular() {
-        assertEquals("Swifty Proteins · ZN · 1 atom · 0 bonds", ShareText.caption(molecule("ZN", 1, 0)))
+        assertEquals("Swifty Proteins · ZN · C · 1 atom · 0 bonds", ShareText.caption(molecule("ZN", 1, 0)))
+    }
+
+    @Test
+    fun theMessageHasNameFormulaAndSize() {
+        // Bonus VII.5 asks for "name, number of atoms, formula" in the message.
+        val atp = molecule("ATP", 2, 1).copy(name = "ADENOSINE-5'-TRIPHOSPHATE")
+        assertEquals(
+            "Ligand ATP · ADENOSINE-5'-TRIPHOSPHATE\nC2 · 2 atoms · 1 bond\nViewed in Swifty Proteins",
+            ShareText.message(atp),
+        )
+    }
+
+    @Test
+    fun withoutANameTheMessageStillSaysWhichLigand() {
+        assertEquals("Ligand ZN\nC · 1 atom · 0 bonds\nViewed in Swifty Proteins", ShareText.message(molecule("ZN", 1, 0)))
+    }
+
+    @Test
+    fun theCaptionUsesPlainDigitsNeverSubscripts() {
+        // The band is drawn with a font that may lack U+2080..U+2089.
+        assertTrue(ShareText.caption(molecule("001", 12, 0)).none { it in '₀'..'₉' })
     }
 
     @Test

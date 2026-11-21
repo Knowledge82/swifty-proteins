@@ -1,6 +1,6 @@
 # 14 · Sonidos del cogitador: síntesis desde cero y reproducción
 
-> **Estado:** **escrito**, **versión 2.1** («grimdark», §1.1). Los diez sonidos están **generados** por `tools/sound/make_sounds.py` (numpy + scipy + ffmpeg) y guardados en `app/src/main/res/raw/`; el script es **reproducible byte a byte**. La regla de cuándo suena algo (`SoundGate`) y la etiqueta que evita repetir sonidos al girar la pantalla (`loadSoundTag`) están **probadas en la JVM** (8 + 5 pruebas, 10 mutantes muertos). El reproductor (`CogitatorSounds`) y los ganchos en las pantallas **compilan contra *stubs***. La v1 y la v2.0 se oyeron en el A33 (§1.1); la v2.1, **pendiente de oír en el móvil** (sección 9).
+> **Estado:** **escrito**, **versión 2.1** («grimdark», §1.1). Los diez sonidos están **generados** por `tools/sound/make_sounds.py` (numpy + scipy + ffmpeg) y guardados en `app/src/main/res/raw/`; el script es **reproducible byte a byte**. La regla de cuándo suena algo (`SoundGate`) y la etiqueta que evita repetir sonidos al girar la pantalla (`loadSoundTag`) están **probadas en la JVM** (8 + 5 pruebas, 10 mutantes muertos). El reproductor (`CogitatorSounds`) y los ganchos en las pantallas **compilan contra *stubs***. Las tres versiones se oyeron en el A33 (§1.1); la **v2.1 está aprobada** en el móvil.
 
 ## Índice
 
@@ -38,7 +38,7 @@
 | Material | Senos, cuadradas, FM: pitidos, *pings*, glissandos agudos | Metal golpeado (síntesis modal), coro (formantes), órgano, **sierras saturadas**, sala de piedra | Igual que v2.0 **sin** sierras saturadas graves ni coro; el módem para la espera |
 | Registro | 1–2,6 kHz | Fundamentales de 150–450 Hz; arranque y rechazo con **graves sostenidos** | Nada sostenido por debajo de 250–300 Hz |
 | Nivel | Normalizado por **pico** | Normalizado por **sonoridad**, en cuatro niveles | Igual |
-| Veredicto en el móvil | Todo se oye, pero **molesta**: «sonidos de nave espacial de los 80», no el Culto de la Máquina; y **demasiado alto** | **Mucho mejor.** Aprobados: tecla, línea, campana, la quinta de la entrada. Rechazados: arranque y rechazo (**el altavoz vibra y carraspea**), el coro, el sonar de la carga, la captura; y todo debe ser **corto** salvo el arranque | Pendiente |
+| Veredicto en el móvil | Todo se oye, pero **molesta**: «sonidos de nave espacial de los 80», no el Culto de la Máquina; y **demasiado alto** | **Mucho mejor.** Aprobados: tecla, línea, campana, la quinta de la entrada. Rechazados: arranque y rechazo (**el altavoz vibra y carraspea**), el coro, el sonar de la carga, la captura; y todo debe ser **corto** salvo el arranque | **Aprobada**: «sonidos magníficos» |
 
 Lecciones del cambio, cada una con su sección:
 

@@ -1,5 +1,6 @@
 package dev.knowledge82.swiftyproteins.scene
 
+import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import kotlin.math.max
 import kotlin.math.sqrt
@@ -54,4 +55,26 @@ object SceneFraming {
         (MIN_CLOSE_DISTANCE / startDistance).coerceAtMost(MAX_MIN_ZOOM_FACTOR)
 
     private const val MAX_MIN_ZOOM_FACTOR = 0.5f
+
+    /**
+     * How close the camera comes when the user double-taps an atom to orbit around it (bonus VII.3, document 15).
+     * ESTIMATED: from 12 angstrom the atom and its neighbours fill the width of a phone. Never farther than the
+     * normal start (a tiny molecule is already that close).
+     */
+    const val FOCUS_DISTANCE = 12f
+
+    /** Where the camera orbits and how it may zoom: around the whole molecule, or around one atom. */
+    data class Orbit(val x: Float, val y: Float, val z: Float, val distance: Float, val minZoomFactor: Float, val maxZoomFactor: Float)
+
+    /**
+     * The orbit for [focus] (an atom, or null for the whole molecule) when the whole molecule starts at
+     * [wholeDistance]. Zoom limits are in angstrom for both, as everywhere: never closer than [MIN_CLOSE_DISTANCE];
+     * never farther than [MAX_ZOOM_OUT_FACTOR] times the WHOLE view (so from a focused atom the user can pinch out
+     * until the whole molecule is back, without having to double-tap).
+     */
+    fun orbit(focus: Atom?, wholeDistance: Float): Orbit {
+        if (focus == null) return Orbit(0f, 0f, 0f, wholeDistance, minZoomFactor(wholeDistance), MAX_ZOOM_OUT_FACTOR)
+        val distance = minOf(FOCUS_DISTANCE, wholeDistance)
+        return Orbit(focus.x, focus.y, focus.z, distance, minZoomFactor(distance), MAX_ZOOM_OUT_FACTOR * wholeDistance / distance)
+    }
 }

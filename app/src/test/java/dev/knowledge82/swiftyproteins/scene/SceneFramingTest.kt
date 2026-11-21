@@ -105,4 +105,36 @@ class SceneFramingTest {
         val farthestPoint = SceneFraming.MAX_ZOOM_OUT_FACTOR * SceneFraming.cameraDistance(radius) + radius
         assertTrue("$farthestPoint", farthestPoint < 1000f) // SceneView's default far plane
     }
+
+    // ---------------------------------------------------------------- orbit (double tap: document 15)
+
+    @Test
+    fun withoutFocusTheCameraOrbitsTheCentreAsBefore() {
+        val o = SceneFraming.orbit(null, 40f)
+        assertEquals(0f, o.x, 0f); assertEquals(0f, o.y, 0f); assertEquals(0f, o.z, 0f)
+        assertEquals(40f, o.distance, 0f)
+        assertEquals(SceneFraming.minZoomFactor(40f), o.minZoomFactor, 0f)
+        assertEquals(SceneFraming.MAX_ZOOM_OUT_FACTOR, o.maxZoomFactor, 0f)
+    }
+
+    @Test
+    fun aFocusedAtomIsTheNewCentreSeenFromCloser() {
+        val o = SceneFraming.orbit(Atom("C7", "C", 3f, -2f, 5f), 120f)
+        assertEquals(3f, o.x, 0f); assertEquals(-2f, o.y, 0f); assertEquals(5f, o.z, 0f)
+        assertEquals(SceneFraming.FOCUS_DISTANCE, o.distance, 0f)
+    }
+
+    @Test
+    fun fromAFocusedAtomOnePinchCanGoBackToTheWholeMolecule() {
+        // Zoom limits in angstrom: as close as MIN_CLOSE_DISTANCE, as far as 3 x the WHOLE view (not 3 x 12).
+        val o = SceneFraming.orbit(Atom("C7", "C", 0f, 0f, 0f), 120f)
+        assertEquals(SceneFraming.MIN_CLOSE_DISTANCE, o.distance * o.minZoomFactor, 1e-4f)
+        assertEquals(SceneFraming.MAX_ZOOM_OUT_FACTOR * 120f, o.distance * o.maxZoomFactor, 1e-3f)
+    }
+
+    @Test
+    fun aTinyMoleculeIsNotPushedFartherAwayByFocusing() {
+        val o = SceneFraming.orbit(Atom("ZN", "Zn", 0f, 0f, 0f), SceneFraming.MIN_DISTANCE)
+        assertEquals(SceneFraming.MIN_DISTANCE, o.distance, 0f)
+    }
 }

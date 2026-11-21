@@ -57,4 +57,23 @@ object BondGeometry {
             spinDegrees = spin.toFloat(),
         )
     }
+
+    /**
+     * The two HALVES of the bond, for the models that paint each half in the colour of its atom (sticks, wireframe:
+     * document 15). First the half that touches [a], then the one that touches [b]; null if the atoms coincide.
+     */
+    fun halvesOf(a: Atom, b: Atom): Pair<BondPose, BondPose>? {
+        val middle = Atom("", "", (a.x + b.x) / 2f, (a.y + b.y) / 2f, (a.z + b.z) / 2f)
+        val first = poseOf(a, middle) ?: return null
+        val second = poseOf(middle, b) ?: return null
+        return first to second
+    }
+
+    /** Distance between two atoms, in angstrom (the bond length shown when a bond is tapped). */
+    fun lengthOf(a: Atom, b: Atom): Float {
+        val dx = (b.x - a.x).toDouble()
+        val dy = (b.y - a.y).toDouble()
+        val dz = (b.z - a.z).toDouble()
+        return sqrt(dx * dx + dy * dy + dz * dz).toFloat()
+    }
 }

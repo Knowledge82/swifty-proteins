@@ -142,7 +142,7 @@ object MoleculeSharer {
         val send = Intent(Intent.ACTION_SEND).apply {
             type = "image/png"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(Intent.EXTRA_TEXT, ShareText.caption(molecule))
+            putExtra(Intent.EXTRA_TEXT, ShareText.message(molecule))
             clipData = ClipData.newRawUri(file.name, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

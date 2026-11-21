@@ -107,4 +107,33 @@ class BondGeometryTest {
         assertEquals(false, pose.tiltDegrees.isNaN())
         assertEquals(false, pose.spinDegrees.isNaN())
     }
+
+    // ---------------------------------------------------------------- halves (sticks, wireframe: document 15)
+
+    @Test
+    fun theTwoHalvesMeetInTheMiddleAndEachPointsTheRightWay() {
+        val a = atom(1f, 2f, 3f)
+        val b = atom(4f, -2f, 15f)
+        val (first, second) = BondGeometry.halvesOf(a, b)!!
+        val whole = BondGeometry.poseOf(a, b)!!
+        assertEquals(whole.length / 2, first.length, 1e-5f)
+        assertEquals(whole.length / 2, second.length, 1e-5f)
+        // The first half is centred a quarter of the way from a; the second, three quarters.
+        assertEquals(1f + 0.25f * 3f, first.x, 1e-5f); assertEquals(2f - 0.25f * 4f, first.y, 1e-5f); assertEquals(3f + 0.25f * 12f, first.z, 1e-5f)
+        assertEquals(1f + 0.75f * 3f, second.x, 1e-5f); assertEquals(2f - 0.75f * 4f, second.y, 1e-5f); assertEquals(3f + 0.75f * 12f, second.z, 1e-5f)
+        // Same direction as the whole bond.
+        assertEquals(whole.tiltDegrees, first.tiltDegrees, 1e-3f); assertEquals(whole.spinDegrees, second.spinDegrees, 1e-3f)
+        assertPointsFromAtoB(a, Atom("M", "C", (a.x + b.x) / 2, (a.y + b.y) / 2, (a.z + b.z) / 2))
+    }
+
+    @Test
+    fun atomsAtTheSamePlaceHaveNoHalves() {
+        assertNull(BondGeometry.halvesOf(atom(1f, 1f, 1f), atom(1f, 1f, 1f)))
+    }
+
+    @Test
+    fun theLengthIsTheEuclideanDistance() {
+        assertEquals(13f, BondGeometry.lengthOf(atom(0f, 0f, 0f), atom(3f, 4f, 12f)), 1e-6f)   // 3-4-12-13
+        assertEquals(0f, BondGeometry.lengthOf(atom(2f, 2f, 2f), atom(2f, 2f, 2f)), 0f)
+    }
 }

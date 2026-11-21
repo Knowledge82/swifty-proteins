@@ -55,6 +55,48 @@ class CifExtractorTest {
         "O1 O  103 100 100   2 0 0",
     )
 
+    /** [twoAtoms] with a `_chem_comp.name` written as [nameLine] (the rest of the line after the tag). */
+    private fun named(nameLine: String): Molecule =
+        extract("data_XXA\n_chem_comp.id XXA\n_chem_comp.name " + nameLine + "\n" + ligand(twoAtoms).removePrefix("data_XXA\n"))
+
+    // ---------------------------------------------------------------- the name (optional, cleaned: document 15)
+
+    @Test
+    fun aFileWithoutANameIsStillAMoleculeWithANullName() {
+        assertEquals(null, extract(ligand(twoAtoms)).name)
+    }
+
+    @Test
+    fun cifUnknownAndNotApplicableMeanNoName() {
+        assertEquals(null, named("?").name)
+        assertEquals(null, named(".").name)
+    }
+
+    @Test
+    fun runsOfSpacesAndLineBreaksBecomeOneSpace() {
+        assertEquals("ATP SYNTHASE INHIBITOR", named("'  ATP   SYNTHASE INHIBITOR '").name)
+        assertEquals("FIRST LINE SECOND LINE", named("\n;FIRST LINE\n   SECOND LINE\n;").name)
+    }
+
+    @Test
+    fun controlCharactersFromTheNetworkNeverReachTheScreen() {
+        val name = named("\n;BELL\u0007AND\u0000NULL\n;").name!!
+        assertEquals("BELL AND NULL", name)
+        assertTrue(name.none { it.isISOControl() })
+    }
+
+    @Test
+    fun anAbsurdlyLongNameIsCutWithAnEllipsis() {
+        val name = named("'" + "A".repeat(1_000) + "'").name!!
+        assertEquals(CifExtractor.MAX_NAME_LENGTH, name.length)
+        assertTrue(name.endsWith("…"))
+    }
+
+    @Test
+    fun aNameOfExactlyTheMaximumIsKeptWhole() {
+        assertEquals("B".repeat(CifExtractor.MAX_NAME_LENGTH), named("'" + "B".repeat(CifExtractor.MAX_NAME_LENGTH) + "'").name)
+    }
+
     // ---------------------------------------------------------------- the happy path
 
     @Test

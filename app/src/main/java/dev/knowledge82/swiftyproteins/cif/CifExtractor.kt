@@ -31,6 +31,11 @@ object CifExtractor {
     private const val BOND_FIRST = "_chem_comp_bond.atom_id_1"
     private const val BOND_SECOND = "_chem_comp_bond.atom_id_2"
     private const val BOND_ORDER = "_chem_comp_bond.value_order"
+    private const val NAME = "_chem_comp.name"
+
+    // The longest name among the 1242 ligands has 384 characters (1SZ); the median, 39. Anything longer is cut: it is
+    // text from the network that will be drawn on screen and put in a message (document 15).
+    const val MAX_NAME_LENGTH = 400
 
     // Two candidate coordinate sets, x/y/z each. The order of this list IS the policy: first the ideal one.
     private val COORDINATE_SETS = listOf(
@@ -97,8 +102,25 @@ object CifExtractor {
             )
         }
 
-        return Molecule(block.name, atoms, bonds)
+        return Molecule(block.name, atoms, bonds, nameOf(block))
     }
+
+    /**
+     * The chemical name (`_chem_comp.name`), OPTIONAL: a file without it is still a good molecule, so a missing or
+     * odd name is never a [CifFailure], just null. Cleaned because it comes from the network and goes to the screen:
+     * control characters become spaces, every run of spaces and line breaks becomes ONE space (the name of 001 is a
+     * multi-line text field), CIF's "unknown" ("?") and "not applicable" (".") mean no name, and the length is capped.
+     */
+    private fun nameOf(block: CifBlock): String? {
+        val table = block.tableWith(NAME) ?: return null
+        val raw = table.rows.firstOrNull()?.getOrNull(table.indexOf(NAME) ?: return null) ?: return null
+        val clean = raw.map { if (it.isISOControl()) ' ' else it }.joinToString("")
+            .split(WHITESPACE).filter { it.isNotEmpty() }.joinToString(" ")
+        if (clean.isEmpty() || clean == "?" || clean == ".") return null
+        return if (clean.length <= MAX_NAME_LENGTH) clean else clean.take(MAX_NAME_LENGTH - 1) + "…"
+    }
+
+    private val WHITESPACE = Regex("\\s+")
 
     private fun readBonds(table: CifTable, indexByName: Map<String, Int>): List<Bond> {
         if (table.rows.size > MAX_BONDS) throw fail(CifFailure.TooBig("bonds", table.rows.size, MAX_BONDS))
