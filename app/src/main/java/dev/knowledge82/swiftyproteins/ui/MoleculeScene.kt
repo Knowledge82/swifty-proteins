@@ -14,7 +14,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.ui.unit.dp
 import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import dev.knowledge82.swiftyproteins.molecule.Molecule
@@ -97,6 +99,9 @@ private fun rgbColor(rgb: Int, alpha: Float = 1f): Color =
  * @param onAssembly       how many pieces (atoms, then bonds) are already in the scene, of how many (document 20)
  * @param look             background, halos and lights of the theme (document 21)
  * @param atomColors       the colour scheme of the atoms (document 21)
+ * @param contentPadding   the parts of the view covered by panels: the camera aims at what is left (document 21, §18)
+ * @param visibleAspect    width / height of that visible window, rounded ([SceneFraming.aspectKey]): how far the
+ *                         camera must stand for the whole molecule to fit in it
  */
 @Composable
 fun MoleculeScene(
@@ -115,6 +120,8 @@ fun MoleculeScene(
     onAssembly: (built: Int, total: Int) -> Unit = { _, _ -> },
     look: SceneLook = SceneLook.DARK,
     atomColors: AtomColors = AtomColors.JMOL,
+    contentPadding: PaddingValues = PaddingValues(0.dp),
+    visibleAspect: Float = SceneFraming.TALL_PHONE_ASPECT,
 ) {
     // LEVEL OF DETAIL (bonus VII.4): from the size of the MOLECULE, so hiding hydrogens never rebuilds every mesh.
     val atomCount = molecule.atoms.size
@@ -168,7 +175,7 @@ fun MoleculeScene(
     }
 
     // All of this depends only on the molecule (and on the hydrogen switch): computed once, not at every recomposition.
-    val wholeDistance = remember(molecule) { SceneFraming.cameraDistance(SceneFraming.radiusOf(molecule)) }
+    val wholeDistance = remember(molecule, visibleAspect) { SceneFraming.cameraDistance(SceneFraming.radiusOf(molecule), visibleAspect) }
     val poses = remember(molecule) {
         molecule.bonds.map { BondGeometry.poseOf(molecule.atoms[it.from], molecule.atoms[it.to]) }
     }
@@ -243,6 +250,9 @@ fun MoleculeScene(
         // centred THOSE and the whole molecule stayed off-centre (seen on the A33). It also moved the content away from
         // the coordinates the camera, the labels and the double tap use. Document 21, §17.
         autoCenterContent = false,
+        // The window between the panels: the molecule is centred THERE, not on the whole screen, while the scene still
+        // draws under the panels too. Taps follow (SceneView maps them through the same projection). Document 21, §18.
+        contentPadding = contentPadding,
         cameraNode = cameraNode,
         onFrame = afterFrame,
         cameraManipulator = rememberCameraManipulator(

@@ -1,5 +1,15 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.boundsInWindow
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.animation.core.animateDpAsState
 import android.util.Log
 import android.Manifest
 import android.content.pm.PackageManager
@@ -74,6 +84,7 @@ import dev.knowledge82.swiftyproteins.net.Origin
 import dev.knowledge82.swiftyproteins.scene.Assembly
 import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.scene.SceneLook
+import dev.knowledge82.swiftyproteins.scene.Viewport
 import dev.knowledge82.swiftyproteins.scene.FpsMeter
 import dev.knowledge82.swiftyproteins.sound.LocalSounds
 import dev.knowledge82.swiftyproteins.sound.SoundCue
@@ -212,8 +223,24 @@ fun MoleculeScreen(
         onClickLabel = "Hide the atom information",
     ) { select(null); measuredIds = IntArray(0) }
 
-    Box(modifier = modifier.fillMaxSize()) {
-        MoleculeScene(
+    // THE LAYOUT (document 21, §18). The 3D view fills the whole screen and the panels lie over it, but the camera aims
+    // at the WINDOW between them (SceneView's contentPadding): the molecule is centred where it can be seen. Portrait:
+    // panels above and below the window. Landscape: the window on the left, the panels in a scrolling column on the
+    // right (in landscape, a portrait-like column had no room left for the molecule at all).
+    // The window is measured in the same coordinates as the whole screen; until it is known, the scene waits one frame.
+    var screenBounds by remember { mutableStateOf<Rect?>(null) }
+    var windowBounds by remember { mutableStateOf<Rect?>(null) }
+    val density = LocalDensity.current
+    val cover = coverOf(screenBounds, windowBounds)
+    // A panel that changes height (a long name, the ruler) moves the window: the molecule GLIDES to the new centre.
+    val coverLeft by animateDpAsState(with(density) { (cover?.left ?: 0f).toDp() }, label = "cover left")
+    val coverTop by animateDpAsState(with(density) { (cover?.top ?: 0f).toDp() }, label = "cover top")
+    val coverRight by animateDpAsState(with(density) { (cover?.right ?: 0f).toDp() }, label = "cover right")
+    val coverBottom by animateDpAsState(with(density) { (cover?.bottom ?: 0f).toDp() }, label = "cover bottom")
+
+    BoxWithConstraints(modifier = modifier.fillMaxSize().onGloballyPositioned { screenBounds = it.boundsInWindow() }) {
+        val landscape = maxWidth > maxHeight
+        if (cover != null) MoleculeScene(
             molecule = molecule,
             representation = representation,
             showHydrogens = showHydrogens,
@@ -245,11 +272,11 @@ fun MoleculeScreen(
             onAssembly = { built, total -> assembly = built to total },
             look = SceneLook.of(SwiftyColors.palette.isDark),
             atomColors = atomColors,
+            contentPadding = PaddingValues(start = coverLeft, top = coverTop, end = coverRight, bottom = coverBottom),
+            visibleAspect = cover.aspectKey,
         )
 
-        // The frame AROUND the scene. Only the panels catch touches (they are Surfaces); the brackets and the empty
-        // middle let every touch through to the molecule.
-        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+        val topPanel = @Composable {
             TopPanel(
                 modifier = deselect,
                 molecule = molecule,
@@ -263,28 +290,42 @@ fun MoleculeScreen(
                 onBack = onBack,
                 share = share,
                 onShare = onShare,
-                fps = fps,
+                // A LAMBDA, read inside the counter only: the FPS text changes 4 times a second, and reading it here
+                // recomposed the whole screen and the 3D scene with it, which asked SceneView for new frames, which
+                // changed the FPS... The scene never went IDLE (seen on the A33). Document 21, §18.
+                fps = { fps },
                 origin = origin,
             )
-            CornerBrackets(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 14.dp))
-            Assembly.label(assembly.first, assembly.second)?.let { text ->
-                AssemblyPanel(text = text, fraction = assembly.first.toFloat() / assembly.second)
-                Spacer(Modifier.height(14.dp))
+        }
+        // The window: the brackets, and over its bottom edge the short-lived status lines (assembly, share). They lie
+        // OVER the molecule instead of pushing the window: they come and go, the window must not jump with them.
+        val window = @Composable { m: Modifier ->
+            Box(m.onGloballyPositioned { windowBounds = it.boundsInWindow() }) {
+                CornerBrackets(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 14.dp))
+                Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(bottom = 18.dp)) {
+                    Assembly.label(assembly.first, assembly.second)?.let { text ->
+                        AssemblyPanel(text = text, fraction = assembly.first.toFloat() / assembly.second)
+                        Spacer(Modifier.height(8.dp))
+                    }
+                    share.label?.let { text -> ShareStatusPanel(text = text, status = share, modifier = deselect) }
+                }
             }
-            share.label?.let { text ->
-                ShareStatusPanel(text = text, status = share, modifier = deselect)
-                Spacer(Modifier.height(14.dp))
-            }
-            if (ruler) RulerPanel(molecule = molecule, measured = measured, modifier = deselect)
+        }
+        val readout = @Composable {
+            // The same height for every content (the molecule, an atom, a bond, the ruler) at the normal text size:
+            // the window does not change at each tap. With a bigger font the panel grows, and the molecule glides.
+            val stable = Modifier.heightIn(min = READOUT_MIN_HEIGHT)
+            if (ruler) RulerPanel(molecule = molecule, measured = measured, modifier = deselect.then(stable))
             else ReadoutPanel(
                 molecule = molecule,
                 selection = selection,
                 hydrogensHidden = hasHydrogens && !showHydrogens,
                 favorite = favorite,
                 onToggleFavorite = onToggleFavorite,
-                modifier = deselect,
+                modifier = deselect.then(stable),
             )
-            Spacer(Modifier.height(10.dp))
+        }
+        val key = @Composable {
             ElementKey(
                 elements = legend,
                 highlighted = highlightElement,
@@ -303,8 +344,43 @@ fun MoleculeScreen(
                 modifier = deselect,
             )
         }
+
+        if (landscape) {
+            Row(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+                window(Modifier.weight(1f).fillMaxHeight())
+                Spacer(Modifier.width(10.dp))
+                Column(
+                    modifier = Modifier.width(minOf(maxWidth * 0.46f, SIDE_COLUMN_MAX)).fillMaxHeight().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    topPanel()
+                    readout()
+                    key()
+                }
+            }
+        } else {
+            Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp, vertical = 10.dp)) {
+                topPanel()
+                window(Modifier.weight(1f).fillMaxWidth())
+                readout()
+                Spacer(Modifier.height(10.dp))
+                key()
+            }
+        }
     }
 }
+
+/** The two measured rectangles into [Viewport.cover] (pure, tested). */
+private fun coverOf(screen: Rect?, window: Rect?): Viewport.Cover? =
+    if (screen == null || window == null) null
+    else Viewport.cover(screen.left, screen.top, screen.right, screen.bottom, window.left, window.top, window.right, window.bottom)
+
+// The readout panel's height for every content at the normal text size (two lines of name, the formula, two lines of
+// help; or an atom's three coordinates; or the ruler's three lines). Document 21, §18.
+private val READOUT_MIN_HEIGHT = 150.dp
+
+// The side column in landscape: about half the screen, never wider than this.
+private val SIDE_COLUMN_MAX = 440.dp
 
 /** "AUSPEX // RUNNING": back, "Pattern 001", "87 ATOMS :: 90 BONDS", the H key and the SHR key. */
 @Composable
@@ -317,7 +393,7 @@ private fun TopPanel(
     onBack: () -> Unit,
     share: ShareStatus,
     onShare: () -> Unit,
-    fps: FpsReading,
+    fps: () -> FpsReading,
     origin: Origin,
 ) {
     // The tab says where the molecule came from (document 13): downloaded now, or the phone's copy (offline too).
@@ -339,10 +415,7 @@ private fun TopPanel(
                         maxLines = 1,
                         modifier = Modifier.weight(1f, fill = false),
                     )
-                    // "60 FPS" while something moves, "IDLE" when the scene is parked (it draws on demand). The level
-                    // is in the WORDS too (the number), never only in the colour.
-                    val ink = fpsColor(FpsText.level(fps))
-                    Text(FpsText.label(fps), style = MaterialTheme.typography.labelSmall.glowing(ink), color = ink, maxLines = 1)
+                    FpsLabel(fps)
                 }
             }
             if (hasHydrogens) {
@@ -364,6 +437,18 @@ private fun TopPanel(
             )
         }
     }
+}
+
+/**
+ * "60 FPS" while something moves, "IDLE" when the scene is parked (it draws on demand). The level is in the WORDS too
+ * (the number), never only in the colour. Its own composable, reading the value through a lambda: when the number
+ * changes, ONLY this text is redrawn (document 21, §18).
+ */
+@Composable
+private fun FpsLabel(fps: () -> FpsReading) {
+    val reading = fps()
+    val ink = fpsColor(FpsText.level(reading))
+    Text(FpsText.label(reading), style = MaterialTheme.typography.labelSmall.glowing(ink), color = ink, maxLines = 1)
 }
 
 /** Phosphor when smooth, amber when it drops under 55, optic red under 30 (the subject's "poor performance"). */

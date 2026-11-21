@@ -21,6 +21,7 @@
 15. [Fuentes](#15-fuentes)
 16. [Qué recordar](#16-qué-recordar)
 17. [Tras la primera prueba en el móvil](#17-tras-la-primera-prueba-en-el-móvil)
+18. [Segunda ronda: la ventana del 3D, la rotación y el FPS que no paraba](#18-segunda-ronda-la-ventana-del-3d-la-rotación-y-el-fps-que-no-paraba)
 
 ---
 
@@ -382,4 +383,70 @@ Pedido tras verlo: la app abre como siempre se diseñó. Los ajustes guardados a
 ### 17.6 Pruebas
 
 `PanelGeometryTest` (5): el contenido nunca tapa un remache ni pasa por debajo de la etiqueta (para todos los cortes y rellenos usados), un relleno generoso se respeta, el cuadro de búsqueda recibe 14,7, y la regla de la etiqueta vale **por sí sola**. Este último caso nació de un mutante superviviente: con los cortes de hoy, los remaches ya exigen más que la etiqueta. Mutantes: sin remaches, sin etiqueta, sin holgura y tema por defecto: los cuatro muertos.
+
+## 18. Segunda ronda: la ventana del 3D, la rotación y el FPS que no paraba
+
+Tres cosas vistas en el A33 tras §17, con capturas.
+
+### 18.1 La molécula, centrada en la pantalla y no en la ventana
+
+**Síntoma:** recién cargada, 001 aparecía **abajo**, medio tapada por el panel de lectura. §17.2 la había centrado... **en la pantalla entera**. La escena 3D ocupa toda la pantalla, por debajo de los paneles, pero lo que se ve es la **ventana** entre el panel de arriba y los de abajo, y su centro queda **más arriba** que el de la pantalla (los paneles de abajo son más altos).
+
+**Arreglo, sin mover la cámara ni redimensionar nada:** SceneView 4.69.4 tiene `contentPadding` («la parte de la vista que tapan un panel o una barra», leído en `SceneView.kt` y `CameraNode.kt`). La escena **sigue dibujándose debajo de los paneles**, pero la **proyección** se desplaza para que el centro óptico y el campo de visión sean los de la ventana. Lo hace con `Camera.setScaling` / `setShift` de Filament, y los toques siguen cayendo donde se ve (`viewToRay` aplica lo mismo).
+
+- La ventana se **mide** (`onGloballyPositioned`, en coordenadas de la ventana de la app) y `Viewport.cover` (puro, probado) calcula la banda tapada de cada lado.
+- Hasta conocer la ventana, la escena espera **un fotograma**: si no, nacería con la forma equivocada.
+- Si un panel cambia de alto, la banda se **anima** (`animateDpAsState`) y la molécula **se desliza** al nuevo centro. Para que no ocurra a cada toque, el panel de lectura tiene la **misma altura mínima** (150 dp) para la molécula, un átomo, un enlace y la regla. Con letra grande crece, y entonces la molécula se desliza.
+- Las líneas efímeras (ASSEMBLY, captura) ya no **empujan** la ventana: van **encima** de su borde inferior.
+
+### 18.2 La distancia de la cámara, según la forma de la ventana
+
+La regla «5,5 radios» estaba pensada para la pantalla entera de un móvil alto (aspecto 0,45, limitado por el ancho). Con la ventana, el objetivo cubre **su** altura, y la forma cambia con el móvil y la orientación. Ahora:
+
+```
+distancia = 1,06 · radio / (tan(fov/2) · min(aspecto, 1))      tan(fov/2) = 12/28  (lente de 28 mm, sensor de 24 mm)
+```
+
+Con aspecto 0,45 da **5,50**: la regla de antes es un caso de esta. Una ventana estrecha la limita el ancho, y una ancha (horizontal), la altura. La prueba comprueba, para cinco formas, que la molécula **cabe** y que **llena** el lado estrecho dejando el 6 % de margen.
+
+El aspecto entra **redondeado a 0,05** (`aspectKey`): la cámara se reconstruye (y vuelve a su posición inicial) solo si la ventana cambia **de verdad** de forma, nunca por un píxel de maquetación.
+
+### 18.3 En horizontal no se veía la molécula
+
+**Síntoma:** al girar el móvil, los tres paneles ocupaban **toda** la altura: ni un píxel de 3D, y sin desplazamiento. La columna vertical no cabe en 1080 px de alto.
+
+**Arreglo:** en horizontal, la **ventana a la izquierda** y los paneles en una **columna a la derecha** (hasta el 46 % del ancho, 440 dp como máximo) **con desplazamiento**. `contentPadding` tapa el lado derecho, y la molécula se centra en la izquierda.
+
+### 18.4 El FPS no bajaba nunca a IDLE
+
+**Síntoma:** con la imagen quieta, el contador saltaba entre 70 y 90 FPS sin llegar a IDLE (el A33 tiene pantalla de **90 Hz**: por eso pasa de 60).
+
+**Causa: un bucle de tres eslabones.**
+
+1. El contador cambia su valor **4 veces por segundo**. Ese valor se leía en el cuerpo de `MoleculeScreen`, así que cada cambio **recomponía toda la pantalla**, y con ella la escena 3D.
+2. Al recomponerse, las luces de SceneView vuelven a escribir su intensidad y su dirección (`rememberMainLightNode`, `LightNode`: lo hacen «en cada recomposición», por diseño). Cada uno de esos *setters* llama a `onComponentChanged()`, que en una luz es `requestRender()`: **piden un fotograma aunque el valor no haya cambiado** (`LightComponent.kt`, `LightNode.kt`).
+3. Esos fotogramas los cuenta el contador, que cambia su valor... y vuelta al paso 1.
+
+**Arreglo:** el contador se lee **a través de una lambda**, dentro de su propio texto (`FpsLabel`). Cuando cambia el número, **solo ese texto** se redibuja. La pantalla no se recompone, la escena no pide nada y, con la cámara quieta, el bucle se para: **IDLE**.
+
+**Honestidad:** este bucle existía desde el documento 12, y el «IDLE» que allí se describe **no se había visto nunca en el móvil**: el documento lo daba por hecho. Las luces del tema (§3) no lo crearon, pero sí son uno de sus eslabones.
+
+**Lección:** en una escena «a demanda», cualquier estado que cambie **periódicamente** y se lea **por encima** de la escena es sospechoso. Hay que leerlo lo más abajo posible en el árbol.
+
+### 18.5 Pruebas
+
+| Fichero | Nuevas | Qué fija |
+|---------|--------|----------|
+| `SceneFramingTest` | 4 (+1 cambiada) | La molécula cabe y llena la ventana para cinco formas; más ancha, más cerca hasta el cuadrado; `aspectKey` ignora píxeles y no giros; sin división por cero; 0,45 da 5,5 |
+| `ViewportTest` | 5 | Bandas en vertical y en horizontal; pantalla que empieza bajo la barra; nada medido = esperar; nunca bandas negativas |
+
+**Mutantes: 7, muertos:** sin `min(aspecto, 1)`, sin aspecto, sin suelo de 0,1, clave sin redondear, banda negativa, banda absoluta y ventana vacía aceptada.
+
+**Sin prueba automática:** la medida real, la animación de la banda, la composición horizontal y el IDLE. Para el móvil:
+
+1. 001 y 15P recién cargados: **centrados en la ventana** entre paneles.
+2. Tocar un átomo y luego el vacío: la molécula **no se mueve**.
+3. Girar el móvil: 3D a la izquierda, paneles a la derecha, que se desplazan si no caben.
+4. Soltar la molécula: en uno o dos segundos el contador dice **IDLE**.
+5. Tocar un átomo con la imagen quieta: sigue la selección y vuelve a IDLE.
 

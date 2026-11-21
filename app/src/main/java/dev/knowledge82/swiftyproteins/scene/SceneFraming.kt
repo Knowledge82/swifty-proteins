@@ -3,6 +3,8 @@ package dev.knowledge82.swiftyproteins.scene
 import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.roundToInt
 import kotlin.math.sqrt
 
 /**
@@ -17,11 +19,19 @@ object SceneFraming {
     const val MIN_DISTANCE = 6f
 
     /**
-     * Distance = [DISTANCE_PER_RADIUS] times the radius of the molecule. ESTIMATED, not measured: a phone is TALL, so
-     * the narrow side (the width) limits what fits; with the usual lens that asks for about five radii. To be adjusted
-     * on the device (document 07, section 10).
+     * Half the vertical field of view of SceneView's default lens, as a tangent: a 28 mm lens on a sensor 24 mm high
+     * (Filament's `setLensProjection`), so tan(fov / 2) = 12 / 28. The lens spans the HEIGHT of the visible area.
      */
-    const val DISTANCE_PER_RADIUS = 5.5f
+    const val TAN_HALF_FOV = 12f / 28f
+
+    /** A little air around the molecule (6 %). */
+    const val MARGIN = 1.06f
+
+    /**
+     * The visible area the first rule was tuned on: the whole screen of a tall phone (1080 x 2400). There the old
+     * "5.5 radii" and the formula below agree (5.50).
+     */
+    const val TALL_PHONE_ASPECT = 0.45f
 
     /** Distance from the origin to the outer edge of the farthest ball. It counts ALL atoms, hidden hydrogens included, so the view does not jump when they are shown or hidden. */
     fun radiusOf(molecule: Molecule): Float {
@@ -33,14 +43,32 @@ object SceneFraming {
         return farthest
     }
 
-    /** Where the camera starts, as a distance from the center. */
-    fun cameraDistance(radius: Float): Float = max(MIN_DISTANCE, DISTANCE_PER_RADIUS * radius)
+    /**
+     * Where the camera starts, as a distance from the center, so that a ball of [radius] fits the VISIBLE area of
+     * [aspect] = width / height (document 21, §18). The lens spans the height; a narrow area (aspect < 1) is limited
+     * by its width instead:
+     *
+     *     distance = MARGIN x radius / (TAN_HALF_FOV x min(aspect, 1))
+     *
+     * At first the 3D view was the whole screen and the rule was "5.5 radii", tuned for that. Now the camera aims at
+     * the window between the panels (SceneView's `contentPadding`), whose shape depends on the phone and on its
+     * orientation, so the distance follows the shape.
+     */
+    fun cameraDistance(radius: Float, aspect: Float = TALL_PHONE_ASPECT): Float =
+        max(MIN_DISTANCE, MARGIN * radius / (TAN_HALF_FOV * min(aspect.coerceAtLeast(0.1f), 1f)))
+
+    /**
+     * The aspect, rounded to 0.05: the camera is rebuilt only when the window really changes shape (a rotation, a
+     * bigger font), never for a pixel of layout, which would send the camera back home under the user's finger.
+     */
+    fun aspectKey(width: Float, height: Float): Float =
+        if (width <= 0f || height <= 0f) TALL_PHONE_ASPECT else (width / height * 20f).roundToInt() / 20f
 
     /**
      * The closest the camera may come to the center when zooming in (angstrom), THE SAME for every ligand.
      *
      * Why absolute: SceneView limits the zoom as a FRACTION of the starting distance (default 0.15). The starting
-     * distance grows with the molecule (5.5 x radius), so a big ligand such as 15P (radius 41 -> start 228) could not
+     * distance grows with the molecule (a few radii), so a big ligand such as 15P (radius 41 -> start 228) could not
      * get nearer than 34 angstrom, while the small 001 (start ~35) could reach 5. The limit must be about what we want
      * to SEE (a ball is ~1 angstrom wide; at 4 it fills a good part of the screen), not about how big the molecule is.
      * ESTIMATED value: to be tuned on the device (document 07).

@@ -43,7 +43,45 @@ class SceneFramingTest {
 
     @Test
     fun aBigMoleculeGetsADistanceProportionalToItsRadius() {
-        assertEquals(5.5f * 41.4f, SceneFraming.cameraDistance(41.4f), 1e-3f)
+        // On the whole screen of a tall phone the formula gives the 5.5 radii that were tuned at first.
+        assertEquals(5.5f * 41.4f, SceneFraming.cameraDistance(41.4f), 0.01f * 5.5f * 41.4f)
+        assertEquals(2f * SceneFraming.cameraDistance(20f, 0.8f), SceneFraming.cameraDistance(40f, 0.8f), 1e-3f)
+    }
+
+    // ---------------------------------------------------------------- the visible window (document 21, §18)
+
+    /** Half the width and half the height the lens shows at [d], for a window of [aspect]. */
+    private fun halfView(d: Float, aspect: Float) = Pair(d * SceneFraming.TAN_HALF_FOV * aspect, d * SceneFraming.TAN_HALF_FOV)
+
+    @Test
+    fun theMoleculeFitsTheWindowWhateverItsShape() {
+        for (aspect in listOf(0.45f, 0.8f, 1f, 1.3f, 2.2f)) {
+            val r = 20f
+            val (halfW, halfH) = halfView(SceneFraming.cameraDistance(r, aspect), aspect)
+            assertTrue("aspect $aspect: width", halfW >= r)
+            assertTrue("aspect $aspect: height", halfH >= r)
+            // ...and fills it: the narrow side is only the margin away from the molecule.
+            assertEquals("aspect $aspect", SceneFraming.MARGIN * r, minOf(halfW, halfH), 1e-3f)
+        }
+    }
+
+    @Test
+    fun aWiderWindowLetsTheCameraComeCloserUntilItIsSquare() {
+        assertTrue(SceneFraming.cameraDistance(20f, 0.9f) < SceneFraming.cameraDistance(20f, 0.45f))
+        assertEquals(SceneFraming.cameraDistance(20f, 1f), SceneFraming.cameraDistance(20f, 2f), 0f)   // then the height decides
+    }
+
+    @Test
+    fun theAspectKeyIgnoresPixelsButNotRotations() {
+        assertEquals(SceneFraming.aspectKey(1080f, 1210f), SceneFraming.aspectKey(1080f, 1214f), 0f)
+        assertEquals(0.9f, SceneFraming.aspectKey(1080f, 1200f), 1e-6f)
+        assertTrue(SceneFraming.aspectKey(1700f, 1000f) > 1f)
+        assertEquals(SceneFraming.TALL_PHONE_ASPECT, SceneFraming.aspectKey(0f, 100f), 0f)
+    }
+
+    @Test
+    fun aDegenerateAspectNeverDividesByZero() {
+        assertTrue(SceneFraming.cameraDistance(10f, 0f).isFinite())
     }
 
     @Test

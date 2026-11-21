@@ -121,6 +121,8 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D75 | **Reglas de Compose comprobadas** con el plugin de `kotlinc` sobre los *stubs* | Decidida | Documento 21. |
 | D76 | `autoCenterContent = false` en SceneView: la molécula ya viene centrada, y el centrado automático de la biblioteca, con el montaje por lotes, la descentraba | Decidida | Visto en el A33. Documento 21, §17. |
 | D77 | **Relleno de los paneles** por una regla pura (`PanelGeometry`): igual arriba y abajo, nunca sobre remaches ni etiqueta | Decidida | Visto en el A33. Documento 21, §17. |
+| D78 | La cámara apunta a la **ventana entre paneles** (`contentPadding` de SceneView, medida y animada); distancia según la **forma** de esa ventana; en horizontal, panel lateral con desplazamiento | Decidida | Visto en el A33. Documento 21, §18. |
+| D79 | El **FPS se lee solo en su texto** (lambda): leído arriba recomponía la escena, las luces de SceneView pedían fotogramas y nunca había IDLE | Decidida | Visto en el A33. Documento 21, §18.4. |
 
 ---
 
