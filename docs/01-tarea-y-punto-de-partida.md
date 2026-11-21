@@ -20,6 +20,7 @@ descubrimos una interpretación mejor, este es el primer documento que se actual
 12. [Decisiones y estado](#12-decisiones-y-estado)
 13. [Primer paso: el spike](#13-primer-paso-el-spike)
 14. [Glosario](#14-glosario)
+15. [Revisión contra el enunciado completo (21-11-2026)](#15-revisión-contra-el-enunciado-completo-21-11-2026)
 
 ---
 
@@ -268,3 +269,71 @@ de 3D necesaria están en [`02-spike-3d.md`](02-spike-3d.md).
 - **Spike:** experimento corto con tiempo limitado para reducir una incertidumbre. Su código es provisional: se reutiliza solo lo que quedó comprobado y se anota qué es temporal (documento 02, sección 10).
 - **ADR (*Architecture Decision Record*):** nota breve que registra una decisión, sus alternativas y su motivo.
 - **Estado de interfaz:** en Compose, los datos de los que depende lo que se ve en pantalla.
+
+---
+
+## 15. Revisión contra el enunciado completo (21-11-2026)
+
+Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos al final se releyó **el enunciado completo** (objetivos, instrucciones generales, VI, VII, criterios de evaluación y VIII.2 «errores comunes») y se comparó punto por punto con el código. Leyenda: ✅ hecho · 🟡 hecho pero sin comprobar en el móvil, o con un matiz · 🔴 falta.
+
+### 15.1 Detalles del enunciado que el resumen no recogía
+
+| Detalle | Dónde | Consecuencia |
+|---------|-------|--------------|
+| El motor permitido en Android: «ViroCore, **filament** u OpenGL ES» | VI.4 | Filament (vía SceneView) está **nombrado** en el enunciado: argumento fuerte en la defensa |
+| Hash de contraseñas: «**bcrypt, Argon2** o almacenamiento seguro de la plataforma»; «algoritmos de hash **débiles**» es un error común (VIII.2) | VI.2, VIII.2 | El algoritmo se elige en el documento 05; uno de los nombrados evita discutir |
+| «Usar el almacenamiento seguro de la plataforma (**KeyStore**)» | Instrucciones generales, seguridad | Además del hash, algo debe apoyarse en el Android Keystore (documento 05) |
+| Los **textos** de los cuatro errores de carga vienen dados («No internet connection. Please check your network.», etc.) | VI.3 | Nuestros textos dicen lo mismo con otras palabras; conviene acercarlos para no discutir |
+| La ficha del átomo desaparece al tocar «**en cualquier otro sitio de la pantalla**» u otro átomo | VI.4 | Hoy desaparece al tocar el vacío u otro átomo; **tocar un panel** (la lectura de abajo) no la quita |
+| «**Confirmaciones de éxito** cuando proceda» | Instrucciones generales | Cuenta creada, imagen lista para compartir (esta ya existe) |
+| La app «debe funcionar sin conexión para los ligandos ya cargados (**caché opcional**)» | Instrucciones generales y VII.4 | Redacción ambigua («debe» + «opcional»): hacer la caché elimina la discusión |
+| `ConstraintLayout` como técnica de maquetación | Instrucciones generales | Usamos Compose (sus `Row`/`Column`/`Box` y `weight` son la técnica moderna equivalente); argumento para la defensa |
+| Iluminación: «considerar **varias** fuentes de luz» | VI.4 | Hoy, la luz por defecto de SceneView, sin comprobar qué incluye |
+| 60 FPS como objetivo; «< 30 FPS» como error común | VI.4, VIII.2 | **No medido**: hace falta una forma de enseñarlo |
+
+### 15.2 Estado punto por punto
+
+| Requisito | Estado | Nota |
+|-----------|--------|------|
+| VI.1 Icono en todas las resoluciones | ✅ | Documento 08d |
+| VI.1 *Launch screen* ≥ 1–2 s, de marca, que no parezca «carga eterna» | ✅ | `BootScreen`, 4,2 s, salto con toque tras 1 s; la *splash* del sistema invisible (08d, 12.4) |
+| VI.2 Cuentas, contraseña con requisitos, biometría, diálogo de fallo, alternativa sin biometría, **login siempre**, hash, teclados y etiquetas | 🔴 | **Nada hecho.** Lo más importante que queda |
+| VI.3 Todos los ligandos, lista desplazable (`LazyColumn` ≡ `RecyclerView`), búsqueda en tiempo real sin mayúsculas | ✅ | Documento 06b/06c |
+| VI.3 Carga: indicador, descarga, *parsing*, navegación; el indicador desaparece siempre | ✅ | Probado en el móvil (06c) |
+| VI.3 Avisos de error claros | ✅ / 🟡 | Hechos; acercar los textos a los del enunciado |
+| VI.4 CPK, bolas y varillas, radios proporcionales, varillas más finas | ✅ | Documento 07 |
+| VI.4 Ficha del átomo y cuándo desaparece | ✅ / 🟡 | Falta: tocar un panel también debe quitarla |
+| VI.4 Giro y zoom | ✅ | Comprobado en el móvil |
+| VI.4 Desplazamiento con dos dedos (recomendado) | 🟡 | Sin comprobar (07, sección 12) |
+| VI.4 Compartir captura | 🟡 | Escrito (09), sin probar en el móvil |
+| VI.4 Cámara inicial con toda la molécula | ✅ | `SceneFraming` |
+| VI.4 Iluminación con volumen, varias luces | 🟡 | Luz por defecto; poner luces explícitas |
+| VI.4 Fluido, 60 FPS | 🟡 | Sin medir; un contador de FPS en depuración lo enseñaría |
+| Errores: red, *parsing*, memoria (moléculas grandes), entrada inválida | ✅ | `LoadError`: 10 casos, incluido `TooLarge` e `InvalidId` |
+| Red en segundo plano, UI siempre fluida | ✅ | Corrutinas en `Dispatchers.IO` |
+| Sin fugas de memoria | 🟡 | Sin herramienta que lo demuestre (LeakCanary en depuración lo haría) |
+| Pantallas distintas, horizontal, tableta, densidades | 🟡 | La orientación no está bloqueada; sin comprobar horizontal ni tableta |
+| Seguridad: nada en texto plano, Keystore, validar datos de red, fallos de biometría | 🔴 / ✅ | Validar la red: ✅ (límites de tamaño, *parser* estricto). El resto llega con el login |
+| Sin conexión para ligandos ya cargados | 🔴 | Caché de `.cif` |
+| Accesibilidad | 🟡 | Contraste medido (08a/08c); falta una pasada con TalkBack |
+| Versiones más recientes | ✅ | Revisar justo antes de la defensa |
+
+### 15.3 Bonus: lo que ya cuenta y lo barato
+
+| Bloque | Ya hecho | Barato de añadir |
+|--------|----------|------------------|
+| VII.1 Modelos | — | Espacio lleno y *stick*: solo cambian los radios; cambio sin recargar |
+| VII.2 Interfaz | Celdas propias (líneas de consola), animaciones (cursor, vaivén, arranque), tema oscuro en toda la app y el 3D | Ajustes (modelo por defecto) si se hace VII.1 |
+| VII.3 Interacción | — | Resaltar átomos del mismo elemento; centrar con doble toque (resuelve además ver de cerca los extremos, 07) |
+| VII.4 Rendimiento y caché | Lista perezosa (`LazyColumn`), *parsing* fuera del hilo principal | Caché local de `.cif` (además cubre la instrucción general) |
+| VII.5 Compartir | Mensaje con nombre, átomos y enlaces | **Fórmula** molecular en el mensaje: completa el punto; favoritos |
+
+### 15.4 Orden de trabajo resultante
+
+1. **Login** (documento 05: teoría y decisiones; código; pruebas).
+2. **Luces explícitas** y **contador de FPS** en depuración; **textos de error** como los del enunciado; **tocar un panel quita la ficha**.
+3. **Caché de `.cif`** (sin conexión).
+4. **Ronda de comprobación en el móvil**: desplazamiento, horizontal, tableta (emulador), TalkBack, compartir, LeakCanary, compilación *release* (también la *splash* invisible).
+5. **Bonus** baratos: fórmula, resaltado y doble toque, modelos de visualización, favoritos.
+6. Documento de **defensa** y **presentación**.
+
