@@ -1,6 +1,6 @@
 # 08d · Icono v3: el cráneo del arranque, el 42 y el ligando
 
-> **Estado:** generado (variante **A, «Hologram»**) e **integrado** en dos versiones: el **emblema completo** en la pantalla de arranque y la **versión simplificada** (sin sello ni cinta) como icono del lanzador (sección 12). Comprobado con guion (zona segura, canal alfa, halo) y con el compilador contra los *stubs*; **sin probar en el móvil**. Las medidas del icono adaptativo salen de la documentación de Android; las del A33 son **cálculo**, no medición.
+> **Estado:** generado (variante **A, «Hologram»**) e **integrado** en dos versiones: el **emblema completo** (con rueda, «42» y `101010`) en la pantalla de arranque y, como icono del lanzador, la **cuarta vuelta**: solo el cráneo y el holograma, sin rueda (sección 12.3). Comprobado con guion (zona segura, canal alfa, halo) y con el compilador contra los *stubs*; **sin probar en el móvil**. Las medidas del icono adaptativo salen de la documentación de Android; las del A33 son **cálculo**, no medición.
 
 ## Índice
 
@@ -383,6 +383,37 @@ holographic DISPLAY (light, scan lines), not as poison.
    192 px, cropping the VISIBLE 72 dp area (the central 683 × 683 px), on dark and light wallpaper.
 ```
 
+### 12.3 Cuarta vuelta: cráneo y holograma (la que se queda)
+
+Llegaron dos composiciones: **A, en diagonal** (cráneo abajo a la izquierda, molécula arriba a la derecha, mismo peso) y **B, «molécula primero»** (molécula grande, cráneo pequeño).
+
+| Comprobación | A | B | Límite |
+|--------------|---|---|--------|
+| Radio máximo de un píxel con algo de alfa | 303,6 px | 303,8 px | ≤ 313 |
+| Píxeles totalmente transparentes | 88 % | 88 % | alfa de verdad |
+| Luminancia media del borde semitransparente **del cráneo** (sin el haz) | 44 | — | sin halo |
+| Monocromo: SVG frente a su PNG | 0 píxeles distintos | 0 | idénticos |
+| Superficie opaca dentro del círculo seguro | 37,5 % | 36,1 % | (la versión simplificada con rueda: 83,8 %) |
+
+El borde semitransparente **total** sale con luminancia ~115: es el **haz y el resplandor verdes**, semitransparentes a propósito; por eso el halo se mide solo en el borde del cráneo.
+
+![Versión simplificada con rueda, A y B a tamaño real: 48, 96, 125 y 192 px, fondo claro y monocromo](img_08d_v4_comparacion.png)
+
+**Elegida: A.**
+
+- **A 48 px sigue siendo «nuestra»:** el cráneo es grande y claro, con el ojo verde; se lee «cráneo cibernético que escanea una molécula». En B, a 48 px, el cráneo es una mancha beige y queda **una molécula genérica**: el icono de cualquier app de química.
+- **El haz cuenta la historia** (el escáner mira el ligando, que es lo que hace la app) porque cráneo y molécula pesan lo mismo.
+- **Monocromo:** en A el cráneo con su ocular se reconoce; en B es un garabato.
+- **«Tóxico»:** en A el ocular, el latón y el haz hacen del cráneo un **instrumento**; en B, un cráneo pequeño junto a una molécula grande se parece más a la etiqueta de peligro.
+
+**Lo que se acepta a sabiendas:**
+
+1. **Esquinas vacías.** Una composición en diagonal llena el 37 % del círculo frente al 84 % de la rueda: en la pantalla de inicio, junto a iconos redondos y densos, se verá **más ligero y algo más pequeño**. No se puede ampliar: cráneo y molécula ya tocan el borde del círculo en la diagonal. Es el precio de la ligereza buscada; se juzga en el móvil.
+2. **El haz apunta algo alto:** el cono sale del ocular y cubre la parte **inferior izquierda** de la molécula, no su centro. Detalle de dibujo; si molesta en el móvil, se pide al generador corregir solo el ángulo.
+3. **Menos «Mechanicus»** que con la rueda: lo sostienen el ocular, la placa de latón y la marca roja. La rueda sigue en el emblema del arranque y en la cabecera.
+
+**Ficheros sustituidos:** los mismos que en la sección 12.1 (`mipmap-<densidad>/ic_launcher_foreground.webp` y `ic_launcher_background.webp`, los iconos antiguos y `drawable/ic_launcher_monochrome.xml`, convertido del SVG: diferencia 0 con el original). La *splash* del sistema muestra este primer plano.
+
 ---
 
 ## 13. La integración, paso a paso
@@ -421,7 +452,7 @@ Detalles que merecen explicación:
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D38 | El icono pasa a ser **pictórico**: el cráneo en la rueda, con **ligando** en holograma y **«42»** (números propios + `101010`), como icono adaptativo de mapas de bits; **dos versiones**: emblema completo en el arranque, icono simplificado en el lanzador | Decidida e integrada (variante A: emblema completo + icono simplificado) | Mucho más reconocible que el icono plano; cumple «acorde con el tema» con la molécula; el 42 en binario conecta con el *binharic* del Mechanicus |
+| D38 | El icono pasa a ser **pictórico**: el cráneo en la rueda, con **ligando** en holograma y **«42»** (números propios + `101010`), como icono adaptativo de mapas de bits; **dos versiones**: emblema completo en el arranque, icono simplificado en el lanzador | Decidida e integrada (emblema completo en el arranque; icono: cráneo + holograma, sección 12.3) | Mucho más reconocible que el icono plano; cumple «acorde con el tema» con la molécula; el 42 en binario conecta con el *binharic* del Mechanicus |
 
 ---
 

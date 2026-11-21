@@ -81,7 +81,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D35 | El conversor de iconos admite `transform` y círculos por defecto; verificación con **control negativo** | Decidida | El emblema del kit los usa. Documento 08c, 5. |
 | D36 | **Share Tech Mono** sustituye a Silkscreen; pasada de «luz»: brillo de fósforo, metal con degradado, cristal con resplandor, barrido tenue | Decidida | Silkscreen (fuente de píxeles) daba aspecto de consola de 8 bits. Documento 08c, 17. |
 | D37 | Las compilaciones debug se firman con **una clave de depuración común en el repositorio** (`app/debug.keystore`) | Decidida | Instalar desde cualquier máquina sin desinstalar. Documento 11. |
-| D38 | Icono **pictórico** (variante A, «Hologram»): cráneo en la rueda + ligando en holograma + «42» (números propios y `101010`); **dos versiones**: emblema completo en el arranque, icono simplificado en el lanzador | Decidida | Más reconocible que el plano; la molécula cumple «acorde con el tema». Documento 08d. |
+| D38 | Icono **pictórico**: **emblema completo** (cráneo en la rueda, ligando en holograma, «42» y `101010`) en el arranque; en el lanzador, el **signo mínimo**: cráneo cibernético que proyecta la molécula, sin rueda | Decidida | Más reconocible que el plano; la molécula cumple «acorde con el tema»; sin rueda el icono deja de estar cargado. Documento 08d. |
 
 ---
 
