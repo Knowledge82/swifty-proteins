@@ -123,6 +123,8 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D77 | **Relleno de los paneles** por una regla pura (`PanelGeometry`): igual arriba y abajo, nunca sobre remaches ni etiqueta | Decidida | Visto en el A33. Documento 21, §17. |
 | D78 | La cámara apunta a la **ventana entre paneles** (`contentPadding` de SceneView, medida y animada); distancia según la **forma** de esa ventana; en horizontal, panel lateral con desplazamiento | Decidida | Visto en el A33. Documento 21, §18. |
 | D79 | El **FPS se lee solo en su texto** (lambda): leído arriba recomponía la escena, las luces de SceneView pedían fotogramas y nunca había IDLE | Decidida | Visto en el A33. Documento 21, §18.4. |
+| D80 | **Horizontal en todas las pantallas**: índice en dos columnas (búsqueda / lista), tutorial con dibujo a la izquierda; contenido largo, con desplazamiento | Decidida | Visto en el A33. Documento 21, §19. |
+| D81 | **Diagnóstico de fotogramas** en Logcat (`SwiftyFrames`) y luces ajustadas una vez por tema (no en cada recomposición) | Decidida | FPS sin IDLE en el A33. Documento 21, §19.2. |
 
 ---
 

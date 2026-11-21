@@ -22,6 +22,7 @@
 16. [Qué recordar](#16-qué-recordar)
 17. [Tras la primera prueba en el móvil](#17-tras-la-primera-prueba-en-el-móvil)
 18. [Segunda ronda: la ventana del 3D, la rotación y el FPS que no paraba](#18-segunda-ronda-la-ventana-del-3d-la-rotación-y-el-fps-que-no-paraba)
+19. [Tercera ronda: la lista en horizontal y el FPS, otra vez](#19-tercera-ronda-la-lista-en-horizontal-y-el-fps-otra-vez)
 
 ---
 
@@ -461,4 +462,41 @@ El aspecto entra **redondeado a 0,05** (`aspectKey`): la cámara se reconstruye 
 **Por qué no lo vimos aquí:** los *stubs* declaraban `RowScope`, `ColumnScope`, `BoxScope` y `BoxWithConstraintsScope` **sin** el marcador. Ahora lo llevan, igual que en Compose, y también `SceneScope` y `NodeScope` llevan `@SceneDsl`, como en SceneView. Se comprobó que con los *stubs* corregidos el código anterior da **el mismo error en la misma línea y columna** (353:53) que Gradle, y que el corregido compila.
 
 **Lección:** un *stub* tiene que copiar también las **anotaciones** que cambian las reglas del compilador, no solo las firmas.
+
+## 19. Tercera ronda: la lista en horizontal y el FPS, otra vez
+
+### 19.1 En horizontal, la lista no se veía
+
+**Síntoma:** al girar el móvil en el índice, solo quedaba el cuadro de búsqueda: ni una fila y sin desplazamiento. En horizontal el móvil mide unos 400 dp de alto, y la cabecera, el título, la búsqueda y el pie, apilados, no dejaban **nada** a la lista. Es el mismo fallo que §18.3 en la pantalla de la molécula, y debió revisarse entonces en **todas** las pantallas.
+
+**Arreglo:** dos columnas. A la izquierda (40 % del ancho, 400 dp como máximo) van la cabecera, el título, la búsqueda y el pie, con desplazamiento. A la derecha va la lista, en un panel PATTERNS de toda la altura. En vertical, todo sigue igual.
+
+**Revisión del resto:** el acceso y los ajustes ya se desplazaban. El **tutorial** apretaba la página igual: en horizontal ahora va dibujo a la izquierda y texto a la derecha, con desplazamiento. En vertical sigue centrado: una columna con desplazamiento da a su contenido una altura **ilimitada**, y `Arrangement.Center` no centraría nada, así que la columna interior mide **al menos** lo que la página. El arranque es una animación de un segundo: queda igual.
+
+### 19.2 El FPS seguía sin llegar a IDLE
+
+El arreglo de §18.4 era **necesario**, pero no bastó. Releer SceneView no encontró otro culpable seguro: todas las fuentes de fotogramas que se ven en su código están apagadas en nuestra escena o tienen motivo. Así que no se adivina más:
+
+**1. Diagnóstico en el móvil** (`FrameDiagnosis`, puro, probado). Mientras la escena dibuja, una línea por segundo en Logcat, con la etiqueta `SwiftyFrames`:
+
+```
+frames=88 sceneRecompositions=0 contentRecompositions=0 cameraMoves=0
+```
+
+| Lo que dice | Lo que significa |
+|-------------|------------------|
+| fotogramas **con** recomposiciones | algo por encima de la escena cambia sin parar (§18.4 era de este tipo) |
+| fotogramas **con** movimientos de cámara | la cámara deriva (una inercia que no acaba, una pose que nunca es igual) |
+| fotogramas **sin** nada de eso | la petición viene de fuera de nuestro código (SceneView, la superficie) |
+
+Para leerlo: `adb logcat -s SwiftyFrames`, con la molécula **quieta** unos diez segundos.
+
+**2. Las luces ya no amplifican.** Aunque algo recomponga la escena, ya no se piden fotogramas por ello:
+
+- **luz principal y de relleno:** se crean **vacías** y se ajustan **una vez** por tema en un `LaunchedEffect`. Antes, su bloque `apply` (que SceneView vuelve a ejecutar en **cada** recomposición) llamaba a setters que piden fotograma siempre;
+- **contraluz:** va en su propia función `RimLight(lux)`. Con el mismo valor, Compose **se la salta** al recomponer, y sus setters no se vuelven a ejecutar.
+
+**Pruebas:** `FrameDiagnosisTest` (3): una línea por segundo y nada en medio; recomposiciones y movimientos contados aparte, con una migaja numérica que no cuenta como movimiento; cada ventana empieza de cero. Mutantes: sin umbral, sin reinicio y ventana corta: los tres muertos.
+
+**Lección:** cuando la lectura del código ya no da más, **se mide en el sitio**. Y se miden **varias** hipótesis a la vez, para que una sola prueba en el móvil las separe.
 

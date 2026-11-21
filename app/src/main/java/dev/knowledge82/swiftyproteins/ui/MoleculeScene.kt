@@ -20,7 +20,10 @@ import androidx.compose.ui.unit.dp
 import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import dev.knowledge82.swiftyproteins.molecule.Molecule
+import android.util.Log
+import androidx.compose.runtime.SideEffect
 import dev.knowledge82.swiftyproteins.scene.Assembly
+import dev.knowledge82.swiftyproteins.scene.FrameDiagnosis
 import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.scene.SceneLook
 import dev.knowledge82.swiftyproteins.scene.AtomLabels
@@ -210,9 +213,14 @@ fun MoleculeScene(
     // Called by SceneView AFTER each presented frame: an observer, it does not keep the scene drawing. A label is
     // moved only if the camera moved; with the camera still nothing changes and the scene goes idle (document 12).
     val currentOnFrame by rememberUpdatedState(onFrame)
+    // WHY frames are drawn (document 21, §19): a line a second in Logcat, tag SwiftyFrames, while the scene draws.
+    val diagnosis = remember { FrameDiagnosis() }
+    SideEffect { diagnosis.onSceneRecomposed() }
     val afterFrame: (Long) -> Unit = remember {
         { frameTime ->
             currentOnFrame(frameTime)
+            val eye = cameraNode.worldPosition
+            diagnosis.onFrame(frameTime, eye.x, eye.y, eye.z)?.let { Log.d(FrameDiagnosis.LOG_TAG, it) }
             if (labelNodes.isNotEmpty()) {
                 val cam = cameraNode.worldPosition
                 for ((i, node) in labelNodes) {
@@ -230,18 +238,24 @@ fun MoleculeScene(
     val currentOnTap by rememberUpdatedState(onTap)
     val currentOnDoubleTap by rememberUpdatedState(onDoubleTap)
 
+    // THE LIGHTS, set ONCE per look (document 21, §19). SceneView re-applies a light's `apply` block on EVERY
+    // recomposition, and every light setter asks for a frame even when the value did not change: lights written inside
+    // that block made any recomposition of this function draw frames. Created empty, set here when the look changes.
+    val keyLight = rememberMainLightNode(engine)
+    val fillLight = rememberFillLightNode(engine)
+    LaunchedEffect(keyLight, fillLight, look) {
+        keyLight.lightDirection = KEY_LIGHT_DIRECTION
+        keyLight.intensity = look.keyLux
+        fillLight.lightDirection = FILL_LIGHT_DIRECTION
+        fillLight.intensity = look.fillLux
+    }
+
     SceneView(
         modifier = modifier.fillMaxSize(),
         engine = engine,
         // Written out (SceneView would add a main and a fill light anyway) so the lighting is OURS and visible here.
-        mainLightNode = rememberMainLightNode(engine) {
-            lightDirection = KEY_LIGHT_DIRECTION
-            intensity = look.keyLux
-        },
-        fillLightNode = rememberFillLightNode(engine) {
-            lightDirection = FILL_LIGHT_DIRECTION
-            intensity = look.fillLux
-        },
+        mainLightNode = keyLight,
+        fillLightNode = fillLight,
         environmentLoader = environmentLoader,
         environment = environment,
         // OFF. SceneView's default (true) moves all the content ONCE, on the first frame that has any, so that the centre
@@ -274,8 +288,10 @@ fun MoleculeScene(
             onDoubleTap = { _, node -> currentOnDoubleTap(ScenePick.of(node?.name)) },
         ),
     ) {
-        // The third light (SceneView only has parameters for two): the rim, declared like any other node.
-        LightNode(type = LightManager.Type.DIRECTIONAL, intensity = look.rimLux, direction = RIM_LIGHT_DIRECTION)
+        SideEffect { diagnosis.onContentRecomposed() }
+        // The third light (SceneView only has parameters for two): the rim. In its own function: with the same lux,
+        // Compose SKIPS it on a recomposition, so its setters (which ask for a frame each) do not run again.
+        RimLight(look.rimLux)
 
         for ((i, atom) in molecule.atoms.withIndex()) {
             if (drawn(i) && Assembly.hasAtom(i, built)) {
@@ -431,6 +447,12 @@ fun MoleculeScene(
             }
         }
     }
+}
+
+/** The rim light (see the lights above): its own restartable, skippable function. */
+@Composable
+private fun SceneScope.RimLight(lux: Float) {
+    LightNode(type = LightManager.Type.DIRECTIONAL, intensity = lux, direction = RIM_LIGHT_DIRECTION)
 }
 
 /**

@@ -1,5 +1,9 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.activity.compose.BackHandler
 import androidx.annotation.DrawableRes
 import androidx.compose.animation.AnimatedContent
@@ -17,6 +21,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -97,25 +102,58 @@ fun OnboardingScreen(onDone: () -> Unit, modifier: Modifier = Modifier) {
     }
 }
 
+/**
+ * One page. Tall: the picture above the text. Wide (landscape, document 21, §19): the picture on the left, the text
+ * on the right. The text scrolls if it does not fit (a small phone in landscape, a big font).
+ */
 @Composable
 private fun TutorialPage(p: Onboarding.Page) {
     CogitatorPanel(label = p.tab, modifier = Modifier.fillMaxSize(), fillHeight = true) {
-        CenteredColumn(Modifier.fillMaxSize()) {
-            ArtImage(artOf(p.art), size = 150.dp)
-            Spacer(Modifier.height(12.dp))
-            Text(
-                p.title,
-                style = MaterialTheme.typography.headlineMedium.glowing(SwiftyColors.Gold, 0.3f),
-                color = SwiftyColors.Gold,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.semantics { heading() },
-            )
-            Spacer(Modifier.height(10.dp))
-            for (line in p.lines) {
-                Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
-                    Text("> ", style = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
-                    Text(line, style = MaterialTheme.typography.bodyMedium, color = SwiftyColors.Bone)
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val wide = maxWidth > maxHeight
+            // Read in THIS scope (not inside the Row): @LayoutScopeMarker forbids an outer scope's receiver there.
+            val artSize = minOf(150.dp, maxHeight * 0.8f)
+            val pageHeight = maxHeight
+            if (wide) {
+                Row(modifier = Modifier.fillMaxSize(), verticalAlignment = Alignment.CenterVertically) {
+                    ArtImage(artOf(p.art), size = artSize)
+                    Spacer(Modifier.width(16.dp))
+                    Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) { PageText(p) }
                 }
+            } else {
+                // A scrolling column gives its content an UNLIMITED height, and "Center" then centres nothing; the
+                // inner column is at least the page tall, so a page that fits stays centred and a longer one scrolls.
+                Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().heightIn(min = pageHeight),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center,
+                    ) {
+                        ArtImage(artOf(p.art), size = artSize)
+                        Spacer(Modifier.height(12.dp))
+                        PageText(p)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageText(p: Onboarding.Page) {
+    Column {
+        Text(
+            p.title,
+            style = MaterialTheme.typography.headlineMedium.glowing(SwiftyColors.Gold, 0.3f),
+            color = SwiftyColors.Gold,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.fillMaxWidth().semantics { heading() },
+        )
+        Spacer(Modifier.height(10.dp))
+        for (line in p.lines) {
+            Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.Top) {
+                Text("> ", style = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
+                Text(line, style = MaterialTheme.typography.bodyMedium, color = SwiftyColors.Bone)
             }
         }
     }

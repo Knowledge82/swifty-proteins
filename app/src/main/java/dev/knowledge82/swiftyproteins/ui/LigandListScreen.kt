@@ -1,5 +1,8 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.layout.BoxWithConstraints
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
 import dev.knowledge82.swiftyproteins.scene.AtomColors
 import dev.knowledge82.swiftyproteins.molecule.MolecularFormula
@@ -90,97 +93,136 @@ fun LigandListScreen(
     val available = catalog != null
     val focusManager = LocalFocusManager.current
 
-    CogitatorBackground(modifier) {
-        Column(
-            modifier = Modifier.fillMaxSize().imePadding().padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            HeaderPanel(subtitle = "DATA-VAULT INDEX // PRIMARY ARCHIVE", action = {
-                // The settings (bonus VII.2, document 16): a 48 dp cog in the header.
-                IconButton(onClick = onSettings, modifier = Modifier.size(48.dp)) {
-                    Icon(painterResource(R.drawable.ic_cog), contentDescription = "Settings", tint = SwiftyColors.Gold, modifier = Modifier.size(26.dp))
-                }
-            })
-            TitlePlate(title = "Data-Vault Index", subtitle = "// BINHARIC PATTERN REGISTRY //")
-
-            CogitatorPanel(
-                label = ListTexts.archiveLabel(available, total),
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                contentPadding = 12.dp,
-                fillHeight = true,
-            ) {
-                CogitatorPanel(label = "AUSPEX QUERY", contentPadding = 6.dp, scanlines = false) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.weight(1f)) { QueryField(query = query, onQueryChange = onQueryChange, enabled = available) }
-                        // "Favourites only" (document 16): a star, filled when the filter is on.
-                        StarKey(
-                            on = onlyFavorites,
-                            onClick = onToggleOnlyFavorites,
-                            description = "Show only favourites",
-                            state = if (onlyFavorites) "on" else "off",
-                        )
-                    }
-                }
-                Spacer(Modifier.height(10.dp))
-                Text(
-                    ListTexts.patternsFound(available, total, query, results.size, onlyFavorites),
-                    style = MaterialTheme.typography.labelMedium.glowing(if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed),
-                    color = if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed,
+    // The pieces of the screen, laid out in a column (portrait) or in two columns (landscape, document 21, §19): in
+    // landscape the phone is only ~400 dp tall, and the header, the title, the search and the footer stacked above the
+    // list left it NO room at all (seen on the A33).
+    val header = @Composable {
+        HeaderPanel(subtitle = "DATA-VAULT INDEX // PRIMARY ARCHIVE", action = {
+            // The settings (bonus VII.2, document 16): a 48 dp cog in the header.
+            IconButton(onClick = onSettings, modifier = Modifier.size(48.dp)) {
+                Icon(painterResource(R.drawable.ic_cog), contentDescription = "Settings", tint = SwiftyColors.Gold, modifier = Modifier.size(26.dp))
+            }
+        })
+    }
+    val title = @Composable { TitlePlate(title = "Data-Vault Index", subtitle = "// BINHARIC PATTERN REGISTRY //") }
+    val search = @Composable {
+        CogitatorPanel(label = "AUSPEX QUERY", contentPadding = 6.dp, scanlines = false) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.weight(1f)) { QueryField(query = query, onQueryChange = onQueryChange, enabled = available) }
+                // "Favourites only" (document 16): a star, filled when the filter is on.
+                StarKey(
+                    on = onlyFavorites,
+                    onClick = onToggleOnlyFavorites,
+                    description = "Show only favourites",
+                    state = if (onlyFavorites) "on" else "off",
                 )
-                Text(":: COGITATOR SEARCH/ACCESS ::", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash)
-                Spacer(Modifier.height(6.dp))
-                ConsoleRule(color = SwiftyColors.Brass)
-
-                Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
-                    when {
-                        catalog == null -> EmptyState(
-                            art = R.drawable.art_corrupt_slate,
-                            message = "The ligand list could not be read. Reinstall the app.",
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            ListTexts.patternsFound(available, total, query, results.size, onlyFavorites),
+            style = MaterialTheme.typography.labelMedium.glowing(if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed),
+            color = if (available) SwiftyColors.Phosphor else SwiftyColors.OpticRed,
+        )
+        Text(":: COGITATOR SEARCH/ACCESS ::", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash)
+    }
+    val list = @Composable { m: Modifier ->
+        Box(modifier = m) {
+            when {
+                catalog == null -> EmptyState(
+                    art = R.drawable.art_corrupt_slate,
+                    message = "The ligand list could not be read. Reinstall the app.",
+                )
+                results.isEmpty() && onlyFavorites -> EmptyState(
+                    art = R.drawable.art_servo_skull,
+                    message = ListTexts.noFavorites(query),
+                    action = { SecondaryButton("Show all", onClick = onToggleOnlyFavorites) },
+                )
+                results.isEmpty() && query.isBlank() -> EmptyState(
+                    art = R.drawable.art_archive_404,
+                    message = "The ligand list is empty.",
+                )
+                results.isEmpty() -> EmptyState(
+                    art = R.drawable.art_servo_skull,
+                    message = ListTexts.noMatch(query),
+                    action = { SecondaryButton("Clear search", onClick = { onQueryChange("") }) },
+                )
+                else -> LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(vertical = 4.dp),
+                ) {
+                    // `key`: identifies each row by its id, so Compose can reuse rows when the list changes.
+                    // LazyColumn composes ONLY the rows on screen (about 10), never all 1243.
+                    items(results, key = { it }) { id ->
+                        PatternRow(
+                            id = id,
+                            entry = index[id],
+                            archived = id in archived,
+                            atomColors = atomColors,
+                            favorite = id in favorites,
+                            onToggleFavorite = { onToggleFavorite(id) },
+                            onClick = {
+                                focusManager.clearFocus()   // hide the keyboard
+                                onOpen(id)
+                            },
                         )
-                        results.isEmpty() && onlyFavorites -> EmptyState(
-                            art = R.drawable.art_servo_skull,
-                            message = ListTexts.noFavorites(query),
-                            action = { SecondaryButton("Show all", onClick = onToggleOnlyFavorites) },
-                        )
-                        results.isEmpty() && query.isBlank() -> EmptyState(
-                            art = R.drawable.art_archive_404,
-                            message = "The ligand list is empty.",
-                        )
-                        results.isEmpty() -> EmptyState(
-                            art = R.drawable.art_servo_skull,
-                            message = ListTexts.noMatch(query),
-                            action = { SecondaryButton("Clear search", onClick = { onQueryChange("") }) },
-                        )
-                        else -> LazyColumn(
-                            state = listState,
-                            modifier = Modifier.fillMaxSize(),
-                            contentPadding = PaddingValues(vertical = 4.dp),
-                        ) {
-                            // `key`: identifies each row by its id, so Compose can reuse rows when the list changes.
-                            // LazyColumn composes ONLY the rows on screen (about 10), never all 1243.
-                            items(results, key = { it }) { id ->
-                                PatternRow(
-                                    id = id,
-                                    entry = index[id],
-                                    archived = id in archived,
-                                    atomColors = atomColors,
-                                    favorite = id in favorites,
-                                    onToggleFavorite = { onToggleFavorite(id) },
-                                    onClick = {
-                                        focusManager.clearFocus()   // hide the keyboard
-                                        onOpen(id)
-                                    },
-                                )
-                            }
-                        }
                     }
                 }
             }
+        }
+    }
+    val footer = @Composable { StatusFooter(line = "NOOSPHERE LINK // STABLE", detail = "01001011 :: FORGE-NET ACTIVE") }
 
-            StatusFooter(line = "NOOSPHERE LINK // STABLE", detail = "01001011 :: FORGE-NET ACTIVE")
+    CogitatorBackground(modifier) {
+        BoxWithConstraints(Modifier.fillMaxSize().imePadding()) {
+            val landscape = maxWidth > maxHeight
+            // Read in THIS scope: inside the Row below it would come from an outer layout scope (@LayoutScopeMarker).
+            val sideWidth = minOf(maxWidth * 0.42f, LIST_SIDE_MAX)
+            if (landscape) {
+                Row(modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+                    // Left: who we are and what to search, scrolling if the keyboard or a big font needs it.
+                    Column(
+                        modifier = Modifier.width(sideWidth).fillMaxHeight().verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(14.dp),
+                    ) {
+                        header()
+                        title()
+                        CogitatorPanel(label = ListTexts.archiveLabel(available, total), contentPadding = 12.dp) { search() }
+                        footer()
+                    }
+                    // Right: the list, the whole height.
+                    CogitatorPanel(label = "PATTERNS", modifier = Modifier.weight(1f).fillMaxHeight(), contentPadding = 12.dp, fillHeight = true) {
+                        list(Modifier.fillMaxWidth().weight(1f))
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp),
+                ) {
+                    header()
+                    title()
+                    CogitatorPanel(
+                        label = ListTexts.archiveLabel(available, total),
+                        modifier = Modifier.fillMaxWidth().weight(1f),
+                        contentPadding = 12.dp,
+                        fillHeight = true,
+                    ) {
+                        search()
+                        Spacer(Modifier.height(6.dp))
+                        ConsoleRule(color = SwiftyColors.Brass)
+                        list(Modifier.fillMaxWidth().weight(1f))
+                    }
+                    footer()
+                }
+            }
         }
     }
 }
+
+// The search column in landscape: about two fifths of the screen, never wider than this.
+private val LIST_SIDE_MAX = 400.dp
 
 /** The search box as a console prompt: "> SEARCH BY LIGAND ID", with a 48 dp clear key when there is text. */
 @Composable
