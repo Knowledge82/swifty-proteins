@@ -34,7 +34,7 @@
 | `auth/AuthController.kt` | 489 | No | **Todo el flujo**: pantallas, hilos, huella, bloqueo |
 | `auth/AndroidSecurity.kt` | 145 | **Sí** | Claves del Keystore; traducción de los códigos de `androidx.biometric` |
 | `ui/AuthViewModel.kt` | 61 | **Sí** | Sobrevive a los giros; bloquea en `ON_STOP` |
-| `ui/AuthScreens.kt` | 364 | **Sí** | Pantallas de acceso y diálogos (Compose) |
+| `ui/AuthScreens.kt` | 389 | **Sí** | Pantallas de acceso y diálogos (Compose) |
 | `MainActivity.kt`, `ui/SwiftyApp.kt` | — | **Sí** | Lanzador de la huella, miniatura de Recientes, «bloqueado → acceso» |
 
 La regla de siempre (D18): **la lógica es Kotlin puro y se prueba en la JVM**; Android solo conecta. Aquí la parte pura es mayor que nunca: incluso el flujo de pantallas (`AuthController`) es puro. Hasta el `Cipher` es de `javax.crypto`, que existe en la JVM: las pruebas cifran **de verdad** con claves de software en lugar de las del Keystore.
@@ -559,7 +559,7 @@ La API nueva de `androidx.biometric` 1.4: `Strength.Class3(CryptoObject(cipher))
 - **Campos:** usuario con teclado ASCII sin corrección ni mayúscula automática; contraseñas con `KeyboardType.Password` (sin sugerencias ni aprendizaje), ocultas con `PasswordVisualTransformation` y tecla **SHOW/HIDE**; `ContentType.Username`/`Password`/`NewPassword` para gestores de contraseñas.
 - **El formulario se desplaza** (`verticalScroll` + `imePadding`): cabe en horizontal y con el teclado abierto.
 - **Atrás:** en «crear cuenta» con cuentas existentes vuelve a «entrar» (`BackHandler`); en «entrar», sale de la app.
-- **Arte:** el servidor encorvado en «entrar» y el tecnosacerdote en «crear cuenta» (por fin se usan los dos).
+- **Arte:** el servidor encorvado en «entrar» y el tecnosacerdote en «crear cuenta» (por fin se usan los dos). **Tras verlo en el móvil:** las figuras van **grandes (330 dp) y detrás del formulario** (`FigureBehindForm`): los campos se dibujan encima de su parte baja (tienen fondo opaco), y un degradado oscurece esa parte para que la lista de reglas y los mensajes escritos encima conserven el contraste. Límite: el arte mide ~424 px; a 330 dp en una pantalla de ~2,6× se amplía unas dos veces y queda algo blando. Un arte más grande del generador lo resolvería. Las manchas claras de ambas figuras se quitaron con una segunda pasada (documento 08c, 3, paso 6).
 - **La lista de reglas** dice **[OK]** / **[--]** en el texto, no solo con el color (accesibilidad).
 
 ---

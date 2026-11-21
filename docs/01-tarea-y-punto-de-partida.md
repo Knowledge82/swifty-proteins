@@ -336,5 +336,6 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 4. **Ronda de comprobación en el móvil**: desplazamiento, horizontal, tableta (emulador), TalkBack, compartir, LeakCanary, compilación *release* (también la *splash* invisible).
 5. **Bonus** baratos: fórmula, resaltado y doble toque, modelos de visualización, favoritos.
 6. **Añadidos del equipo** (21-11-2026): contador de FPS **también en *release*** (proyecto de aprendizaje: se enseña siempre); **sonidos** del cogitador (no se piden; calidad); **la selección de un átomo deja de ser amarilla** (el amarillo es el azufre en CPK).
-7. Documento de **defensa** y **presentación**.
+7. **Documento de pruebas completo** (para enseñar a los evaluadores): todas las pruebas automáticas por área, los casos límite y situaciones raras que cubren, la mutación, y la lista de pruebas manuales en el móvil con su resultado.
+8. Documento de **defensa** y **presentación**.
 

@@ -54,11 +54,20 @@ class BootSequenceTest {
     }
 
     @Test
+    fun theFirstPhaseIs65PercentOfTheTime() {
+        assertEquals(2_730L, BootSequence.LINES_PHASE_MILLIS)
+        assertFalse(BootSequence.isComplete(2_729))
+        assertTrue(BootSequence.isComplete(2_730))
+    }
+
+    @Test
     fun linesAppearOneByOneAndAllAreVisibleBeforeTheEnd() {
         assertEquals(1, BootSequence.visibleLines(0, 5))
-        assertEquals(1, BootSequence.visibleLines(499, 5))
-        assertEquals(2, BootSequence.visibleLines(500, 5))
-        assertEquals(5, BootSequence.visibleLines(2_000, 5))
+        assertEquals(1, BootSequence.visibleLines(545, 5))
+        assertEquals(2, BootSequence.visibleLines(546, 5))
+        assertEquals(4, BootSequence.visibleLines(2_183, 5))
+        assertEquals(5, BootSequence.visibleLines(2_184, 5))
+        assertEquals(5, BootSequence.visibleLines(BootSequence.LINES_PHASE_MILLIS - 1, 5))   // all before "DONE"
         assertEquals(5, BootSequence.visibleLines(BootSequence.DURATION_MILLIS - 1, 5))
         assertEquals(5, BootSequence.visibleLines(60_000, 5))   // never more than there are
     }
@@ -78,10 +87,32 @@ class BootSequenceTest {
     @Test
     fun theProgressBarFillsWithTimeAndEndsFull() {
         assertEquals(0, BootSequence.progressBlocks(0))
-        assertEquals(2, BootSequence.progressBlocks(BootSequence.DURATION_MILLIS / 2))
+        assertEquals(2, BootSequence.progressBlocks(BootSequence.LINES_PHASE_MILLIS / 2))
+        assertEquals(4, BootSequence.progressBlocks(BootSequence.LINES_PHASE_MILLIS - 1))
+        assertEquals(5, BootSequence.progressBlocks(BootSequence.LINES_PHASE_MILLIS))   // full exactly when "DONE" starts
         assertEquals(5, BootSequence.progressBlocks(BootSequence.DURATION_MILLIS))
         assertEquals(5, BootSequence.progressBlocks(10_000))
         assertEquals("[##][##][  ][  ][  ]", BootSequence.progressBar(2))
         assertEquals("[##][##][##][##][##]", BootSequence.progressBar(5))
+    }
+
+    @Test
+    fun doneBlinksThreeTimesInTheSecondPhaseStartingLit() {
+        val start = BootSequence.LINES_PHASE_MILLIS
+        assertFalse(BootSequence.doneVisible(start - 1))
+        assertTrue(BootSequence.doneVisible(start))
+        assertTrue(BootSequence.doneVisible(start + 244))
+        assertFalse(BootSequence.doneVisible(start + 245))
+        assertTrue(BootSequence.doneVisible(start + 490))
+        // 1470 ms of second phase / (2 x 245 ms) = exactly three blinks.
+        assertEquals(1_470L, BootSequence.DURATION_MILLIS - start)
+        assertEquals(0L, (BootSequence.DURATION_MILLIS - start) % (2 * BootSequence.DONE_BLINK_MILLIS))
+    }
+
+    @Test
+    fun withReducedMotionDoneIsSteady() {
+        val start = BootSequence.LINES_PHASE_MILLIS
+        assertFalse(BootSequence.doneVisible(start - 1, reduceMotion = true))
+        assertTrue(BootSequence.doneVisible(start + 245, reduceMotion = true))
     }
 }

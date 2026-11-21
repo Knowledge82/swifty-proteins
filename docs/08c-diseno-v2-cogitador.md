@@ -61,6 +61,8 @@ La v1 («Culto de la Máquina» sobrio, documento 08b) se **rechazó en el móvi
 4. **Bolsas encerradas:** regiones muy claras y neutras (luminosidad > 0,62, saturación < 0,10) de **25 px o más**, estén donde estén, son fondo: ningún objeto pintado aquí es tan blanco y tan gris en una superficie así. La inundación desde fuera no llegaba a ellas.
 5. **Franja del borde:** a menos de **6 px** del fondo, se quita lo claro y poco saturado (luminosidad > 0,55, saturación < 0,35), **en varias rondas** (al quitar una capa aparece la siguiente). Es la orla de los dientes: píxeles un poco más saturados u opacos que el halo, que la regla 1 no cogía. El bronce (saturación ≥ 0,5) y el pergamino de las cintas (~0,45) quedan fuera del umbral.
 
+6. **Segunda vuelta (21-11-2026, servidor y tecnosacerdote, vistos en grande en el login):** quedaban manchas claras con un **tinte rosado** (el «velo» del generador: R − B hasta ~36) que las reglas 4 y 5 no cogían (exigían gris casi puro). Regla nueva (`tools/art/clean_pockets.py`): claro (luminosidad > 0,55), poco saturado (< 0,20) y **no cálido** (R − B < 40), y además **o bien unido al fondo transparente** (crecimiento de región desde el alfa 0) **o bien una bolsa encerrada de 20 px o más**. Lo que protege el dibujo es la **calidez**: pergamino, hueso, piel y cera de vela tienen R − B > 45. Resultado: 986 píxeles fuera en el servidor y 2919 en el tecnosacerdote (dentro de la aureola, junto al báculo, entre los tubos); las velas pierden **27 píxeles** de borde (el velo pegado a su contorno), el pergamino y el hueso ninguno. Se guarda **sin pérdida** (WebP *lossless*): la compresión con pérdida volvería a ensuciar los bordes.
+
 **Resultado final:** la orla y las bolsas fuera; la parabólica de la antena intacta (sus grietas claras son textura del dibujo, no fondo). Peso total: **~280 KB** para las 8.
 
 **Dónde viven:** `res/drawable-nodpi/art_*.webp`. **`nodpi`** = «no escalar según la densidad de la pantalla»: el tamaño lo decide el código (`ArtImage(size = 140.dp)`). En `drawable/` normal, Android trataría 424 px como si fueran para `mdpi` y en el A33 (≈ 3×) los **ampliaría tres veces** antes de dibujarlos.
@@ -186,36 +188,37 @@ El conversor SVG → VectorDrawable del documento 08b **falló con error** (como
 **Cambio de decisión (D32 sustituye a D25).** Antes, la *splash* del sistema se **retenía** 1500 ms (documento 07b). Con la v2 hay una **pantalla de arranque propia** (el cogitador «despertando»), que es un *launch screen* mucho más rico; retener **además** la del sistema daría **3 s** de espera. Ahora:
 
 - La *splash* del sistema solo enseña el emblema **el tiempo que Android necesite** (`installSplashScreen()` sin condición; `SplashHold` y sus pruebas se **borraron**). *(Después, documento 08d, 12.4: ni siquiera el emblema; la* splash *del sistema es **invisible**: color abismo e icono vacío.)*
-- La **pantalla de arranque** (`BootScreen`) dura **4200 ms** si nadie la toca (primero eran 1600; el equipo pidió el doble, 3200, y después un segundo más): líneas de consola que aparecen una a una (cada 500 ms), barra de progreso `[##]`, la calavera-engranaje.
-- **Un toque la salta**, pero **nunca antes de 1 s** (`MIN_VISIBLE_MILLIS`): un toque más temprano **se recuerda** y surte efecto al llegar al segundo. Así el evaluador ve siempre el segundo que exige la hoja, aunque toque la pantalla nada más abrir. Desde ese segundo aparece «> TAP TO CONTINUE» con el cursor parpadeando. El toque se recoge en toda la pantalla con `clickable(indication = null)`: sin onda (no es un botón), pero TalkBack anuncia la acción («Skip the boot sequence»).
+- La **pantalla de arranque** (`BootScreen`) dura **4200 ms** si nadie la toca (primero eran 1600; el equipo pidió el doble, 3200, y después un segundo más): dos fases elegidas por el equipo: **65 %** (2730 ms) en que las líneas de consola aparecen una a una (cada 546 ms) y se llena la barra `[##]`, y **35 %** (1470 ms) en que todo está cargado y **«> DONE» parpadea** (encendido/apagado cada 245 ms: tres parpadeos exactos). El emblema completo v3 (documento 08d).
+- **Un toque la salta**, pero **nunca antes de 1 s** (`MIN_VISIBLE_MILLIS`): un toque más temprano **se recuerda** y surte efecto al llegar al segundo. Así el evaluador ve siempre el segundo que exige la hoja, aunque toque la pantalla nada más abrir. El toque **no tiene aviso en pantalla** (el equipo prefirió «DONE» a «TAP TO CONTINUE»). El toque se recoge en toda la pantalla con `clickable(indication = null)`: sin onda (no es un botón), pero TalkBack anuncia la acción («Skip the boot sequence»).
 - Se muestra **una vez por arranque**: `rememberSaveable { booted }` en `SwiftyApp` (girar el móvil no la repite; un arranque nuevo sí).
 
 La regla del tiempo es **pura** (`BootSequence`):
 
 ```kotlin
-// BootSequence.kt · líneas 41–45
-41  fun visibleLines(elapsedMillis: Long, total: Int, reduceMotion: Boolean = false): Int {
-42      if (reduceMotion) return total
-43      if (elapsedMillis < 0) return 1
-44      return (1 + (elapsedMillis / LINE_EVERY_MILLIS).toInt()).coerceAtMost(total)
-45  }
+// BootSequence.kt · líneas 48–53
+48  fun visibleLines(elapsedMillis: Long, total: Int, reduceMotion: Boolean = false): Int {
+49      if (reduceMotion) return total
+50      if (elapsedMillis < 0 || total <= 0) return total.coerceAtMost(1)
+51      val every = LINES_PHASE_MILLIS / total
+52      return (1 + (elapsedMillis / every).toInt()).coerceAtMost(total)
+53  }
 ```
 
-- Una línea más cada 500 ms; nunca más de las que hay; con **movimiento reducido**, todas a la vez (pero la pantalla dura lo mismo: la hoja exige el segundo).
+- La primera fase se divide en tantas partes iguales como líneas (5 → una cada 546 ms, la quinta a 2184 ms); nunca más de las que hay; «DONE» se enciende y apaga con el **mismo reloj** (`doneVisible`, probado), no con una animación aparte; con **movimiento reducido**, todas a la vez (pero la pantalla dura lo mismo: la hoja exige el segundo).
 - **Reloj hacia atrás:** se protege. La prueba usa **−1000 ms** y no −50: con −50, la división entera ya da 0 y **ocultaría** la falta de la protección (lo descubrió un mutante superviviente; sección 10).
 
 Y el bucle que la conduce:
 
 ```kotlin
-// BootScreen.kt · líneas 53–60
-53  LaunchedEffect(Unit) {
-54      val start = SystemClock.uptimeMillis()
-55      while (!BootSequence.isDone(elapsed, skipRequested)) {
-56          withFrameMillis { }
-57          elapsed = SystemClock.uptimeMillis() - start
-58      }
-59      finish()
-60  }
+// BootScreen.kt · líneas 54–61
+54  LaunchedEffect(Unit) {
+55      val start = SystemClock.uptimeMillis()
+56      while (!BootSequence.isDone(elapsed, skipRequested)) {
+57          withFrameMillis { }
+58          elapsed = SystemClock.uptimeMillis() - start
+59      }
+60      finish()
+61  }
 ```
 
 - El bucle termina con `isDone(elapsed, skipRequested)`: por tiempo, **o** por toque si ya pasó el segundo mínimo (`canSkip`).
@@ -330,7 +333,7 @@ Todos en `ui/SwiftyComponents.kt`:
 |--:|-----------|----------------|
 | 1 | Compilar | Si falla, pegar el error (firmas de Compose de memoria) |
 | 2 | Icono en el lanzador | Calavera con óptica verde en engranaje dorado |
-| 3 | Abrir la app desde cero | Emblema un instante; luego **arranque del cogitador ~4,2 s** con líneas verdes que aparecen y la barra `[##]`; desde el segundo 1, «> TAP TO CONTINUE»; un toque pasa al índice. Un toque **antes** del segundo 1 espera a ese segundo |
+| 3 | Abrir la app desde cero | Emblema un instante; luego **arranque del cogitador ~4,2 s** con líneas verdes que aparecen y la barra `[##]`; a los 2,7 s, «> DONE» parpadeando; un toque (desde el segundo 1) pasa al acceso. Un toque **antes** del segundo 1 espera a ese segundo |
 | 4 | Girar el móvil en la lista | El arranque **no** se repite |
 | 5 | Índice: escribir «at», luego «xyz», luego la X y «CLEAR SEARCH» | Recuento verde; servo-cráneo y mensaje; vuelve la lista |
 | 6 | Modo avión, abrir `001` | Servo-cráneo **flotando**; luego antena rota + «The Noosphere is Silent» + mensaje llano + RETRY/CLOSE |

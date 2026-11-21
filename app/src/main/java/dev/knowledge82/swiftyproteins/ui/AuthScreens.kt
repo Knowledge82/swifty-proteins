@@ -1,7 +1,11 @@
 package dev.knowledge82.swiftyproteins.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.annotation.DrawableRes
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -10,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CutCornerShape
@@ -29,6 +34,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.autofill.ContentType
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.contentType
 import androidx.compose.ui.semantics.semantics
@@ -98,11 +105,7 @@ fun AccessScreen(state: AuthUiState, controller: AuthController, modifier: Modif
 @Composable
 private fun SignInForm(state: AuthUiState, controller: AuthController) {
     val focus = LocalFocusManager.current
-    CogitatorPanel(label = "ADEPT IDENTIFICATION") {
-        CenteredColumn {
-            ArtImage(R.drawable.art_servitor, size = 140.dp)
-        }
-        Spacer(Modifier.height(10.dp))
+    CogitatorPanel(label = "ADEPT IDENTIFICATION") { FigureBehindForm(R.drawable.art_servitor) {
         ConsoleField(
             value = state.username,
             onValueChange = controller::onUsernameChange,
@@ -144,17 +147,13 @@ private fun SignInForm(state: AuthUiState, controller: AuthController) {
         TextButton(onClick = controller::showCreate, enabled = !state.busy, modifier = Modifier.align(Alignment.CenterHorizontally)) {
             Text("Create account", style = MaterialTheme.typography.labelLarge, color = SwiftyColors.Gold)
         }
-    }
+    } }
 }
 
 @Composable
 private fun CreateForm(state: AuthUiState, controller: AuthController) {
     val focus = LocalFocusManager.current
-    CogitatorPanel(label = "NEW ADEPT REGISTRY") {
-        CenteredColumn {
-            ArtImage(R.drawable.art_tech_priest, size = 140.dp)
-        }
-        Spacer(Modifier.height(10.dp))
+    CogitatorPanel(label = "NEW ADEPT REGISTRY") { FigureBehindForm(R.drawable.art_tech_priest) {
         ConsoleField(
             value = state.username,
             onValueChange = controller::onUsernameChange,
@@ -201,8 +200,34 @@ private fun CreateForm(state: AuthUiState, controller: AuthController) {
             Spacer(Modifier.height(10.dp))
             SecondaryButton("Back to sign in", onClick = controller::showSignIn, enabled = !state.busy, modifier = Modifier.fillMaxWidth())
         }
+    } }
+}
+
+/**
+ * The painted figure, LARGE and BEHIND the form: the fields are drawn over its lower part (they have an opaque
+ * console fill, so they stay readable). A gradient darkens the lower part of the figure, so the checklist and the
+ * messages written over it keep their contrast, while the upper part (head, console, staff) is seen whole.
+ *
+ * The art is about 424 px wide; at [FIGURE_SIZE] on a 2.6x screen it is enlarged about 2x, so a little soft
+ * (document 05a, 8.3). Larger art from the generator would fix it.
+ */
+@Composable
+private fun FigureBehindForm(@DrawableRes art: Int, content: @Composable ColumnScope.() -> Unit) {
+    Box(Modifier.fillMaxWidth()) {
+        ArtImage(art, size = FIGURE_SIZE, modifier = Modifier.align(Alignment.TopCenter))
+        Box(
+            Modifier
+                .align(Alignment.TopCenter)
+                .size(FIGURE_SIZE)
+                .background(Brush.verticalGradient(0.45f to Color.Transparent, 1f to SwiftyColors.Console.copy(alpha = 0.92f))),
+        )
+        Column(Modifier.fillMaxWidth().padding(top = FORM_TOP), content = content)
     }
 }
+
+private val FIGURE_SIZE = 330.dp
+// Where the form starts over the figure: the head and the console (or the hood and the staff) stay above the fields.
+private val FORM_TOP = 205.dp
 
 /** "Verifying..." while a hash runs, or the error of the last attempt. */
 @Composable

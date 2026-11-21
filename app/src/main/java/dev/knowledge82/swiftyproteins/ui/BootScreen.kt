@@ -33,8 +33,9 @@ import dev.knowledge82.swiftyproteins.ui.theme.glowing
 
 /**
  * The cogitator boot screen (design v2, screen 02): the app's launch screen, shown ONCE per start for
- * [BootSequence.DURATION_MILLIS], then [onFinished]. A TAP anywhere skips it, but not before
- * [BootSequence.MIN_VISIBLE_MILLIS] (the 1 s of the evaluation sheet): an early tap waits for that second.
+ * [BootSequence.DURATION_MILLIS], then [onFinished]. First the lines and the bar (65 % of the time), then a blinking
+ * "> DONE" (35 %). A TAP anywhere skips it, but not before [BootSequence.MIN_VISIBLE_MILLIS] (the 1 s of the
+ * evaluation sheet): an early tap waits for that second. The tap has no hint on screen (the team chose "DONE").
  *
  * The timing rule is pure ([BootSequence], tested); this function only reads the clock every frame and draws.
  *
@@ -89,7 +90,7 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
                             style = if (visible) SwiftyDataText.medium.glowing(SwiftyColors.Phosphor) else SwiftyDataText.medium,
                             color = if (visible) SwiftyColors.Phosphor else SwiftyColors.Console,
                         )
-                        if (visible && i == shown - 1 && !reduceMotion && !BootSequence.canSkip(elapsed)) BlinkingCursor()
+                        if (visible && i == shown - 1 && !reduceMotion && !BootSequence.isComplete(elapsed)) BlinkingCursor()
                     }
                     Spacer(Modifier.height(6.dp))
                 }
@@ -99,13 +100,15 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
                     style = SwiftyDataText.medium.glowing(SwiftyColors.Gold),
                     color = SwiftyColors.Gold,
                 )
-                if (BootSequence.canSkip(elapsed)) {
-                    Spacer(Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text("> TAP TO CONTINUE", style = SwiftyDataText.medium.glowing(SwiftyColors.Phosphor), color = SwiftyColors.Phosphor)
-                        if (!reduceMotion) BlinkingCursor()
-                    }
-                }
+                // "> DONE" keeps its place from the start (invisible): the panel does not grow when it appears.
+                // It blinks by the SAME frame clock (BootSequence.doneVisible, tested), not by a separate animation.
+                Spacer(Modifier.height(8.dp))
+                val done = BootSequence.doneVisible(elapsed, reduceMotion)
+                Text(
+                    "> DONE",
+                    style = if (done) SwiftyDataText.large.glowing(SwiftyColors.Phosphor) else SwiftyDataText.large,
+                    color = if (done) SwiftyColors.Phosphor else SwiftyColors.Console,
+                )
             }
             StatusFooter(line = "BOOT SEQUENCE // INITIALIZED", detail = "01001011 :: FORGE-NET ACTIVE")
         }
