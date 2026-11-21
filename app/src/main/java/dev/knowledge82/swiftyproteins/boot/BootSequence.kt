@@ -6,7 +6,7 @@ import java.util.Locale
  * The cogitator boot screen (design v2, screen 02): the app's LAUNCH SCREEN. Pure Kotlin, tested.
  *
  * The evaluation sheet asks for a launch screen visible at least 1 second (document 07b). With design v2 that job
- * moves from the system splash (now only the emblem, for as long as Android needs) to this in-app screen: console
+ * moves from the system splash (now invisible, for as long as Android needs) to this in-app screen: console
  * lines appear one by one, a progress bar fills, and after [DURATION_MILLIS] the app goes on.
  *
  * A TAP skips it, but never before [MIN_VISIBLE_MILLIS]: an early tap is remembered and takes effect at 1 s, so
@@ -15,8 +15,8 @@ import java.util.Locale
  */
 object BootSequence {
 
-    /** How long the boot screen stays if nobody taps: 3200 ms (twice the first version, asked by the team). */
-    const val DURATION_MILLIS = 3_200L
+    /** How long the boot screen stays if nobody taps: 4200 ms (1600 at first, then 3200, then one second more: the team's choice). */
+    const val DURATION_MILLIS = 4_200L
 
     /** The minimum it is shown, even with a tap: the 1 s of the evaluation sheet. */
     const val MIN_VISIBLE_MILLIS = 1_000L

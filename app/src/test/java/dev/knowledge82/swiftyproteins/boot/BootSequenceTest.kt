@@ -10,7 +10,7 @@ class BootSequenceTest {
 
     @Test
     fun withoutATapTheBootScreenLastsItsFullTime() {
-        assertEquals(3_200L, BootSequence.DURATION_MILLIS)
+        assertEquals(4_200L, BootSequence.DURATION_MILLIS)
         assertFalse(BootSequence.isDone(999))
         assertFalse(BootSequence.isDone(BootSequence.DURATION_MILLIS - 1))
         assertTrue(BootSequence.isDone(BootSequence.DURATION_MILLIS))

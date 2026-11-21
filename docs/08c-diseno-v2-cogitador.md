@@ -186,7 +186,7 @@ El conversor SVG → VectorDrawable del documento 08b **falló con error** (como
 **Cambio de decisión (D32 sustituye a D25).** Antes, la *splash* del sistema se **retenía** 1500 ms (documento 07b). Con la v2 hay una **pantalla de arranque propia** (el cogitador «despertando»), que es un *launch screen* mucho más rico; retener **además** la del sistema daría **3 s** de espera. Ahora:
 
 - La *splash* del sistema solo enseña el emblema **el tiempo que Android necesite** (`installSplashScreen()` sin condición; `SplashHold` y sus pruebas se **borraron**). *(Después, documento 08d, 12.4: ni siquiera el emblema; la* splash *del sistema es **invisible**: color abismo e icono vacío.)*
-- La **pantalla de arranque** (`BootScreen`) dura **3200 ms** si nadie la toca (primero eran 1600; el equipo pidió el doble): líneas de consola que aparecen una a una (cada 500 ms), barra de progreso `[##]`, la calavera-engranaje.
+- La **pantalla de arranque** (`BootScreen`) dura **4200 ms** si nadie la toca (primero eran 1600; el equipo pidió el doble, 3200, y después un segundo más): líneas de consola que aparecen una a una (cada 500 ms), barra de progreso `[##]`, la calavera-engranaje.
 - **Un toque la salta**, pero **nunca antes de 1 s** (`MIN_VISIBLE_MILLIS`): un toque más temprano **se recuerda** y surte efecto al llegar al segundo. Así el evaluador ve siempre el segundo que exige la hoja, aunque toque la pantalla nada más abrir. Desde ese segundo aparece «> TAP TO CONTINUE» con el cursor parpadeando. El toque se recoge en toda la pantalla con `clickable(indication = null)`: sin onda (no es un botón), pero TalkBack anuncia la acción («Skip the boot sequence»).
 - Se muestra **una vez por arranque**: `rememberSaveable { booted }` en `SwiftyApp` (girar el móvil no la repite; un arranque nuevo sí).
 
@@ -330,7 +330,7 @@ Todos en `ui/SwiftyComponents.kt`:
 |--:|-----------|----------------|
 | 1 | Compilar | Si falla, pegar el error (firmas de Compose de memoria) |
 | 2 | Icono en el lanzador | Calavera con óptica verde en engranaje dorado |
-| 3 | Abrir la app desde cero | Emblema un instante; luego **arranque del cogitador ~3,2 s** con líneas verdes que aparecen y la barra `[##]`; desde el segundo 1, «> TAP TO CONTINUE»; un toque pasa al índice. Un toque **antes** del segundo 1 espera a ese segundo |
+| 3 | Abrir la app desde cero | Emblema un instante; luego **arranque del cogitador ~4,2 s** con líneas verdes que aparecen y la barra `[##]`; desde el segundo 1, «> TAP TO CONTINUE»; un toque pasa al índice. Un toque **antes** del segundo 1 espera a ese segundo |
 | 4 | Girar el móvil en la lista | El arranque **no** se repite |
 | 5 | Índice: escribir «at», luego «xyz», luego la X y «CLEAR SEARCH» | Recuento verde; servo-cráneo y mensaje; vuelve la lista |
 | 6 | Modo avión, abrir `001` | Servo-cráneo **flotando**; luego antena rota + «The Noosphere is Silent» + mensaje llano + RETRY/CLOSE |
@@ -382,7 +382,7 @@ Todos en `ui/SwiftyComponents.kt`:
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D32 | El *launch screen* es la **pantalla de arranque propia** (3200 ms, **un toque la salta tras 1 s**, una vez por arranque); la *splash* del sistema ya no se retiene. **Sustituye a D25** | Decidida | Cumple la hoja (siempre ≥ 1 s) con un arranque temático; el toque evita esperar |
+| D32 | El *launch screen* es la **pantalla de arranque propia** (4200 ms, **un toque la salta tras 1 s**, una vez por arranque); la *splash* del sistema ya no se retiene. **Sustituye a D25** | Decidida | Cumple la hoja (siempre ≥ 1 s) con un arranque temático; el toque evita esperar |
 | D33 | Marcos **dibujados en código** (`cogitatorFrame`); el 9-patch del kit no se usa | Decidida | Nítido a cualquier densidad, admite etiquetas |
 | D34 | El arte del kit se **limpia** (halo, restos, fragmentos) con un algoritmo medido y se guarda en `drawable-nodpi` | Decidida | El halo opaco ensuciaba la consola; `nodpi` evita el triple escalado |
 | D36 | **Share Tech Mono** sustituye a Silkscreen; pasada de «luz»: brillo de fósforo en el texto, metal con degradado, cristal con resplandor, barrido al 5 % | Decidida | Silkscreen (fuente de píxeles) daba aspecto de consola de 8 bits; sección 17 |
