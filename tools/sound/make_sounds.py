@@ -272,13 +272,15 @@ def signed_in():
 
 
 def denied():
-    """Refused: two short organ stabs, each a TRITONE ('diabolus in musica'), the second a semitone lower: the same organ
-    as 'accepted', but dissonant and falling. 0.45 s. (Version 2.0 was a driven sawtooth klaxon: it rattled the speaker.)"""
-    def stab(low, high, seconds):
-        n = n_of(seconds)
-        return lowpass(organ((low, high), seconds) / 2, 2_000) * adsr(n, 0.012, 0.04, 0.75, 0.06)
-    dry = place(0.36, (0.0, stab(293.7, 415.3, 0.15)), (0.17, stab(277.2, 392.0, 0.19)))   # D4+G#4, then C#4+G4
-    return finish(reverb(dry, 0.15, seconds=0.3, tau=0.07, darkness=2_000)[:n_of(0.45)], EVENT, floor_hz=250)
+    """Refused: ONE short organ stab on a TRITONE ('diabolus in musica'), A3 + D#4: the same organ as 'accepted',
+    dissonant and low. 0.3 s with its tail.
+
+    History: v2.0 was a driven sawtooth klaxon (it rattled the speaker); v2.1 two stabs falling a semitone (approved,
+    but "too long: one note, and lower"). The floor is 200 Hz, not 250: the A3 fundamental (220 Hz) stays a little,
+    which is what makes it sound lower. Safe for the speaker: pure sines, not driven, and only 0.2 s long."""
+    n = n_of(0.2)
+    stab = lowpass(organ((220.0, 311.1), 0.2) / 2, 1_800) * adsr(n, 0.012, 0.05, 0.75, 0.08)
+    return finish(reverb(stab, 0.15, seconds=0.3, tau=0.07, darkness=1_800)[:n_of(0.3)], EVENT, floor_hz=200)
 
 
 def dtmf(digit, seconds):

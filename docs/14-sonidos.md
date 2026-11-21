@@ -214,7 +214,7 @@ Cada nivel está **3–4 dB** por encima del anterior: una diferencia que se not
 | `snd_boot_done` | Aparece «> DONE» | 2,0 s | CEREMONY | **Campana de catedral** (*prime* re4, 293,7 Hz; *hum* una octava abajo), un golpe, en la sala (**aprobado**, ruido congelado) |
 | `snd_key` | Cualquier tecla o botón | 0,06 s | QUIET | Tecla mecánica pesada: «thock» modal 420/1130/2600 Hz (**aprobado**, ruido congelado) |
 | `snd_signed_in` | Sesión abierta | 0,9 s | EVENT | **Quinta vacía** de órgano (la2 mi3 la3) en la sala |
-| `snd_denied` | Contraseña mala, bloqueo, carga fallida | 0,45 s | EVENT | Dos golpes cortos de órgano en **tritono** (re4+sol♯4, do♯4+sol4), el segundo medio tono más bajo |
+| `snd_denied` | Contraseña mala, bloqueo, carga fallida | 0,3 s | EVENT | **Un** golpe corto de órgano en **tritono**, grave: la3 + re♯4 |
 | `snd_scan` | Cargando un ligando | 2,6 s (se corta al llegar) | BACKGROUND | **Módem de acceso telefónico** comprimido: marca 4-2, tono de respuesta, FSK, sondeo, entrenamiento |
 | `snd_loaded` | La molécula está lista | 0,6 s | EVENT | Cerrojo (dos golpes de barrita de 520 Hz) y *ping* de la4 en una sala corta |
 | `snd_select` | Se toca un átomo | 0,15 s | QUIET | «Toc» de una barrita de metal de 330 Hz, sordo (**aprobado**, ruido congelado) |
@@ -263,17 +263,19 @@ Una **quinta vacía** (sin tercera: ni mayor ni menor; arcaica, medieval) en el 
 ### 4.6 `snd_denied`: el órgano dice que no
 
 ```python
-dry = place(0.36, (0.0, stab(293.7, 415.3, 0.15)),      # re4 + sol♯4: tritono
-                  (0.17, stab(277.2, 392.0, 0.19)))      # do♯4 + sol4: tritono, medio tono más abajo
+stab = lowpass(organ((220.0, 311.1), 0.2) / 2, 1800) * adsr(n, 0.012, 0.05, 0.75, 0.08)   # la3 + re♯4: tritono
+finish(reverb(stab, 0.15, …)[:0,3 s], EVENT, floor_hz=200)
 ```
 
 El **mismo órgano** que «aceptado», pero:
 
 - **Tritono** en vez de quinta: el intervalo que la teoría medieval llamaba *diabolus in musica*, el más inestable. La quinta (3:2) «cierra»; el tritono (√2:1, irracional) «chirría».
-- **Dos golpes que bajan** (re4 → do♯4): la forma melódica de un «no-o».
-- **Cortos** (0,15 y 0,19 s, ataque de 12 ms): un rechazo, no una alarma.
+- **Un solo golpe, grave y corto** (0,2 s y su cola): un rechazo, no una alarma.
+- **Suelo a 200 Hz**, no a 250: la fundamental del la3 (220 Hz) se conserva un poco, y es lo que lo hace sonar **grave**. Sin riesgo para el altavoz: senos puros, sin saturar, 0,2 s (§1.1, lección 4).
 
-Así los dos sonidos de la puerta forman **una pareja**: mismo timbre, consonante = sí, disonante = no. Lo que se quitó (v2.0): un clacson de sierras **saturadas** a 147 + 208 Hz, el 54 % de la energía bajo 300 Hz, sostenido: el mismo carraspeo del altavoz que el arranque.
+Así los dos sonidos de la puerta forman **una pareja**: mismo timbre, consonante = sí, disonante = no.
+
+**Historia.** v2.0: un clacson de sierras **saturadas** a 147 + 208 Hz, el 54 % de la energía bajo 300 Hz, sostenido: el altavoz carraspeaba. v2.1: dos golpes de órgano que bajaban medio tono (re4+sol♯4 → do♯4+sol4), 0,45 s: aprobado, pero «**demasiado largo: una nota, y más grave**». v2.2: el de arriba. Gracias al **generador de ruido por sonido** (§3.1), rehacerlo **no cambió ni un byte** de los otros nueve ficheros (comprobado con `git diff`).
 
 ### 4.7 `snd_scan`: el módem que conecta
 
@@ -327,7 +329,7 @@ Qué buscar en la imagen:
 
 - **Casi nada por encima de 2–3 kHz:** así se **ve** «sordo».
 - **`snd_scan`:** el módem **se lee**: dos bloques de dos rayas (las dos teclas DTMF), una banda en 2100 Hz (el tono de respuesta), dos bloques temblorosos a alturas distintas (la FSK de cada módem), un bloque de **rayas paralelas** (el peine del sondeo) y, al final, **bandas de ruido** cortadas a ritmo (el entrenamiento).
-- **`snd_denied`:** dos bloques de rayas, el segundo **un poco más abajo**.
+- **`snd_denied`:** un solo bloque corto de rayas (los armónicos de las dos notas del tritono).
 - **`snd_signed_in`:** rayas horizontales estables (los armónicos de la quinta).
 - **`snd_boot_done`:** los parciales de la campana; los altos se apagan antes, el *hum* sigue hasta el final.
 - **`snd_shutter`:** dos golpes verticales cortos.
