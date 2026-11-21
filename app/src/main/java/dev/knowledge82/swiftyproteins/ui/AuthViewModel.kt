@@ -1,6 +1,8 @@
 package dev.knowledge82.swiftyproteins.ui
 
 import android.content.Context
+import android.os.SystemClock
+import android.util.Log
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.ProcessLifecycleOwner
@@ -12,6 +14,8 @@ import dev.knowledge82.swiftyproteins.auth.AndroidBiometricGateway
 import dev.knowledge82.swiftyproteins.auth.Argon2Hasher
 import dev.knowledge82.swiftyproteins.auth.AuthController
 import dev.knowledge82.swiftyproteins.auth.BiometricGateway
+import dev.knowledge82.swiftyproteins.auth.HashParams
+import dev.knowledge82.swiftyproteins.auth.PasswordHash
 import dev.knowledge82.swiftyproteins.auth.PasswordHasher
 import dev.knowledge82.swiftyproteins.auth.accountStore
 import kotlinx.coroutines.Dispatchers
@@ -56,6 +60,31 @@ class AuthViewModelFactory(context: Context) : ViewModelProvider.Factory {
         require(modelClass.isAssignableFrom(AuthViewModel::class.java)) {
             "This factory only builds AuthViewModel, not ${modelClass.name}"
         }
-        return AuthViewModel(accountStore(appContext), Argon2Hasher(), AndroidBiometricGateway(appContext)) as T
+        return AuthViewModel(accountStore(appContext), TimedHasher(Argon2Hasher()), AndroidBiometricGateway(appContext)) as T
+    }
+}
+
+/**
+ * Writes to Logcat how long each Argon2id hash takes ON THIS PHONE (document 05, D40): the number that decides whether
+ * the parameters stay. Read it with `adb logcat -s SwiftyProteins`. Only the duration is logged, never the password.
+ */
+private class TimedHasher(private val inner: PasswordHasher) : PasswordHasher {
+    override val params: HashParams get() = inner.params
+
+    override fun hash(password: String): PasswordHash = timed("hash") { inner.hash(password) }
+
+    override fun verify(password: String, stored: PasswordHash): Boolean = timed("verify") { inner.verify(password, stored) }
+
+    private inline fun <T> timed(what: String, block: () -> T): T {
+        val start = SystemClock.elapsedRealtime()
+        try {
+            return block()
+        } finally {
+            Log.i(TAG, "Argon2id $what: ${SystemClock.elapsedRealtime() - start} ms (${inner.params})")
+        }
+    }
+
+    private companion object {
+        const val TAG = "SwiftyProteins"
     }
 }
