@@ -91,6 +91,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D45 | Iluminación de **tres puntos** en nuestro código (principal, relleno, contraluz) + ambiente IBL | Decidida (a ajustar a ojo) | VI.4: volumen y varias luces. Documento 12. |
 | D46 | **Contador de FPS** de fotogramas presentados, con estado IDLE, en **todas** las compilaciones | Decidida | VI.4/VIII.2 piden 60 y castigan < 30; el dibujo a demanda obliga a distinguir «parado». Documento 12. |
 | D47 | Caché de `.cif` (`cacheDir/ligands/`): copia fresca 30 días primero, red después, copia vieja si la red falla, 404 la borra, solo se guarda lo interpretado; el origen se ve en la pestaña | Decidida | Sin conexión (instrucciones generales y VII.4); nunca datos sin validar. Documento 13. |
+| D48 | **Diez sonidos sintetizados** con matemáticas (osciladores, ruido con semilla, filtros, envolventes, FM), Ogg Vorbis reproducible byte a byte; un `SoundPool` de la aplicación; nunca en silencio o vibración; intervalo mínimo por sonido | Decidida | Ambientación sin licencias ajenas, explicable, discreta. Documento 14. |
 
 ---
 
@@ -99,6 +100,9 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 ```
 app/                  proyecto Android (paquete dev.knowledge82.swiftyproteins)
 docs/                 un documento por etapa (en español de España)
+tools/art/            limpieza del arte (documento 08c)
+tools/corpus-check/   comprobación del parser contra el corpus
+tools/sound/          síntesis de los sonidos: make_sounds.py (documento 14)
 gradle/, gradlew      wrapper de Gradle
 build.gradle.kts, settings.gradle.kts, gradle.properties
 ```
@@ -137,6 +141,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/11-firma-de-depuracion.md`](docs/11-firma-de-depuracion.md) | Firma de APK y por qué Android rechaza una actualización con otra firma; la clave de depuración por máquina; una clave común en el repositorio (`signingConfigs`); seguridad, migración, cómo comprobarlo | **Escrito** (clave comprobada con `keytool`; instalación sin probar) |
 | [`docs/12-luz-y-fps.md`](docs/12-luz-y-fps.md) | La luz por defecto de SceneView leída en su código, luz física en Filament (lux, direccional, IBL), iluminación de tres puntos; qué es «FPS» con dibujo a demanda, el contador `FpsMeter` (anillo sin objetos por fotograma, estado IDLE, niveles), pruebas y mutantes, cómo ajustarlo en el móvil | **Escrito** (contador probado; luz sin ver en el móvil) |
 | [`docs/13-cache-sin-conexion.md`](docs/13-cache-sin-conexion.md) | Caché de `.cif` para funcionar sin conexión: estrategias (caché primero, red primero, TTL, «vieja antes que nada»), las reglas elegidas (fresca 30 días, validar antes de guardar, 404 frente a fallo de red), `cacheDir`, escritura atómica, límite de 20 MB, el origen en la pestaña, pruebas, mutantes y la demostración en modo avión | **Escrito** (probado en la JVM; sin probar en el móvil) |
+| [`docs/14-sonidos.md`](docs/14-sonidos.md) | Sonidos del cogitador **sintetizados desde cero**: teoría del sonido digital (muestreo, Nyquist, dBFS, clics, espectrograma), las piezas (osciladores, fase acumulada, ruido con semilla, Butterworth, ADSR, FM), **las diez recetas** con sus números, hoja de espectrogramas, WAV → Ogg Vorbis reproducible, `SoundPool`, carga asíncrona, ganchos con `LaunchedEffect`, la regla del silencio, pruebas, mutantes, trampas y alternativas | **Escrito** (regla probada en la JVM; sin oír en el móvil) |
 | [`docs/09-captura-y-compartir.md`](docs/09-captura-y-compartir.md) | Captura del 3D y «compartir» (H4): por qué `view.draw()` da negro con un `SurfaceView`, `PixelCopy` como `suspend`, banda con el nombre, escritura atómica en la caché, `FileProvider` y permisos de URI, hoja del sistema, simulación, plan B | **Escrito** (parte pura probada; captura sin probar en el móvil) |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |
 | 10 · Pruebas y defensa | Lista de comprobación en dispositivo real y guion de defensa | Pendiente |

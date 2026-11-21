@@ -26,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.knowledge82.swiftyproteins.R
+import dev.knowledge82.swiftyproteins.sound.LocalSounds
+import dev.knowledge82.swiftyproteins.sound.SoundCue
 import dev.knowledge82.swiftyproteins.boot.BootSequence
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
@@ -61,6 +63,14 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
     }
 
     val shown = BootSequence.visibleLines(elapsed, lines.size, reduceMotion)
+
+    // Sounds (document 14): the tube powering up once, a teletype tick per new line, the two bells at "DONE".
+    // Keyed by the VALUES (line count, completion), so each plays once per change, not once per frame.
+    val sounds = LocalSounds.current
+    val complete = BootSequence.isComplete(elapsed)
+    LaunchedEffect(Unit) { sounds.play(SoundCue.BOOT_HUM) }
+    LaunchedEffect(shown) { if (shown > 0) sounds.play(SoundCue.BOOT_LINE) }
+    LaunchedEffect(complete) { if (complete) sounds.play(SoundCue.BOOT_DONE) }
     // The whole screen listens for a tap; no ripple (it is not a button), but TalkBack announces the action.
     val tap = Modifier.clickable(
         interactionSource = remember { MutableInteractionSource() },

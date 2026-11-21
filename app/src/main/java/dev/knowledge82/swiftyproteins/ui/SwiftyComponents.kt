@@ -64,6 +64,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.knowledge82.swiftyproteins.R
+import dev.knowledge82.swiftyproteins.sound.LocalSounds
+import dev.knowledge82.swiftyproteins.sound.SoundCue
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
 import dev.knowledge82.swiftyproteins.ui.theme.glowing
@@ -353,8 +355,10 @@ fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modi
 @Composable
 private fun ConsoleButton(text: String, onClick: () -> Unit, modifier: Modifier, enabled: Boolean, fill: Color, edge: Color, ink: Color) {
     val shownInk = if (enabled) ink else SwiftyColors.Disabled
+    val sounds = LocalSounds.current
     Surface(
-        onClick = onClick,
+        // A relay click with every press (document 14); the action itself is unchanged.
+        onClick = { sounds.play(SoundCue.KEY); onClick() },
         enabled = enabled,
         modifier = modifier.heightIn(min = 52.dp),
         shape = CutCornerShape(7.dp),
@@ -387,8 +391,9 @@ fun ConsoleKey(
         active -> SwiftyColors.Phosphor
         else -> SwiftyColors.Gold
     }
+    val sounds = LocalSounds.current
     Surface(
-        onClick = onClick,
+        onClick = { sounds.play(SoundCue.KEY); onClick() },
         enabled = enabled,
         modifier = modifier
             .sizeIn(minWidth = 52.dp, minHeight = 52.dp)
@@ -410,7 +415,8 @@ fun ConsoleKey(
 /** The "<" back key of the molecule screen: 48 dp, gold chevron. */
 @Composable
 fun BackKey(onClick: () -> Unit, modifier: Modifier = Modifier) {
-    IconButton(onClick = onClick, modifier = modifier.size(48.dp)) {
+    val sounds = LocalSounds.current
+    IconButton(onClick = { sounds.play(SoundCue.KEY); onClick() }, modifier = modifier.size(48.dp)) {
         Icon(painterResource(R.drawable.ic_back), contentDescription = "Back to the list", tint = SwiftyColors.Gold, modifier = Modifier.size(24.dp))
     }
 }

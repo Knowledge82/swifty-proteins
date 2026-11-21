@@ -41,6 +41,8 @@ import dev.knowledge82.swiftyproteins.scene.ElementLegend
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
 import dev.knowledge82.swiftyproteins.net.Origin
 import dev.knowledge82.swiftyproteins.scene.FpsMeter
+import dev.knowledge82.swiftyproteins.sound.LocalSounds
+import dev.knowledge82.swiftyproteins.sound.SoundCue
 import dev.knowledge82.swiftyproteins.scene.FpsReading
 import dev.knowledge82.swiftyproteins.scene.FpsText
 import dev.knowledge82.swiftyproteins.share.CaptureException
@@ -81,6 +83,7 @@ fun MoleculeScreen(
     // Share: the state of the button and the job. The job lives in the screen's coroutine scope, so leaving the
     // screen cancels a capture in progress (nothing is left half done in the background).
     var share by remember { mutableStateOf<ShareStatus>(ShareStatus.Idle) }
+    val sounds = LocalSounds.current
 
     // The frame counter, in EVERY build (a learning project: the number is part of what we show). The scene reports
     // each presented frame; the label is refreshed 4 times a second (not on every frame: no recomposition at 60 Hz).
@@ -98,6 +101,7 @@ fun MoleculeScreen(
     val onShare = {
         if (share.canStart) {
             share = ShareStatus.Working
+            sounds.play(SoundCue.SHUTTER)
             scope.launch {
                 share = try {
                     MoleculeSharer.share(context, view, molecule)
@@ -144,7 +148,10 @@ fun MoleculeScreen(
             molecule = molecule,
             showHydrogens = showHydrogens,
             selected = if (atom == null) null else selected,
-            onSelect = { selected = it },
+            onSelect = {
+                if (it != null) sounds.play(SoundCue.SELECT)
+                selected = it
+            },
             modifier = Modifier.fillMaxSize(),
             onFrame = fpsMeter::onFrame,
         )

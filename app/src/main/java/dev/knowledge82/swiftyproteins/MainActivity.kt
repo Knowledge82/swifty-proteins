@@ -8,12 +8,15 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.biometric.registerForAuthenticationResult
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.knowledge82.swiftyproteins.auth.toAuthenticationRequest
 import dev.knowledge82.swiftyproteins.auth.toOutcome
+import dev.knowledge82.swiftyproteins.sound.CogitatorSounds
+import dev.knowledge82.swiftyproteins.sound.LocalSounds
 import dev.knowledge82.swiftyproteins.ui.AuthViewModel
 import dev.knowledge82.swiftyproteins.ui.AuthViewModelFactory
 import dev.knowledge82.swiftyproteins.ui.LigandsViewModel
@@ -64,7 +67,10 @@ class MainActivity : ComponentActivity() {
                         auth.onPromptShown(prompt.id)
                     }
                 }
-                SwiftyApp(viewModel, auth)
+                // The cogitator's voice (document 14): one player for the whole app, reachable from every screen.
+                CompositionLocalProvider(LocalSounds provides CogitatorSounds.of(this)) {
+                    SwiftyApp(viewModel, auth)
+                }
             }
         }
     }

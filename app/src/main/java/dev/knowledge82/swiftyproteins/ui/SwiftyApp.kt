@@ -16,6 +16,10 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.knowledge82.swiftyproteins.auth.AuthController
 import dev.knowledge82.swiftyproteins.loading.LoadState
+import dev.knowledge82.swiftyproteins.sound.LocalSounds
+import dev.knowledge82.swiftyproteins.sound.SoundCue
+import dev.knowledge82.swiftyproteins.sound.SoundOnChange
+import dev.knowledge82.swiftyproteins.sound.loadSoundTag
 import kotlinx.coroutines.launch
 
 /**
@@ -33,6 +37,20 @@ import kotlinx.coroutines.launch
 fun SwiftyApp(viewModel: LigandsViewModel, auth: AuthController) {
     val state by viewModel.loadState.collectAsStateWithLifecycle()
     val authState by auth.state.collectAsStateWithLifecycle()
+
+    // Sounds of the flows (document 14, 7.4). SoundOnChange, not a bare LaunchedEffect: a rotation must not replay them.
+    val sounds = LocalSounds.current
+    SoundOnChange(if (authState.unlocked) "unlocked" else "locked") { if (it == "unlocked") sounds.play(SoundCue.SIGNED_IN) }
+    SoundOnChange(authState.formError.orEmpty()) { if (it.isNotEmpty()) sounds.play(SoundCue.DENIED) }
+    val loadNow = state
+    SoundOnChange(loadSoundTag(loadNow)) {
+        when (loadNow) {
+            is LoadState.Loading -> sounds.play(SoundCue.SCAN)
+            is LoadState.Loaded -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.LOADED) }
+            is LoadState.Failed -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.DENIED) }
+            is LoadState.Idle -> sounds.stop(SoundCue.SCAN)
+        }
+    }
 
     // Kept HERE (and not inside the list screen) because the list screen leaves the composition while the molecule
     // is shown, and anything it remembered would be lost: the user would come back to an empty search box at the top.
