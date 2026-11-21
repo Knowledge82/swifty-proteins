@@ -431,7 +431,7 @@ Todos en `ui/SwiftyComponents.kt`:
 - **Metal con luz:** el borde de bronce pasa de un color plano a un **degradado vertical** (brillo arriba, sombra abajo) y los remaches llevan un punto de brillo.
 - **Cristal con profundidad:** **resplandor radial** verde muy tenue en el centro de cada panel.
 - **Barrido** del 10 % al **5 %**.
-- **Ilustraciones** con `filterQuality = FilterQuality.High`.
+- **Ilustraciones** con `filterQuality = FilterQuality.High`. **Ojo:** ese parámetro solo existe en `Image(bitmap = …)`; la variante `Image(painter = …)` no lo tiene. La primera versión usaba `painter` y **no compiló** en la máquina del equipo (las declaraciones escritas a mano con que se comprueban los tipos aquí lo tenían mal; ya corregidas). `ArtImage` carga ahora la ilustración con `ImageBitmap.imageResource(...)`: vale para las ilustraciones de mapa de bits (`art_*.webp`), no para vectores.
 - **Lámpara de estado** con halo (degradado radial) en vez de un punto plano.
 - **La banda de la captura compartida** usa Share Tech Mono.
 
