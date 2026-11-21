@@ -55,7 +55,7 @@ class LigandLoader(
             }
 
             mutableState.value = when (result) {
-                is LigandLoadResult.Success -> LoadState.Loaded(result.molecule)
+                is LigandLoadResult.Success -> LoadState.Loaded(result.molecule, result.origin)
                 is LigandLoadResult.Failure -> LoadState.Failed(id, result.error)
                 is LigandLoadResult.Cancelled -> LoadState.Idle
             }

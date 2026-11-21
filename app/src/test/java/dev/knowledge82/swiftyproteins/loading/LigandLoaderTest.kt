@@ -5,6 +5,7 @@ import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.net.LigandLoadResult
 import dev.knowledge82.swiftyproteins.net.LoadError
+import dev.knowledge82.swiftyproteins.net.Origin
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -93,6 +94,8 @@ class LigandLoaderTest {
     fun everyKindOfResultLeavesTheLoadingState() {
         val cases = listOf(
             LigandLoadResult.Success(molecule("X")) to LoadState.Loaded(molecule("X")),
+            // Where the molecule came from travels to the screen (the tab shows it, document 13).
+            LigandLoadResult.Success(molecule("X"), Origin.ARCHIVE_OFFLINE) to LoadState.Loaded(molecule("X"), Origin.ARCHIVE_OFFLINE),
             LigandLoadResult.Failure(LoadError.NoConnection) to LoadState.Failed("X", LoadError.NoConnection),
             LigandLoadResult.Failure(LoadError.Timeout) to LoadState.Failed("X", LoadError.Timeout),
             LigandLoadResult.Failure(LoadError.NotFound) to LoadState.Failed("X", LoadError.NotFound),

@@ -39,6 +39,7 @@ import dev.knowledge82.swiftyproteins.molecule.Atom
 import dev.knowledge82.swiftyproteins.molecule.Molecule
 import dev.knowledge82.swiftyproteins.scene.ElementLegend
 import dev.knowledge82.swiftyproteins.scene.ElementStyle
+import dev.knowledge82.swiftyproteins.net.Origin
 import dev.knowledge82.swiftyproteins.scene.FpsMeter
 import dev.knowledge82.swiftyproteins.scene.FpsReading
 import dev.knowledge82.swiftyproteins.scene.FpsText
@@ -64,6 +65,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun MoleculeScreen(
     molecule: Molecule,
+    origin: Origin,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -160,6 +162,7 @@ fun MoleculeScreen(
                 share = share,
                 onShare = onShare,
                 fps = fps,
+                origin = origin,
             )
             CornerBrackets(Modifier.weight(1f).padding(horizontal = 8.dp, vertical = 14.dp))
             share.label?.let { text ->
@@ -187,8 +190,15 @@ private fun TopPanel(
     share: ShareStatus,
     onShare: () -> Unit,
     fps: FpsReading,
+    origin: Origin,
 ) {
-    CogitatorPanel(label = "AUSPEX // RUNNING", fill = SwiftyColors.ConsoleOverlay, contentPadding = 8.dp, modifier = modifier.fillMaxWidth()) {
+    // The tab says where the molecule came from (document 13): downloaded now, or the phone's copy (offline too).
+    val tab = when (origin) {
+        Origin.NETWORK -> "AUSPEX // LIVE"
+        Origin.ARCHIVE -> "AUSPEX // ARCHIVE"
+        Origin.ARCHIVE_OFFLINE -> "AUSPEX // OFFLINE ARCHIVE"
+    }
+    CogitatorPanel(label = tab, fill = SwiftyColors.ConsoleOverlay, contentPadding = 8.dp, modifier = modifier.fillMaxWidth()) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             BackKey(onClick = onBack)
             Column(modifier = Modifier.weight(1f)) {

@@ -8,11 +8,23 @@ import dev.knowledge82.swiftyproteins.molecule.Molecule
  * them is an exception, so none of them can crash the app.
  */
 sealed interface LigandLoadResult {
-    data class Success(val molecule: Molecule) : LigandLoadResult
+    data class Success(val molecule: Molecule, val origin: Origin = Origin.NETWORK) : LigandLoadResult
     data class Failure(val error: LoadError) : LigandLoadResult
 
     /** The caller asked to stop. The screen shows nothing for it. */
     data object Cancelled : LigandLoadResult
+}
+
+/** Where a loaded molecule came from (shown on the molecule screen, document 13). */
+enum class Origin {
+    /** Downloaded just now. */
+    NETWORK,
+
+    /** The phone's copy, recent enough not to ask the server. */
+    ARCHIVE,
+
+    /** The phone's copy, used because the network failed. */
+    ARCHIVE_OFFLINE,
 }
 
 /**

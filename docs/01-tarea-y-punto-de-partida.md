@@ -314,7 +314,7 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 | Sin fugas de memoria | 🟡 | Sin herramienta que lo demuestre (LeakCanary en depuración lo haría) |
 | Pantallas distintas, horizontal, tableta, densidades | 🟡 | La orientación no está bloqueada; sin comprobar horizontal ni tableta |
 | Seguridad: nada en texto plano, Keystore, validar datos de red, fallos de biometría | ✅ | Documentos 05/05a; comprobado en el A33 |
-| Sin conexión para ligandos ya cargados | 🔴 | Caché de `.cif` |
+| Sin conexión para ligandos ya cargados | 🟡 | Caché de `.cif` hecha (documento 13); falta la demostración en modo avión en el móvil |
 | Accesibilidad | 🟡 | Contraste medido (08a/08c); falta una pasada con TalkBack |
 | Versiones más recientes | ✅ | Revisar justo antes de la defensa |
 
@@ -325,7 +325,7 @@ Este documento se escribió al principio, resumiendo el enunciado. Al acercarnos
 | VII.1 Modelos | — | Espacio lleno y *stick*: solo cambian los radios; cambio sin recargar |
 | VII.2 Interfaz | Celdas propias (líneas de consola), animaciones (cursor, vaivén, arranque), tema oscuro en toda la app y el 3D | Ajustes (modelo por defecto) si se hace VII.1 |
 | VII.3 Interacción | — | Resaltar átomos del mismo elemento; centrar con doble toque (resuelve además ver de cerca los extremos, 07) |
-| VII.4 Rendimiento y caché | Lista perezosa (`LazyColumn`), *parsing* fuera del hilo principal | Caché local de `.cif` (además cubre la instrucción general) |
+| VII.4 Rendimiento y caché | Lista perezosa (`LazyColumn`), *parsing* fuera del hilo principal, **caché local de `.cif`** (documento 13), contador de FPS (documento 12) | — |
 | VII.5 Compartir | Mensaje con nombre, átomos y enlaces | **Fórmula** molecular en el mensaje: completa el punto; favoritos |
 
 ### 15.4 Orden de trabajo resultante

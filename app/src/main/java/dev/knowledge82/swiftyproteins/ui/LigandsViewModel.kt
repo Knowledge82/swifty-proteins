@@ -9,6 +9,7 @@ import dev.knowledge82.swiftyproteins.catalog.LigandCatalog
 import dev.knowledge82.swiftyproteins.loading.LigandLoader
 import dev.knowledge82.swiftyproteins.loading.LigandSource
 import dev.knowledge82.swiftyproteins.loading.LoadState
+import dev.knowledge82.swiftyproteins.net.FileLigandCache
 import dev.knowledge82.swiftyproteins.net.HttpUrlConnectionFetcher
 import dev.knowledge82.swiftyproteins.net.LigandRepository
 import kotlinx.coroutines.Dispatchers
@@ -67,7 +68,11 @@ class LigandsViewModelFactory(context: Context) : ViewModelProvider.Factory {
         require(modelClass.isAssignableFrom(LigandsViewModel::class.java)) {
             "This factory only builds LigandsViewModel, not ${modelClass.name}"
         }
-        val repository = LigandRepository(HttpUrlConnectionFetcher())
+        // The ligand files already downloaded are kept in the app's CACHE folder (document 13): offline they still open.
+        val repository = LigandRepository(
+            HttpUrlConnectionFetcher(),
+            cache = FileLigandCache(java.io.File(appContext.cacheDir, LIGAND_CACHE_DIR)),
+        )
         return LigandsViewModel(
             readCatalogText = {
                 appContext.assets.open(CATALOG_FILE).bufferedReader().use { it.readText() }
@@ -78,5 +83,6 @@ class LigandsViewModelFactory(context: Context) : ViewModelProvider.Factory {
 
     private companion object {
         const val CATALOG_FILE = "ligands.txt"
+        const val LIGAND_CACHE_DIR = "ligands"
     }
 }

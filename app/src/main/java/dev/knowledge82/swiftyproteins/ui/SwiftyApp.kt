@@ -56,6 +56,7 @@ fun SwiftyApp(viewModel: LigandsViewModel, auth: AuthController) {
         } else if (current is LoadState.Loaded) {
             MoleculeScreen(
                 molecule = current.molecule,
+                origin = current.origin,
                 onBack = viewModel::cancel,
                 modifier = content,
             )
