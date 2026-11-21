@@ -14,7 +14,7 @@ import java.util.concurrent.ConcurrentHashMap
  * started with almost no delay (MediaPlayer would decode every time: too slow for a key click).
  *
  * ONE instance for the whole app ([of]), built with the APPLICATION context: it lives as long as the process, so it
- * holds no activity (no leak) and is not rebuilt on every rotation. The ten files take about 500 KB decoded.
+ * holds no activity (no leak) and is not rebuilt on every rotation. The ten files take under 1 MB decoded.
  */
 class CogitatorSounds private constructor(context: Context) : SoundPlayer {
 
@@ -59,7 +59,7 @@ class CogitatorSounds private constructor(context: Context) : SoundPlayer {
     }
 
     private fun start(cue: SoundCue, id: Int) {
-        val stream = pool.play(id, 1f, 1f, 1, 0, 1f)
+        val stream = pool.play(id, MASTER_VOLUME, MASTER_VOLUME, 1, 0, 1f)
         if (stream != 0) streams[cue] = stream
     }
 
@@ -72,6 +72,13 @@ class CogitatorSounds private constructor(context: Context) : SoundPlayer {
 
     companion object {
         private const val MAX_STREAMS = 4
+
+        /**
+         * One knob for ALL the sounds, on top of the phone's volume: 0..1, LINEAR amplitude (0.5 = 6 dB quieter, about
+         * "half as loud" to the ear). The balance between the sounds lives in the files (make_sounds.py, four tiers);
+         * this only moves them all together. It can only make them quieter: 1 is the level of the files.
+         */
+        private const val MASTER_VOLUME = 1f
 
         /** How late a cue may still start once its file is loaded (the boot hum on a cold start). */
         private const val LATE_MILLIS = 400L

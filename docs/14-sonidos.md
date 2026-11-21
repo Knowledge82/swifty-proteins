@@ -1,11 +1,11 @@
 # 14 · Sonidos del cogitador: síntesis desde cero y reproducción
 
-> **Estado:** **escrito**. Los diez sonidos están **generados** por `tools/sound/make_sounds.py` (numpy + scipy + ffmpeg) y guardados en `app/src/main/res/raw/`; el script es **reproducible byte a byte**. La regla de cuándo suena algo (`SoundGate`) y la etiqueta que evita repetir sonidos al girar la pantalla (`loadSoundTag`) están **probadas en la JVM** (8 + 5 pruebas, 10 mutantes muertos). El reproductor (`CogitatorSounds`) y los ganchos en las pantallas **compilan contra *stubs***; **sin oír en el móvil** (sección 9).
+> **Estado:** **escrito**, **versión 2** («grimdark», §1.1). Los diez sonidos están **generados** por `tools/sound/make_sounds.py` (numpy + scipy + ffmpeg) y guardados en `app/src/main/res/raw/`; el script es **reproducible byte a byte**. La regla de cuándo suena algo (`SoundGate`) y la etiqueta que evita repetir sonidos al girar la pantalla (`loadSoundTag`) están **probadas en la JVM** (8 + 5 pruebas, 10 mutantes muertos). El reproductor (`CogitatorSounds`) y los ganchos en las pantallas **compilan contra *stubs***. La v1 se oyó en el A33 (todo suena; demasiado «ciencia ficción» y alta); la v2, **pendiente de oír en el móvil** (sección 9).
 
 ## Índice
 
 1. [Qué pide el enunciado (y qué nos pedimos)](#1-qué-pide-el-enunciado-y-qué-nos-pedimos)
-2. [Teoría: el sonido digital en cinco ideas](#2-teoría-el-sonido-digital-en-cinco-ideas)
+2. [Teoría: el sonido digital en siete ideas](#2-teoría-el-sonido-digital-en-siete-ideas)
 3. [Las piezas de la síntesis](#3-las-piezas-de-la-síntesis)
 4. [Las diez recetas](#4-las-diez-recetas)
 5. [Verlos: forma de onda y espectrograma](#5-verlos-forma-de-onda-y-espectrograma)
@@ -27,24 +27,60 @@
   1. **Nada de muestras ajenas.** Ni grabaciones ni bancos de sonidos: cada sonido sale de **matemáticas** (osciladores, ruido, filtros, envolventes). Así no hay ninguna licencia que justificar, y el proceso se puede **explicar** en la defensa.
   2. **Reproducible:** el mismo script da los mismos ficheros, byte a byte.
   3. **Discreto:** cortos, por debajo del volumen máximo, y **nunca con el móvil en silencio o vibración** (la defensa es en una sala llena de gente).
-  4. **Ligero:** los diez ficheros juntos pesan **69 KiB**.
-  5. **Nunca bloquea nada:** si un sonido no está listo, no se espera; se pierde.
+  4. **Ligero:** los diez ficheros juntos pesan **124 KiB**.
+  5. **Nunca bloquea nada:** si un sonido no está listo, no se espera.
+  6. **No distrae:** los sonidos **acompañan**; lo que suena a menudo es lo más bajo.
+
+### 1.1 Dos versiones: por qué se rehízo
+
+| | v1 «ciencia ficción» | v2 «grimdark» (la actual) |
+|-|----------------------|---------------------------|
+| Material | Senos, cuadradas, FM: pitidos, *pings*, glissandos agudos | Metal golpeado (síntesis modal), coro (formantes), órgano, saturación, sala de piedra |
+| Registro | 1–2,6 kHz | Fundamentales de 150–450 Hz, nada por encima de ~3 kHz |
+| Nivel | Normalizado por **pico** | Normalizado por **sonoridad**, en cuatro niveles |
+| Veredicto en el móvil | Todo se oye, pero **molesta**: «sonidos de nave espacial de los 80», no el Culto de la Máquina; y **demasiado alto** | Pendiente |
+
+Tres lecciones del cambio, cada una con su sección:
+
+1. **«Oscuro» no es «grave»** (§2, idea 6). El primer intento de la v2 era de verdad grave: entre el 93 y el 98 % de la energía de la mayoría de sonidos, por debajo de 300 Hz. En auriculares, magnífico; por el **altavoz del móvil**, casi nada. Se movió la oscuridad al timbre y se añadió un indicador al script (`>300 Hz`, el porcentaje de energía que el altavoz puede tocar): hoy, del 44 al 100 %.
+2. **El pico no dice cuánto suena** (§2, idea 7). Con el mismo pico que la v1, la tecla de la v2 sonaba **9 dB más fuerte** (sus golpes saturados son densos) y la campana 5 dB más débil. Por eso `finish` ahora iguala **sonoridad**.
+3. **Más bajo que la v1.** Medido con la misma vara (`speaker_loudness`) sobre los ficheros de las dos versiones:
+
+   | Sonido | v1 | v2 | Diferencia |
+   |--------|---:|---:|-----------:|
+   | tecla | −34,8 | −35,8 | −1,0 dB (el único que ya estaba bien) |
+   | átomo, línea del arranque | −25,4 / −25,5 | −36,0 | −10,5 dB |
+   | barrido de carga | −17,6 | −33,0 | −15,4 dB |
+   | entrada «42» | −13,7 | −29,0 | −15,3 dB |
+   | rechazo | −22,8 | −29,1 | −6,3 dB |
+   | molécula lista | −14,1 | −29,0 | −14,9 dB |
+   | captura | −24,9 | −29,0 | −4,1 dB |
+   | arranque (máquina y órgano) | −25,6 | −27,0 | −1,3 dB |
+   | campana del «DONE» | −13,2 | −27,0 | −13,8 dB |
+
+   La v1 tenía una diferencia de **21 dB** entre su sonido más suave y el más fuerte (la tecla y la entrada), sin ningún criterio: era un efecto de igualar picos. La v2 tiene **9 dB**, y por niveles.
 
 ---
 
-## 2. Teoría: el sonido digital en cinco ideas
+## 2. Teoría: el sonido digital en siete ideas
 
 **1. Muestreo.** Un sonido es una presión del aire que cambia con el tiempo. En digital se guarda como una lista de números (**muestras**), tomados a intervalos fijos. Usamos **44 100 muestras por segundo** (la frecuencia del CD). Un segundo de sonido = 44 100 números entre −1 y 1.
 
-**2. Nyquist.** Con *N* muestras por segundo solo se pueden representar frecuencias hasta **N/2**: 22 050 Hz, por encima del oído humano (≈ 20 kHz). Una onda cuadrada «perfecta» tiene armónicos infinitos: los que pasan de 22 050 Hz se **pliegan** a frecuencias falsas (*aliasing*, un silbido metálico). Por eso nuestras ondas ricas en armónicos se **redondean** o se **filtran** (sección 3).
+**2. Nyquist.** Con *N* muestras por segundo solo se pueden representar frecuencias hasta **N/2**: 22 050 Hz, por encima del oído humano (≈ 20 kHz). Una onda cuadrada o de sierra «perfecta» tiene armónicos infinitos: los que pasan de 22 050 Hz se **pliegan** a frecuencias falsas (*aliasing*, un silbido metálico). Por eso nuestras ondas ricas en armónicos se **filtran** (sección 3).
 
 **3. Cuantización y dBFS.** El fichero guarda cada muestra como un entero de **16 bits** (−32 768 … 32 767). El máximo representable es **0 dBFS** (*decibelios relativos a la escala completa*). Los decibelios son logarítmicos: −6 dB ≈ la mitad de amplitud, −20 dB = una décima.
 
-> Ejemplo: `finish(x, -14)` deja el pico de la tecla en 10^(−14/20) = **0,20** de la escala completa. El gruñido del arranque (`-4`) llega a 10^(−4/20) = **0,63**: el sonido más «grande» es el más fuerte, el de cada pulsación el más bajo.
+> Ejemplo: el pico de `snd_key` está en −24 dBFS = 10^(−24/20) = **0,063** de la escala completa. Con 16 bits eso aún deja unos 2000 valores distintos por encima y por debajo de cero: de sobra para un golpe de 60 ms.
 
 **4. Clics.** Un salto brusco de la señal (empezar en 0,5 o cortar mientras aún suena) **contiene todas las frecuencias** a la vez: se oye un clic. Por eso cada sonido empieza y acaba en cero con un **fundido** de unos milisegundos. En el espectrograma un clic se ve como una **raya vertical** de arriba abajo.
 
-**5. Espectrograma.** La forma de onda (amplitud frente a tiempo) dice poco del timbre. El **espectrograma** corta la señal en trocitos (512 muestras ≈ 11,6 ms), calcula en cada uno qué frecuencias hay (transformada de Fourier) y pinta: tiempo en horizontal, frecuencia en vertical, intensidad en color. Ahí se **ven** un barrido, un armónico o un clic.
+**5. Espectrograma.** La forma de onda (amplitud frente a tiempo) dice poco del timbre. El **espectrograma** corta la señal en trocitos (1024 muestras ≈ 23 ms), calcula en cada uno qué frecuencias hay (transformada de Fourier) y pinta: tiempo en horizontal, frecuencia en vertical, intensidad en color. Ahí se **ven** un barrido, un armónico o un clic.
+
+**6. El altavoz del móvil no tiene graves.** Un altavoz de unos milímetros no mueve el aire necesario para frecuencias bajas: por debajo de **~300 Hz** casi no suena (la cifra exacta depende del modelo; la del A33, **sin medir**). Un sonido «grave y oscuro» hecho de 50–150 Hz suena estupendo en auriculares y es un **susurro** en el altavoz. Dos salidas:
+   - Poner la oscuridad en el **timbre**, no en el grave: fundamentales de 150–450 Hz y **sin agudos** (filtro paso bajo hacia 1,5–3 kHz). «Sordo» = falta de agudos; «oscuro» = intervalos menores, metal, reverberación.
+   - La **fundamental ausente** (*missing fundamental*): si suenan 220, 330, 440 Hz (armónicos 2, 3, 4 de 110 Hz), el oído **reconstruye** el 110 Hz aunque no esté. Por eso saturamos los tonos graves (§3.7): la saturación fabrica esos armónicos, que el altavoz sí reproduce.
+
+**7. Pico frente a sonoridad.** El **pico** es la muestra más alta; la **sonoridad** es cuánta energía hay durante un rato (lo que el oído percibe como «fuerte»). Un golpe corto y un zumbido largo con el **mismo pico** suenan con fuerzas muy distintas: el zumbido, mucho más fuerte. Igualar picos da sonoridades desiguales (§1.1 cuenta cómo nos pasó).
 
 ---
 
@@ -56,12 +92,13 @@ Todo está en `tools/sound/make_sounds.py`. Cada pieza es una función de pocas 
 
 | Pieza | Fórmula | Timbre | Para qué |
 |-------|---------|--------|----------|
-| `sine(f)` | sen(fase) | Puro, sin armónicos | Pings, barridos, el «sonar» |
-| `square(f, softness=6)` | tanh(6·sen(fase)) / tanh(6) | Zumbido hueco (solo armónicos impares), con los bordes **redondeados** | Los pitidos binarios del «101010», la tecla del arranque |
-| `saw(f)` | 2·(p − ⌊p + ½⌋), p = fase/2π | Brillante y áspero (todos los armónicos) | Motores, zumbidos, el «no» |
-| `noise(n)` | uniforme en [−1, 1] | Todas las frecuencias | Chasquidos, el «thunk», el siseo del servo |
+| `sine(f)` | sen(fase) | Puro, sin armónicos | El sonar del auspex, el *ping*; la materia de los modos (§3.4) y del órgano (§3.6) |
+| `saw(f)` | 2·(p − ⌊p + ½⌋), p = fase/2π | Brillante y áspero (todos los armónicos) | La máquina que arranca, el clacson, el servo, la «voz» del coro (§3.5) |
+| `noise(n)` | uniforme en [−1, 1] | Todas las frecuencias | El golpe del martillo en los modos, la cola de la reverberación, la molienda del servo |
 
-**La fase acumulada** (`phase_of`) es el detalle que hace posibles los **glissandos** (frecuencia que cambia). La tentación es escribir `sin(2π·f(t)·t)`, pero eso es incorrecto cuando *f* varía: la frecuencia que se oye es la **derivada** de la fase, y la derivada de f(t)·t no es f(t). Lo correcto es **sumar** la frecuencia muestra a muestra:
+(La v1 usaba además una cuadrada redondeada, `tanh(6·sen)`, para los pitidos. En la v2 no hay pitidos.)
+
+**La fase acumulada** (`phase_of`) es el detalle que hace posibles los **glissandos** (frecuencia que cambia: la máquina que arranca, el servo que frena). La tentación es escribir `sin(2π·f(t)·t)`, pero eso es incorrecto cuando *f* varía: la frecuencia que se oye es la **derivada** de la fase, y la derivada de f(t)·t no es f(t). Lo correcto es **sumar** la frecuencia muestra a muestra:
 
 ```
 fase[n] = 2π · (f[0] + f[1] + … + f[n]) / 44 100
@@ -69,135 +106,190 @@ fase[n] = 2π · (f[0] + f[1] + … + f[n]) / 44 100
 
 > Simulación con números redondos: un tono de 1000 Hz avanza 2π·1000/44 100 = **0,1425 rad** por muestra. Si a mitad la frecuencia pasa a 2000 Hz, con la suma la fase sigue desde donde iba y avanza 0,285 rad por muestra: la onda se **comprime sin saltar**. Con `sin(2π·f·t)`, en ese instante el argumento salta de golpe de 2π·1000·t a 2π·2000·t: un **clic**.
 
-**La cuadrada redondeada.** `tanh(k·sen)`: con *k* pequeño es casi un seno; con *k* grande, casi una cuadrada. Con *k* = 6 los bordes duran unas décimas de milisegundo: conserva el carácter de «pitido de máquina» sin el borde infinito que produciría *aliasing* y un sonido de juguete de 8 bits.
-
 **El ruido con semilla.** `np.random.default_rng(42)`: el generador pseudoaleatorio con una semilla fija da **siempre la misma secuencia**. Por eso el ruido es «aleatorio» al oído pero idéntico en cada ejecución (y la semilla es 42, claro).
 
 ### 3.2 Filtros: esculpir el timbre
 
-Filtros de **Butterworth** de orden 4 (`scipy.signal.butter` + `lfilter`): respuesta plana en la banda que pasa y caída de 24 dB por octava fuera.
+Filtros de **Butterworth** (`scipy.signal.butter` + `lfilter`): respuesta plana en la banda que pasa y caída fuera de ella (24 dB por octava con orden 4; 12 dB con orden 2).
 
 | Filtro | Deja pasar | Uso |
 |--------|-----------|-----|
-| `lowpass(x, fc)` | Por debajo de *fc* | Domar la sierra (motor, zumbido); el «thunk» grave (180 Hz) |
-| `highpass(x, fc)` | Por encima de *fc* | El chasquido seco de un contacto (ruido > 3 kHz) |
-| `bandpass(x, lo, hi)` | Entre *lo* y *hi* | La tecla del teletipo (2–6 kHz), el siseo del servo (300–1200 Hz) |
+| `lowpass(x, fc)` | Por debajo de *fc* | **El filtro de la oscuridad:** casi todo pasa por uno entre 1,1 y 3 kHz. Doma la sierra; oscurece la cola de la reverberación |
+| `highpass(x, fc)` | Por encima de *fc* | El **suelo** de 140 Hz de cada sonido (§3.9); la medida de sonoridad «del altavoz» (300 Hz) |
+| `bandpass(x, lo, hi)` | Entre *lo* y *hi* | Las **formantes** de la voz (§3.5), la molienda del servo (180–1100 Hz) |
 
-La frecuencia de corte se da a scipy **normalizada** a Nyquist: `fc / (SR/2)`. Ejemplo: 900 Hz → 900 / 22 050 = **0,0408**.
+La frecuencia de corte se da a scipy **normalizada** a Nyquist: `fc / (SR/2)`. Ejemplo: 1200 Hz → 1200 / 22 050 = **0,0544**.
 
 ### 3.3 Envolventes: cómo nace y muere el sonido
 
 - **ADSR** (`adsr(n, a, d, s, r)`): **A**taque (de 0 a 1), **D**ecaimiento (de 1 al nivel S), **S**ostenimiento (nivel constante), **R**elajación (a 0). Tramos lineales. Es la envolvente clásica de los sintetizadores.
 - **Caída exponencial** (`exp_decay(n, τ)` = e^(−t/τ)): cómo muere algo **golpeado** (una campana, un contacto). Con τ = 0,12 s, a los 0,12 s queda el 37 %, a 0,36 s el 5 %.
-- **`fade_out`**: los últimos 12 ms van linealmente a cero. Una parte que se corta mientras suena (una campana a la que se le acaba el tiempo) daría un clic (§2, idea 4). Se descubrió así: el espectrograma de `snd_boot_done` mostraba una raya vertical al final de la primera campana.
+- **`fade_out`**: los últimos 12 ms van linealmente a cero. Una parte que se corta mientras suena daría un clic (§2, idea 4). Se descubrió en la v1: el espectrograma de la primera campana mostraba una raya vertical al final.
 
-### 3.4 Modulación de frecuencia (FM): las campanas
+### 3.4 Síntesis modal: el metal golpeado
 
-`fm_bell(f, s, ratio=1.41, index=3)`: una **portadora** (el tono que se oye) cuya fase empuja adelante y atrás una **moduladora**:
+Un objeto golpeado (una barra, una campana, la carcasa de una tecla) vibra a la vez en varios **modos**, cada uno con su frecuencia y su ritmo de apagarse. Su sonido es **la suma de senos amortiguados**:
 
 ```
-salida = sen(2π·f·t + I(t)·sen(2π·1,41·f·t))
+sonido(t) = Σ  aᵢ · sen(2π·fᵢ·t) · e^(−t/τᵢ)     + unos ms de ruido filtrado (el martillo)
 ```
 
-- **Razón no entera (1,41 ≈ √2):** aparecen parciales en f ± k·1,41·f, que **no** son múltiplos de f. Eso es exactamente lo que distingue una campana (parciales inarmónicos) de una cuerda (armónicos).
-- **Índice que decae** (de 3 hacia 0 con τ = s/3): el golpe es brillante y metálico; la cola, casi un seno puro. Así suena una campana real.
-- Es la técnica del Yamaha DX7 (1983): mucho timbre con dos senos.
+`modal(segundos, [(f, a, τ), …])`. Lo que hace que un golpe suene a **hierro** y no a madera o a cuerda es la **proporción** entre las frecuencias:
 
-### 3.5 Mezcla y acabado
+| Objeto | Modos (× el primero) | De dónde sale |
+|--------|----------------------|---------------|
+| **Barra de metal libre** (`BAR`) | 1 · 2,756 · 5,404 · 8,933 | La teoría de la viga de Euler-Bernoulli: no son múltiplos enteros, por eso **no** suena a nota musical sino a «clang» |
+| **Campana de iglesia** (`BELL`) | 0,5 (*hum*) · 1 (*prime*) · **1,2** (*tierce*) · 1,5 · 2 · 2,5 · 3 | Los campaneros los afinan así; el **1,2 es una tercera menor**: por eso las campanas suenan **solemnes, tristes** |
+| **Tecla, tipo, obturador** | dos o tres modos elegidos a oído (p. ej. 420, 1130, 2600 Hz) | Un cuerpo pequeño y amortiguado: τ de milisegundos = «thock» sordo, no «clic» |
 
-- **`place(total, (t0, x), (t1, y), …)`**: coloca cada parte en su instante y las **suma** en un búfer de la duración total.
-- **`finish(x, pico_dB)`**: (1) resta la media (**componente continua**: una señal desplazada del cero desperdicia rango y da un golpe al empezar); (2) fundido de entrada y salida de 4 ms; (3) **normaliza el pico** a `pico_dB` dBFS. Normalizar el pico (no el volumen medio) garantiza que nada **satura**: ninguna muestra pasa de 1.
+Los modos altos mueren **antes** (τ más corto): el golpe empieza brillante y acaba oscuro, como en la realidad. Es lo mismo que hacía la FM de la v1 (un índice que decae), pero con el control directo de cada parcial.
+
+### 3.5 Formantes: el coro de la máquina
+
+Una vocal es un **filtro**: la boca y la garganta refuerzan ciertas bandas (las **formantes** F1, F2, F3) del zumbido de las cuerdas vocales. Cambiar la vocal es cambiar las formantes, no la nota.
+
+```python
+VOWELS = {'o': (400, 750, 2400), 'u': (330, 650, 2300), 'a': (650, 1080, 2450)}   # voz grave masculina, Hz
+src  = Σ saw(f0 · desafinación · vibrato)          # 3 «voces» desafinadas ±0,6 %, vibrato de ~5 Hz
+voz  = bandpass(src, F1) + 0,6·bandpass(src, F2) + 0,15·bandpass(src, F3)
+```
+
+`chant(f0, segundos, vocal)`. Tres voces ligeramente desafinadas (±0,6 %) con vibratos distintos = un **coro**, no un hombre: los batidos entre ellas dan el «ancho» de un canto gregoriano. En el universo de la estética, el Culto de la Máquina **canta** en binario: el «101010» de la entrada (§4.5) se canta con esto.
+
+### 3.6 Órgano aditivo
+
+`organ(notas, segundos)`: cada nota es la suma de los armónicos 1, 2, 3, 4, 6 y 8 con amplitudes decrecientes (1; 0,55; 0,3; 0,25; 0,12; 0,08). Es lo que hacen los **registros** de un órgano de tubos (8′, 4′, 2⅔′, 2′, 1⅓′, 1′): cada registro es una fila de tubos que suena un armónico de la tecla. Las notas se desafinan un 0,08 % entre sí para que el acorde «respire».
+
+### 3.7 Saturación
+
+`drive(x, k) = tanh(k·x) / tanh(k)`: aplasta los picos con suavidad, como un amplificador de válvulas al límite. Dos efectos:
+
+1. **Añade armónicos** a un tono grave: de un 110 Hz salen 330, 550 Hz… que el altavoz sí reproduce (§2, idea 6). Es la herramienta principal para que lo grave **se oiga** en el móvil.
+2. Da **densidad** («jugoso», «gordo»): la diferencia entre un tono limpio de laboratorio y un clacson viejo.
+
+### 3.8 Reverberación por convolución: la sala de piedra
+
+Una sala se describe con su **respuesta al impulso** (IR): lo que se graba si en ella suena un chasquido instantáneo. Cualquier sonido en esa sala = **convolución** del sonido con la IR (cada muestra deja detrás el eco de la sala). `hall_ir` la fabrica sin grabar nada:
+
+- **Reflexiones tempranas:** cuatro impulsos a 11, 23, 37 y 51 ms (las paredes cercanas).
+- **Cola:** ruido que se apaga exponencialmente (τ de 0,1 a 0,35 s) y **filtrado paso bajo** (1,5–2,2 kHz): en una sala real los agudos se absorben antes, así que la cola es **oscura**.
+- **Final en cero:** el último 25 % de la IR se funde a cero. Sin eso, la cola se cortaba de golpe al acabar la IR, y se veía (y oía) como un final brusco en el espectrograma de la campana.
+
+`reverb(x, wet)` mezcla seco y mojado (`wet` de 0,2 a 0,4) con `scipy.signal.fftconvolve` (la convolución por FFT: miles de veces más rápida que la directa con IR de 44 000 muestras).
+
+### 3.9 Mezcla y acabado: nivel por sonoridad
+
+- **`place(total, (t0, x), (t1, y), …)`**: coloca cada parte en su instante y las **suma**.
+- **`finish(x, sonoridad)`**, en este orden:
+  1. **Paso alto a 140 Hz.** Lo que hay por debajo no lo reproduce el altavoz, pero **ocupa** amplitud: sin quitarlo, el pico lo marcaría un retumbar inaudible y todo lo audible quedaría más bajo.
+  2. Resta la media (**componente continua**) y fundidos de 4 ms.
+  3. **Ganancia para llegar a la sonoridad pedida**, medida con `speaker_loudness`: paso alto a 300 Hz (lo que suena por el altavoz) y el **RMS máximo en 100 ms**, en dBFS. No es un estándar (LUFS añadiría una curva de audición y umbrales), pero sirve para comparar nuestros sonidos entre sí.
+  4. **Techo de pico** a −3 dBFS: si para llegar a la sonoridad el pico pasara de ahí, manda el pico (nunca satura). Con los niveles actuales ningún sonido llega (el pico más alto, −12 dBFS).
+
+Cuatro **niveles**, porque lo que suena a menudo debe ser lo más bajo:
+
+| Nivel | Sonoridad | Sonidos |
+|-------|----------:|---------|
+| `QUIET` | −36 dB | tecla, átomo, línea del arranque |
+| `BACKGROUND` | −33 dB | barrido de carga (suena mientras se espera) |
+| `EVENT` | −29 dB | entrada, rechazo, molécula lista, captura |
+| `CEREMONY` | −27 dB | arranque (una vez por inicio) |
+
+Cada nivel está **3–4 dB** por encima del anterior: una diferencia que se nota sin que nada «salte». Y encima de los ficheros queda un mando en el código, `MASTER_VOLUME` (§7.2), para bajarlos todos a la vez.
 
 ---
 
 ## 4. Las diez recetas
 
-| Fichero | Momento | Duración | Pico | Receta en una línea |
-|---------|---------|---------:|-----:|---------------------|
-| `snd_boot_hum` | Aparece la pantalla de arranque | 1,60 s | −4 dBFS | Zumbido de red de 50 Hz + 3 armónicos que crece, sierra que «arranca» de 55 a 110 Hz, y el «thunk» de la bobina desmagnetizadora |
-| `snd_boot_line` | Cada línea del arranque | 0,07 s | −10 | Ruido 2–6 kHz que muere en 8 ms + pitido cuadrado de 1,2 kHz |
-| `snd_boot_done` | Aparece «> DONE» | 0,75 s | −6 | Dos campanas FM: Mi5 (659 Hz) y, 160 ms después, Si5 (988 Hz) |
-| `snd_key` | Cualquier tecla o botón | 0,045 s | −14 | Relé: dos chasquidos separados 7 ms (rebote del contacto) sobre un golpe de 120 Hz |
-| `snd_signed_in` | Sesión abierta | 0,60 s | −8 | **101010** (42 en binario) con seis pitidos y un glissando hacia arriba |
-| `snd_denied` | Contraseña mala, bloqueo, carga fallida | 0,50 s | −8 | Dos zumbidos graves con trémolo de 30 Hz, el segundo más bajo |
-| `snd_scan` | Cargando un ligando | 1,00 s | −12 | Seno que barre 500 → 1500 → 500 Hz con aleteo de 14 Hz + siseo de servo |
-| `snd_loaded` | La molécula está lista | 0,70 s | −8 | *Ping* de sonar a 1760 Hz con cola larga y eco a 120 ms |
-| `snd_select` | Se toca un átomo | 0,09 s | −14 | Seno que sube una tercera mayor (Do7 → Mi7) |
-| `snd_shutter` | Compartir (captura) | 0,32 s | −9 | Chasquido, motor que se para (sierra 220 → 90 Hz), chasquido |
+| Fichero | Momento | Duración | Nivel | Receta en una línea |
+|---------|---------|---------:|-------|---------------------|
+| `snd_boot_hum` | Aparece la pantalla de arranque | 2,4 s | CEREMONY | Golpe de relé (barra de hierro), máquina que arranca (sierra saturada 55 → 110 Hz) y **acorde de órgano en re menor** que crece en la sala |
+| `snd_boot_line` | Cada línea del arranque | 0,11 s | QUIET | Tipo de máquina de escribir pesada: «thock» modal 340/910/2100 Hz, saturado |
+| `snd_boot_done` | Aparece «> DONE» | 2,0 s | CEREMONY | **Campana de catedral** (*prime* re4, 293,7 Hz; *hum* una octava abajo), un golpe, en la sala |
+| `snd_key` | Cualquier tecla o botón | 0,06 s | QUIET | Tecla mecánica pesada: «thock» modal 420/1130/2600 Hz, saturado |
+| `snd_signed_in` | Sesión abierta | 1,6 s | EVENT | **101010 cantado** por un coro de máquina (1 = la2 «o», 0 = mi2 «u») y una quinta de órgano |
+| `snd_denied` | Contraseña mala, bloqueo, carga fallida | 0,7 s | EVENT | Clacson en **tritono** (re3 + sol♯3), saturado y sordo, que baja un poco y late a 9 Hz |
+| `snd_scan` | Cargando un ligando | 1,2 s | BACKGROUND | Sonar que late a 4 Hz (seno saturado 330 → 470 → 330 Hz) sobre la molienda de un servo |
+| `snd_loaded` | La molécula está lista | 1,2 s | EVENT | Un mecanismo que **encaja** (dos golpes de barra de 260 Hz) y un *ping* grave (la4) en la sala |
+| `snd_select` | Se toca un átomo | 0,15 s | QUIET | «Toc» de una barrita de metal de 330 Hz, sordo |
+| `snd_shutter` | Compartir (captura) | 0,5 s | EVENT | Golpe de obturador, servo que frena (sierra 240 → 90 Hz), segundo golpe |
 
-Los picos están **escalonados por importancia**: lo que se oye a cada momento (tecla, átomo) es lo más bajo; lo que ocurre una vez (arranque) lo más alto.
-
-### 4.1 `snd_boot_hum`: el monitor de tubo que se enciende
+### 4.1 `snd_boot_hum`: el cogitador despierta
 
 ```python
-mains = sum(sine(np.full(n, 50.0 * k)) / k for k in (1, 2, 3, 4))      # 50, 100, 150, 200 Hz con amplitud 1, ½, ⅓, ¼
-spin  = lowpass(saw(np.linspace(55, 110, n)), 900) * 0.6                # sierra que sube una octava, sin agudos
-body  = (mains * 0.7 + spin) * adsr(n, 0.35, 0.3, 0.7, 0.6)             # crece 0,35 s, baja a 0,7, se apaga 0,6 s
-thunk = lowpass(noise(0.25 s), 180) * exp_decay(…, 0.06) * 3            # golpe grave al principio
+spin  = drive(lowpass(saw(np.linspace(55, 110, n)), 1200) * 1.6, 3.0) * adsr(n, 0.25, 0.4, 0.5, 0.8) * 0.45
+chord = organ((146.8, 220.0, 293.7, 349.2), d) / 4      # re3 la3 re4 fa4: re menor
+chord = lowpass(chord, 1800) * adsr(n, 0.6, 0.2, 0.85, 0.9) * 0.8
+clank = bar(185, 0.6, …) * 0.9                            # barra de hierro: 185, 510, 1000, 1653 Hz
+dry   = place(1.9, (0, drive(clank, 1.5)), (0.05, spin), (0.15, chord))
+reverb(dry, 0.35, …)
 ```
 
-- **50 Hz** es la frecuencia de la red eléctrica en Europa: el zumbido de un transformador. Las amplitudes 1/k imitan el espectro de una onda de red algo distorsionada.
-- **La sierra que sube de 55 a 110 Hz** es el «arranque» de algo que gira (el *flyback* de un CRT no gira, pero el oído lo lee como «la máquina cobra vida»).
-- **El «thunk»**: los monitores de tubo tenían una **bobina desmagnetizadora** que al encender daba un golpe sordo. Ruido filtrado a 180 Hz que muere en ~0,15 s.
+- **El golpe:** un relé enorme que cierra. Barra de 185 Hz con sus modos de Euler-Bernoulli.
+- **La máquina:** una sierra que sube una octava (55 → 110 Hz), saturada fuerte: el altavoz no reproduce los 55 Hz, pero sí sus armónicos, y el oído oye «algo grande girando» (§2, idea 6).
+- **El acorde:** re menor (re–la–re–fa) en **posición abierta**: la quinta abajo (re–la) da peso, la tercera menor arriba (re–fa) da la tristeza. Entra a los 0,15 s y crece durante 0,6 s.
+- En la v1 era un CRT que se enciende (50 Hz de red); la v2 es una **catedral-máquina**.
 
-### 4.2 `snd_boot_line`: el teletipo
+### 4.2 `snd_boot_line`: el tipo que golpea
 
-Ruido en la banda 2–6 kHz (el «tic» de una tecla mecánica está ahí) con τ = 8 ms, más un pitido cuadrado de 1,2 kHz de 20 ms a un 35 %. Suena con cada línea del arranque, cada **546 ms** (documento 08d): 70 ms de sonido y casi medio segundo de silencio, nunca se solapan.
+Tres modos (340, 910, 2100 Hz) con τ de 18, 10 y 5 ms y un martillo de 3 ms de ruido por debajo de 2,5 kHz, saturado. Suena con cada línea del arranque, cada **546 ms** (documento 08d): 110 ms de sonido y casi medio segundo de silencio, nunca se solapan.
 
-### 4.3 `snd_boot_done`: dos campanas, una quinta
+### 4.3 `snd_boot_done`: la campana
 
-Mi5 (659,3 Hz) y Si5 (987,8 Hz): una **quinta justa ascendente** (razón 3:2). Es el intervalo de «resolución»: el oído lo entiende como «terminado, listo». Dos campanas FM (§3.4) separadas 160 ms; la segunda dura más.
+`bell(293.7, 1.6, length=1.2)`: los siete parciales de `BELL` sobre re4. El *hum* (146,8 Hz) suena más tiempo que nadie (τ = 1,2 s); el *tierce* (352 Hz, la tercera menor) es lo que hace que sea **campana de catedral** y no campanilla. Paso bajo a 3 kHz y sala con `wet` 0,4. Un solo golpe: «hecho», con solemnidad.
 
-### 4.4 `snd_key`: un relé
+### 4.4 `snd_key`: la tecla pesada
 
-Un relé (o una tecla mecánica) no hace «clic» una vez: el contacto **rebota** y cierra dos o tres veces en pocos milisegundos. Dos ráfagas de 3 ms de ruido por encima de 3 kHz, la segunda al 60 % y 7 ms después, sobre un golpe de 120 Hz que muere en 12 ms (el cuerpo de la caja). Es el sonido que más se repite: el más corto (45 ms) y el más bajo (−14 dBFS).
+Modos 420 / 1130 / 2600 Hz con τ de 11, 7 y 3 ms: muere en ~40 ms. La v1 era un relé con dos chasquidos agudos (> 3 kHz): «clic». Ahora no hay nada por encima de ~3 kHz: **«thock»**, el sonido sordo de una tecla mecánica grande. Es el que más se repite: nivel QUIET.
 
-### 4.5 `snd_signed_in`: la máquina dice «42»
+### 4.5 `snd_signed_in`: la máquina canta «42»
 
 ```python
-for i, bit in enumerate("101010"):              # 42 = 32 + 8 + 2 = 0b101010
-    f = 1320.0 if bit == "1" else 880.0          # 1 agudo (Mi6), 0 grave (La5)
-    parts.append((i * 0.065, lowpass(square(f), 4000) * adsr(n, 0.003, 0.01, 0.7, 0.012)))
-glide = sine(np.linspace(1320, 2640, n)) …       # y una octava hacia arriba
+for i, bit in enumerate("101010"):                  # 42 = 32 + 8 + 2 = 0b101010
+    f0, vowel = (110.0, 'o') if bit == "1" else (82.4, 'u')
+    parts.append((i * 0.12, drive(chant(f0, 0.11, vowel) * 2.0, 1.5) * adsr(n, 0.015, 0.02, 0.8, 0.03)))
+fifth = organ((110.0, 164.8, 220.0), 0.75) …          # la2 mi3 la3: quinta vacía
 ```
 
-Seis pitidos de 55 ms cada 65 ms: **agudo-grave-agudo-grave-agudo-grave**. Es el mismo «101010» del icono (documento 08d). El «binárico» del Culto de la Máquina es justo eso: la máquina habla en bits. Lo dice cada vez que alguien entra.
+Seis sílabas de 110 ms cada 120 ms: **«o»-«u»-«o»-«u»-«o»-«u»**, la2 y mi2 (una cuarta). La fundamental (82–110 Hz) no sale por el altavoz, pero las **formantes** (330–750 Hz) sí: se oye la vocal y se adivina la nota. Después, una **quinta vacía** (sin tercera: ni mayor ni menor, arcaica, medieval) en el órgano. Es el mismo «101010» del icono (documento 08d).
 
-### 4.6 `snd_denied`: el espíritu de la máquina no está contento
+### 4.6 `snd_denied`: el espíritu de la máquina se niega
 
-Dos zumbidos de sierra filtrada a 1,4 kHz (150 Hz y después 112 Hz: **baja**, como un «no-o») con un **trémolo** de 30 Hz (el volumen oscila 0,5–1,0 treinta veces por segundo: suena **áspero**, como una bocina vieja). Grave a propósito: los «error» agudos son estridentes y cansan; este dice «no» sin chillar.
+Dos sierras a re3 (146,8 Hz) y sol♯3 (207,7 Hz): un **tritono**, el intervalo que la teoría medieval llamaba *diabolus in musica* por lo inestable. Paso bajo a 1,6 kHz, **saturación fuerte** (k = 3) y un latido de 9 Hz (el volumen oscila entre 0,4 y 1,0). La frecuencia baja un 8 % en 0,55 s: un «no» que se hunde. Sala corta.
 
-### 4.7 `snd_scan`: el auspex del cráneo servidor
+### 4.7 `snd_scan`: el auspex busca
 
-La frecuencia sigue f(t) = 1000 + 500·sen(2π·t − π/2): empieza en 500 Hz, sube a 1500 a los 0,5 s y vuelve. Gracias a la fase acumulada (§3.1) el barrido es continuo. El volumen aletea a 14 Hz (±20 %), y debajo hay ruido de 300–1200 Hz al 35 %: el **servo** que mueve el sensor. Se corta en cuanto la carga termina (§7.3).
+f(t) = 400 + 70·sen(2π·t/1,2 − π/2): de 330 Hz sube a 470 y vuelve en 1,2 s, saturado (k = 2). El volumen **late a 4 Hz** (de 0,55 a 1), como un radar que barre. Debajo, ruido de 350–1100 Hz que tiembla a 23 Hz: la **molienda** de un servo viejo. Todo bajo 1,6 kHz. Nivel BACKGROUND: acompaña la espera sin cansar. Se corta en cuanto la carga termina (§7.3).
 
-### 4.8 `snd_loaded`: el *ping*
+### 4.8 `snd_loaded`: encajado y contacto
 
-Seno puro de 1760 Hz (La6) con ataque de 2 ms y cola exponencial τ = 120 ms, más un **eco** al 35 % 120 ms después. Es el lenguaje del sonar: «contacto». Después del barrido del 4.7, cierra la frase: buscar → encontrar.
+Dos golpes de barra de 260 Hz con 60 ms de separación (un cerrojo que **encaja**: «cla-clac»), y a los 120 ms un *ping* de 440 Hz con su octava al 20 %, τ = 0,22 s, en la sala. Cierra la frase del barrido: buscar → **fijar** → confirmar.
 
 ### 4.9 `snd_select`: tocar un átomo
 
-90 ms de seno que sube de Do7 (2093 Hz) a Mi7 (2637 Hz), una **tercera mayor** (razón 5:4). Agudo, suave y corto: se repite mucho y no puede molestar.
+`bar(330, 0.15, …)`: la misma barra que el arranque pero pequeña (330, 909, 1783, 2948 Hz) y muy amortiguada (τ de 50 a 6 ms), con paso bajo a 2,5 kHz. Un «toc» metálico, sordo y corto. Nivel QUIET.
 
 ### 4.10 `snd_shutter`: la pict-captura
 
-Chasquido de 6 ms (ruido por encima de 2,5 kHz), un motor que **frena** (sierra de 220 a 90 Hz filtrada a 1,5 kHz durante 180 ms) y otro chasquido a los 250 ms: el ciclo de una cámara mecánica. Suena al empezar a compartir, mientras se captura la imagen.
+Golpe modal (360 / 940 / 2300 Hz) del obturador, servo que **frena** (sierra 240 → 90 Hz filtrada a 1,4 kHz y saturada, 220 ms) y otro golpe a los 0,3 s, con una sala muy corta. El ciclo de una cámara mecánica pesada.
 
 ---
 
 ## 5. Verlos: forma de onda y espectrograma
 
-`python3 tools/sound/make_sounds.py --plots hoja.png` dibuja los diez: forma de onda a la izquierda, espectrograma (0–8 kHz) a la derecha.
+`python3 tools/sound/make_sounds.py --plots hoja.png` dibuja los diez: forma de onda a la izquierda, espectrograma (**0–3 kHz**: ya no hay nada interesante por encima) a la derecha.
 
 ![Forma de onda y espectrograma de los diez sonidos](img_14_sonidos.webp)
 
 Qué buscar en la imagen:
 
-- **`snd_boot_hum`:** rayas horizontales abajo (50, 100, 150, 200 Hz) y una mancha grave al principio (el «thunk»).
-- **`snd_signed_in`:** **seis escalones** alternos arriba-abajo (1-0-1-0-1-0) y una línea que sube en diagonal: el «42» se **lee** en el espectrograma.
-- **`snd_scan`:** un arco (sube y baja) sobre una banda difusa (el servo).
-- **`snd_boot_done`:** dos «peines» de parciales que nacen anchos (índice FM alto) y se adelgazan hasta un solo tono.
-- **Ninguna raya vertical** de arriba abajo al final de los sonidos: no hay clics.
+- **Casi nada por encima de 2–3 kHz:** así se **ve** «sordo».
+- **`snd_boot_hum`:** rayas horizontales (los armónicos del órgano) que aparecen a los 0,15 s y duran; el golpe del principio.
+- **`snd_boot_done`:** líneas horizontales (los parciales de la campana); las altas se apagan antes, el *hum* sigue hasta el final.
+- **`snd_signed_in`:** **seis bloques** alternos (las formantes de «o» y «u» están a alturas distintas) y después las rayas del órgano.
+- **`snd_scan`:** un **arco** (sube y baja) con sus armónicos encima (la saturación), troceado por el latido.
+- **`snd_shutter`:** dos golpes verticales cortos y, entre ellos, armónicos que **bajan** (el servo frenando).
+- **Ninguna raya vertical** al final de los sonidos: no hay clics.
 
 ---
 
@@ -209,7 +301,7 @@ Qué buscar en la imagen:
 
 **¿Por qué Ogg Vorbis?** Android lo decodifica en **todas** las versiones (desde la 1), sin patentes, y `SoundPool` lo acepta. MP3 tiene un **retardo** al principio (el *encoder delay*, ~25 ms de silencio) que en un clic de tecla se nota. WAV sin comprimir pesaría ~1 MB en total. Opus sería más eficiente, pero su soporte en Android depende de la versión y del contenedor (Opus dentro de Ogg, solo en versiones recientes; **sin comprobar** el detalle), y el ahorro aquí es despreciable.
 
-**El peso real.** Los diez ficheros: **69 KiB**. Curiosidad: `snd_key` dura 45 ms y pesa 4,5 KiB, casi como uno de 0,3 s. Un Vorbis lleva en su cabecera los **libros de códigos** del codificador (≈ 3,5–4 KiB) en **cada** fichero: en sonidos tan cortos la cabecera pesa más que el sonido. Por eso la «tasa de bits» que da `ffprobe` para los cortos (800 kbit/s en `snd_key`) no significa nada.
+**El peso real.** Los diez ficheros: **124 KiB** (la v1, con sonidos más cortos, 69 KiB). Curiosidad: `snd_key` dura 60 ms y pesa 4,5 KiB, casi como uno de 0,3 s. Un Vorbis lleva en su cabecera los **libros de códigos** del codificador (≈ 3,5–4 KiB) en **cada** fichero: en sonidos tan cortos la cabecera pesa más que el sonido. Por eso la «tasa de bits» que da `ffprobe` para los cortos (600 kbit/s en `snd_key`) no significa nada.
 
 **Reproducibilidad, comprobada.** Dos ejecuciones dan:
 
@@ -247,7 +339,8 @@ Android tiene varios reproductores; para efectos de interfaz el correcto es **`S
 - **Decodifica una vez** cada fichero a PCM en memoria (`load`), y `play` arranca en pocos milisegundos. `MediaPlayer` decodifica **cada vez**: decenas de milisegundos de retraso, inaceptable para un clic que tiene que coincidir con el dedo.
 - **Varios a la vez** (`setMaxStreams(4)`): un clic de tecla mientras suena el barrido de carga.
 - **`AudioAttributes`:** `USAGE_ASSISTANCE_SONIFICATION` + `CONTENT_TYPE_SONIFICATION` = «sonidos de la interfaz». Android los trata como los demás sonidos del sistema (no como música: no se mezclan con el reproductor de música del usuario ni piden el «foco de audio»).
-- **Una sola instancia para toda la app** (`CogitatorSounds.of(context)`, *singleton* con doble comprobación y `@Volatile`), creada con el **contexto de la aplicación**: vive lo que vive el proceso, no retiene ninguna actividad (no hay fuga) y **no se recrea al girar** la pantalla (recargar los diez ficheros en cada giro sería tirar trabajo). Decodificados ocupan unos **500 KB** (5,7 s de audio en total × 44 100 muestras × 2 bytes).
+- **Una sola instancia para toda la app** (`CogitatorSounds.of(context)`, *singleton* con doble comprobación y `@Volatile`), creada con el **contexto de la aplicación**: vive lo que vive el proceso, no retiene ninguna actividad (no hay fuga) y **no se recrea al girar** la pantalla (recargar los diez ficheros en cada giro sería tirar trabajo). Decodificados ocupan unos **875 KB** (9,9 s de audio en total × 44 100 muestras × 2 bytes).
+- **`MASTER_VOLUME`** (hoy `1f`): el volumen que se pasa a `play`, de 0 a 1, **lineal en amplitud** (0,5 = −6 dB, más o menos «la mitad de fuerte» al oído). Mueve **todos** los sonidos a la vez sin tocar el equilibrio entre ellos (que está en los ficheros) y se ajusta probando en el móvil sin regenerar nada. Solo puede bajar: 1 es el nivel de los ficheros.
 - **Cada sonido → su fichero** con un `when` **sin `else`**: si mañana se añade un `SoundCue`, el código **no compila** hasta que tenga su `R.raw`. Y la prueba `everyCueHasItsSoundFile` comprueba que el fichero existe (§8).
 
 ### 7.3 Carga asíncrona: el primer sonido llega tarde
@@ -343,19 +436,20 @@ Con el «no» importa por otra razón: un fallo de carga hace sonar `DENIED` des
 
 ## 9. Cómo probarlo en el móvil
 
-Volumen del sistema a la mitad, modo **sonido** (no vibración):
+Volumen del sistema a la mitad, modo **sonido** (no vibración), **por el altavoz** (no con auriculares: §2, idea 6):
 
-1. **Arranque en frío** (cerrar la app desde Recientes y abrir): gruñido + tic por línea + dos campanas con «DONE». *Lo crítico: que el gruñido **se oiga** en la primera apertura (§7.3).*
-2. **Pulsar teclas** del formulario: un clic por pulsación; tamborilear rápido no da una ráfaga.
-3. **Contraseña mala:** «no». **Entrar:** el «42» (agudo-grave ×3 y subida).
-4. **Abrir un ligando nuevo:** barrido mientras carga, se **corta** y suena el *ping*.
-5. **Abrir el mismo otra vez** (de la caché, instantáneo): **solo** el *ping*, sin barrido tras él.
-6. **Modo avión + ligando nuevo:** barrido cortado y «no».
-7. **Tocar átomos:** blip; tocar el vacío (deseleccionar): nada.
+1. **Arranque en frío** (cerrar la app desde Recientes y abrir): golpe + máquina + órgano; un «thock» por línea; la campana con «DONE». *Lo crítico: que el arranque **se oiga** en la primera apertura (§7.3).*
+2. **Pulsar teclas** del formulario: un «thock» por pulsación; tamborilear rápido no da una ráfaga.
+3. **Contraseña mala:** «no». **Entrar:** el «42» (seis sílabas «o-u» ×3 y la quinta del órgano).
+4. **Abrir un ligando nuevo:** sonar que late mientras carga, se **corta**, y «cla-clac» + *ping*.
+5. **Abrir el mismo otra vez** (de la caché, instantáneo): **solo** «cla-clac» + *ping*, sin sonar tras él.
+6. **Modo avión + ligando nuevo:** sonar cortado y el clacson.
+7. **Tocar átomos:** «toc»; tocar el vacío (deseleccionar): nada.
 8. **Compartir:** obturador.
 9. **Girar el móvil** con una molécula abierta y con la sesión abierta: **ningún** sonido (ni *ping* ni «42»).
-10. **Modo vibración o silencio:** **nada** de lo anterior suena.
-11. **Volumen:** ¿qué botón de volumen lo cambia? En la mayoría de los móviles, los sonidos de interfaz siguen el volumen del **sistema** o el de **notificaciones**; depende del fabricante (**sin comprobar** en el A33).
+10. **¿Distraen?** Usar la app cinco minutos seguidos. Si cansan, bajar `MASTER_VOLUME` (0,7 = −3 dB; 0,5 = −6 dB) y reinstalar; si solo molesta uno, su nivel en `make_sounds.py`.
+11. **Modo vibración o silencio:** **nada** de lo anterior suena.
+12. **Volumen:** ¿qué botón de volumen lo cambia? En la mayoría de los móviles, los sonidos de interfaz siguen el volumen del **sistema** o el de **notificaciones**; depende del fabricante (**sin comprobar** en el A33).
 
 ---
 
@@ -364,7 +458,7 @@ Volumen del sistema a la mitad, modo **sonido** (no vibración):
 1. **`sin(2π·f(t)·t)` para un glissando:** clics y una frecuencia que no es la que se quería. Hay que **acumular la fase** (§3.1).
 2. **Cortar un sonido que aún suena:** clic. Fundido al final de cada parte (`fade_out`) y del total (`finish`).
 3. **Ondas cuadradas o de sierra «perfectas»:** *aliasing*. Redondear (tanh) o filtrar.
-4. **Normalizar por el volumen medio** en lugar del pico: puede saturar (muestras > 1 recortadas = distorsión).
+4. **Normalizar solo por pico:** sonoridades desiguales (la tecla de la v2 salía 9 dB más fuerte que la de la v1 con el mismo pico). **Solo por sonoridad, sin techo:** puede saturar. Las dos cosas: sonoridad como objetivo, pico como límite (§3.9).
 5. **Componente continua:** una señal desplazada del cero da un golpe al empezar y desperdicia rango; se resta la media.
 6. **`MediaPlayer` para clics:** retraso de decodificación en cada reproducción.
 7. **`SoundPool` por pantalla o por actividad:** recargar en cada giro; con el contexto de la actividad, además, **fuga** de memoria.
@@ -374,6 +468,8 @@ Volumen del sistema a la mitad, modo **sonido** (no vibración):
 11. **Ignorar el modo silencio:** el móvil de un evaluador sonando en mitad de la sala.
 12. **Ficheros no reproducibles:** sin `bitexact`, cada regeneración «cambia» los diez ficheros en `git` aunque suenen igual.
 13. **Mayúsculas o guiones en `res/raw`:** Android solo admite `[a-z0-9_]` en nombres de recursos; `snd-Key.ogg` no compila. Por eso `snd_key`.
+14. **Diseñar en auriculares un sonido para el altavoz:** lo grave desaparece en el móvil. Fundamentales por encima de ~150 Hz, saturación para los armónicos, y **escuchar en el altavoz** (§2, idea 6).
+15. **Un subgrave que no se oye pero ocupa:** fija el pico y baja todo lo demás. Paso alto antes de normalizar (§3.9).
 
 ---
 
@@ -390,6 +486,10 @@ Volumen del sistema a la mitad, modo **sonido** (no vibración):
 | **Interruptor de sonido en la app** | Control explícito | No hay pantalla de ajustes todavía; candidato si se hace la del bonus VII.2 |
 | **Opus** en lugar de Vorbis | Mejor compresión | Ahorro despreciable (la cabecera domina) y compatibilidad menos clara en Android antiguo (minSdk 24) |
 | **Vibración háptica** en vez de (o además de) sonido | Funciona en silencio | Otro trabajo; posible complemento para la tecla |
+| **Suno «Sounds»** (beta de enero de 2026, tipo *One Shot*) | Realismo (coros, campanas grabadas «de verdad»); con suscripción Pro/Premier el resultado es del usuario, con uso comercial | Resultado poco controlable (dos variantes por petición); límite de descargas al mes en los planes de pago; en golpes de 50 ms la síntesis es mejor. **Plan B** para los sonidos largos si la v2 no convence |
+| **ElevenLabs** (efectos por texto) | Muy buenos efectos | Sus condiciones **prohíben** distribuir el resultado como ficheros de audio sueltos: nuestros `.ogg` están en un repositorio público |
+| **Sonniss GDC** (paquete gratuito anual, 7,5 GB) | Grabaciones profesionales, sin regalías | Sin escucha previa cómoda; no está claro si se pueden publicar los ficheros sueltos en un repositorio |
+| **FM** (v1: campanas con modulación de frecuencia) | Mucho timbre con dos senos | Sin control parcial a parcial; la síntesis modal da campanas más creíbles con proporciones reales |
 
 ---
 
@@ -397,17 +497,18 @@ Volumen del sistema a la mitad, modo **sonido** (no vibración):
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D48 | **Diez sonidos sintetizados** con matemáticas (`tools/sound/make_sounds.py`: osciladores, ruido con semilla, filtros Butterworth, envolventes, FM), Ogg Vorbis q5 reproducible byte a byte (69 KiB); reproducidos con **un `SoundPool`** de la aplicación (sonificación, 4 flujos); **nunca en silencio o vibración**; intervalo mínimo por sonido; un sonido pedido antes de cargar suena si llega en ≤ 400 ms; lo que suena una vez por cambio de estado se recuerda con `rememberSaveable` (no se repite al girar) | Decidida | Ambientación del cogitador sin licencias ajenas; explicable en la defensa; discreto; sin retrasos |
+| D48 | **Diez sonidos sintetizados** con matemáticas (`tools/sound/make_sounds.py`, v2 «grimdark»: síntesis modal, formantes, órgano aditivo, saturación, reverberación por convolución; fundamentales que el altavoz del móvil puede tocar), **nivelados por sonoridad** en cuatro niveles, Ogg Vorbis q5 reproducible byte a byte (124 KiB); `MASTER_VOLUME` en el código; reproducidos con **un `SoundPool`** de la aplicación (sonificación, 4 flujos); **nunca en silencio o vibración**; intervalo mínimo por sonido; un sonido pedido antes de cargar suena si llega en ≤ 400 ms; lo que suena una vez por cambio de estado se recuerda con `rememberSaveable` (no se repite al girar) | Decidida | Ambientación del cogitador sin licencias ajenas; explicable en la defensa; discreto; sin retrasos |
 
 ---
 
 ## 13. Qué recordar
 
 - **Sonido digital = lista de números.** 44 100 por segundo, entre −1 y 1; frecuencias hasta la mitad (Nyquist).
-- **Todo timbre se construye** con osciladores (seno, cuadrada, sierra), ruido, filtros y una envolvente. FM con razón no entera = campana.
+- **Todo timbre se construye** con osciladores, ruido, filtros y una envolvente. **Metal golpeado** = suma de senos amortiguados en las proporciones de sus modos; **voz** = zumbido filtrado por formantes; **sala** = convolución con su respuesta al impulso.
 - **La fase se acumula** cuando la frecuencia cambia; si no, clics.
 - **Nada empieza ni acaba de golpe:** fundidos de milisegundos.
-- **Normalizar el pico** en dBFS, escalonado por importancia: lo frecuente, más bajo.
+- **«Oscuro» es timbre, no grave:** el altavoz del móvil no toca por debajo de ~300 Hz; la saturación da los armónicos que sí toca.
+- **Igualar sonoridad, limitar el pico**, en niveles por importancia: lo frecuente, más bajo. Sonidos que acompañan, no que distraen.
 - **`SoundPool`, uno, con el contexto de la aplicación**, para sonidos cortos; la carga es asíncrona, así que el primer sonido hay que **esperarlo un poco** o se pierde.
 - **Respetar el silencio del móvil**, siempre.
 - **Un giro de pantalla recompone todo y relanza cada `LaunchedEffect`:** lo que debe ocurrir una vez por cambio se recuerda con `rememberSaveable`, y con una clave **corta**.
