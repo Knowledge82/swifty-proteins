@@ -22,10 +22,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.drawCircle
-import androidx.compose.ui.graphics.drawscope.drawLine
-import androidx.compose.ui.graphics.drawscope.drawRect
-import androidx.compose.ui.graphics.verticalGradient
 import androidx.compose.ui.unit.dp
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
 

@@ -45,8 +45,6 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.CompositingStrategy
-import androidx.compose.ui.graphics.drawscope.drawRect
-import androidx.compose.ui.graphics.linearGradient
 import androidx.compose.ui.text.TextStyle
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
