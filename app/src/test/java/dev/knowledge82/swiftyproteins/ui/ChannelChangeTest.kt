@@ -7,58 +7,71 @@ import org.junit.Test
 
 class ChannelChangeTest {
 
+    private fun covered(f: ChannelChange.Frame) = f.blackTo - f.blackFrom
+
     @Test
-    fun thePulseHidesTheSwapAndNothingIsLeftAtEitherEnd() {
-        assertEquals(0f, ChannelChange.frame(0f).pulse, 0f)
-        assertEquals(0f, ChannelChange.frame(1f).pulse, 0.0001f)
-        // At the swap the pulse is COMPLETE: neither screen shows while they change places.
-        assertEquals(1f, ChannelChange.frame(ChannelChange.SWAP_AT).pulse, 0.0001f)
+    fun theScreenIsAllBlackAtTheSwapAndClearAtBothEnds() {
+        assertEquals(0f, covered(ChannelChange.frame(0f)), 0f)
+        assertEquals(0f, covered(ChannelChange.frame(1f)), 0.0001f)
+        // At the swap the black covers everything: neither screen shows while they change places.
+        val swap = ChannelChange.frame(ChannelChange.SWAP_AT)
+        assertEquals(0f, swap.blackFrom, 0f)
+        assertEquals(1f, swap.blackTo, 0f)
         assertFalse(ChannelChange.swapped(ChannelChange.SWAP_AT - 0.01f))
         assertTrue(ChannelChange.swapped(ChannelChange.SWAP_AT))
     }
 
     @Test
-    fun upToTheSwapThenOnlyDownAndFastFirst() {
-        var last = -1f
+    fun theLineWipesDownThenDrawsDownAndIsAlwaysAtTheEdgeOfTheBlack() {
+        var lastLine = -1f
         for (step in 0..1000) {
             val p = step / 1000f
             val f = ChannelChange.frame(p)
-            if (p < ChannelChange.SWAP_AT) assertTrue("rises at $p", f.pulse >= last)
-            else if (p > ChannelChange.SWAP_AT) assertTrue("falls at $p", f.pulse <= last)
-            assertTrue("0..1 at $p", f.pulse in 0f..1f && f.scan in 0f..1f)
-            last = f.pulse
+            if (p < ChannelChange.SWAP_AT) {
+                assertEquals("wiping: black from the top at $p", 0f, f.blackFrom, 0f)
+                assertEquals("the line leads the black at $p", f.blackTo, f.line, 0f)
+            } else {
+                assertEquals("drawing: black down to the bottom at $p", 1f, f.blackTo, 0f)
+                assertEquals("the line leads the picture at $p", f.blackFrom, f.line, 0f)
+            }
+            // Within each sweep the line only moves DOWN (it jumps back to the top once, at the swap).
+            if (p != ChannelChange.SWAP_AT && step > 0 && (p < ChannelChange.SWAP_AT) == ((step - 1) / 1000f < ChannelChange.SWAP_AT)) {
+                assertTrue("down at $p", f.line >= lastLine)
+            }
+            assertTrue(f.line in 0f..1f)
+            lastLine = f.line
         }
-        // Half of the pulse is gone in the first third of the fall (a soft tail after): it does not linger.
-        val fall = 1f - ChannelChange.SWAP_AT
-        assertTrue(ChannelChange.frame(ChannelChange.SWAP_AT + fall / 3f).pulse < 0.5f)
-        assertTrue(ChannelChange.frame(ChannelChange.SWAP_AT + fall * 0.8f).pulse > 0f)
     }
 
     @Test
-    fun theScanlinesFollowThePulse() {
-        assertEquals(0f, ChannelChange.frame(0f).scan, 0f)
-        assertEquals(ChannelChange.SCAN_MAX, ChannelChange.frame(ChannelChange.SWAP_AT).scan, 0.0001f)
-        assertEquals(ChannelChange.SCAN_MAX / 2f, ChannelChange.frame(ChannelChange.SWAP_AT / 2f).scan, 0.0001f)
-        assertTrue(ChannelChange.SCAN_MAX < 0.5f)   // a texture, not stripes
+    fun theLineMovesAtAConstantSpeed() {
+        // A tube's beam scans evenly: equal times, equal distances (in each sweep).
+        val a = ChannelChange.frame(ChannelChange.SWAP_AT * 0.25f).line
+        val b = ChannelChange.frame(ChannelChange.SWAP_AT * 0.5f).line
+        assertEquals(0.25f, a, 0.0001f)
+        assertEquals(0.5f, b, 0.0001f)
+        val mid = ChannelChange.SWAP_AT + (1f - ChannelChange.SWAP_AT) / 2f
+        assertEquals(0.5f, ChannelChange.frame(mid).line, 0.0001f)
     }
 
     @Test
-    fun itIsShort() {
+    fun itIsFast() {
         assertEquals(0f, ChannelChange.progress(0f, 0f), 0f)
         assertEquals(0.5f, ChannelChange.progress(0f, ChannelChange.MILLIS / 2), 0.001f)
         assertEquals(1f, ChannelChange.progress(0f, 60_000f), 0f)
         assertEquals(0.3f, ChannelChange.progress(0.3f, -50f), 0f)   // a clock going backwards moves nothing
+        // Faster than the 220 ms of the preview: each sweep of the whole screen under 100 ms.
         assertTrue(ChannelChange.MILLIS <= 160f)
-        assertTrue(ChannelChange.SWAP_AT < 0.5f)
+        assertTrue(ChannelChange.MILLIS * ChannelChange.SWAP_AT < 100f)
+        assertTrue(ChannelChange.MILLIS * (1f - ChannelChange.SWAP_AT) < 100f)
     }
 
     @Test
-    fun aChangeDuringAnotherStartsFromThePulseOnScreen() {
-        val falling = ChannelChange.frame(0.6f).pulse
-        val restart = ChannelChange.restartAt(falling)
-        assertTrue(restart < ChannelChange.SWAP_AT)
-        assertEquals(falling, ChannelChange.frame(restart).pulse, 0.0001f)
-        assertEquals(0f, ChannelChange.restartAt(0f), 0f)
-        assertEquals(ChannelChange.SWAP_AT, ChannelChange.restartAt(1f), 0f)
+    fun aChangeDuringAnotherWipesOnOrStartsANewWipe() {
+        // Still wiping: it simply goes on, the black already hides that much of the leaving screen.
+        assertEquals(0.2f, ChannelChange.restartAt(0.2f), 0f)
+        // Already drawing the new screen: a new wipe from the top.
+        assertEquals(0f, ChannelChange.restartAt(ChannelChange.SWAP_AT), 0f)
+        assertEquals(0f, ChannelChange.restartAt(0.8f), 0f)
     }
 }

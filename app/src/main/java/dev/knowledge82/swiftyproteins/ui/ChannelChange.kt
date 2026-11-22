@@ -1,59 +1,58 @@
 package dev.knowledge82.swiftyproteins.ui
 
 /**
- * The change of screen as a DARK PULSE of the cogitator's tube (document 26): for an instant the glass sinks into a
- * smouldering phosphor green, dark at the edges, the screens are swapped while it covers everything, and it falls
- * away from the new picture. Short, and dark rather than bright: a surge in the machine, not a lamp.
+ * The change of screen as the cogitator REDRAWING its tube (document 26): a bright phosphor line sweeps down and wipes
+ * the old screen to black behind it, the screens are swapped in the black, and the same line sweeps down again
+ * drawing the new screen behind it, like a frame being written line by line on a CRT.
  *
- * Fourth version (document 26, §3.3, tells the three before it, all seen on the A33): TV static ("old television on
- * Earth"), a pale-green flash (too bright), a blink to black with an afterglow (did not read on the phone).
- * The tube switching ON stays for the cold start only ([CrtTransition]).
+ * Fifth version (document 26, §3.3, tells the four before it, all seen on the A33): TV static, a pale-green flash, a
+ * blink with an afterglow, a dark pulse. The tube switching ON stays for the cold start only ([CrtTransition]).
  *
  * Pure arithmetic, tested; [CrtSwitch] reads the clock and draws.
  *
- *     progress 0 ──── SWAP_AT ───────────────────────── 1          (MILLIS)
- *              the pulse rises │ swap under the full pulse, it falls fast, then fades
+ *     progress 0 ──── SWAP_AT ──────────────── 1          (MILLIS)
+ *              the line wipes down │ the line draws down
+ *              (black above it)    │ (black below it)
  */
 object ChannelChange {
 
-    /** The whole change. */
-    const val MILLIS = 160f
+    /** The whole change: two sweeps of the screen, fast. */
+    const val MILLIS = 150f
 
-    /** Where the screens swap: the pulse covers everything there (its colours are opaque), nothing of either shows. */
-    const val SWAP_AT = 0.3f
-
-    /** The scanlines across the pulse at its strongest: dark lines, the texture of a tube. */
-    const val SCAN_MAX = 0.35f
+    /** Where the screens swap: the first sweep has reached the bottom, the screen is all black. */
+    const val SWAP_AT = 0.45f
 
     /**
-     * What to draw at one moment.
+     * What to draw at one moment, in fractions of the screen's height (0 = top, 1 = bottom).
      *
-     * @property pulse 0..1, how strongly the dark green covers the screen (1 = only the pulse, the picture hidden)
-     * @property scan  0..[SCAN_MAX], the scanlines over it
+     * @property blackFrom where the black starts
+     * @property blackTo   where it ends (blackFrom == blackTo: no black)
+     * @property line      where the bright line is
      */
-    data class Frame(val pulse: Float, val scan: Float)
+    data class Frame(val blackFrom: Float, val blackTo: Float, val line: Float)
 
     /** How far the change is, 0..1, [elapsedMillis] after starting from [start]. */
     fun progress(start: Float, elapsedMillis: Float): Float =
         (start.coerceIn(0f, 1f) + elapsedMillis.coerceAtLeast(0f) / MILLIS).coerceAtMost(1f)
 
+    /** The line moves at a CONSTANT speed in each sweep, as the beam of a tube does. */
     fun frame(progress: Float): Frame {
         val p = progress.coerceIn(0f, 1f)
-        val pulse = if (p < SWAP_AT) {
-            p / SWAP_AT                       // up in a straight line: about 50 ms
+        return if (p < SWAP_AT) {
+            val y = p / SWAP_AT
+            Frame(blackFrom = 0f, blackTo = y, line = y)          // wiping: black above the line, the old screen below
         } else {
-            val t = (p - SWAP_AT) / (1f - SWAP_AT)
-            (1f - t) * (1f - t)               // down fast, then a soft tail
+            val y = (p - SWAP_AT) / (1f - SWAP_AT)
+            Frame(blackFrom = y, blackTo = 1f, line = y)          // drawing: the new screen above the line, black below
         }
-        return Frame(pulse = pulse, scan = SCAN_MAX * pulse)
     }
 
     /** Have the screens been swapped at [progress]? */
     fun swapped(progress: Float): Boolean = progress >= SWAP_AT
 
     /**
-     * Where a NEW change starts when one is still running with [pulse] on screen: on the rising side, at the same
-     * pulse. The picture never comes back to show a screen that is not the one wanted.
+     * Where a NEW change starts when one is still running at [progress]: a wipe in progress simply goes on (it is
+     * already hiding the screen that is leaving); a drawing in progress starts a new wipe from the top.
      */
-    fun restartAt(pulse: Float): Float = pulse.coerceIn(0f, 1f) * SWAP_AT
+    fun restartAt(progress: Float): Float = if (progress >= 0f && progress < SWAP_AT) progress else 0f
 }
