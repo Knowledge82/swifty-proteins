@@ -16,8 +16,11 @@ package dev.knowledge82.swiftyproteins.ui
  */
 object ChannelChange {
 
-    /** The whole change: two sweeps of the screen, fast. */
-    const val MILLIS = 150f
+    /**
+     * The whole change: two sweeps of the screen. The speed of the proposal (its GIF); 150 ms was tried on the A33 and
+     * was too fast to follow (document 26, §3).
+     */
+    const val MILLIS = 220f
 
     /** Where the screens swap: the first sweep has reached the bottom, the screen is all black. */
     const val SWAP_AT = 0.45f

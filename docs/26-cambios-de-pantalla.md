@@ -1,6 +1,6 @@
 # 26 · Cambios de pantalla: encender, barrer, cortar
 
-> **Estado:** **escrito**. Sustituye la mitad «apagar» del tubo del documento 23. Reglas puras **probadas en la JVM** (631 pruebas en total; 14 nuevas; 35 mutantes, todos muertos al final). El cambio entre pantallas es un **barrido del haz**: una línea brillante borra la pantalla vieja de arriba abajo y vuelve a bajar dibujando la nueva, 150 ms (§3). Las cuatro versiones anteriores se describen en §3.3. El dibujo del pulso, el arranque que espera al tubo y el diálogo que espera en una carga silenciosa **compilan contra *stubs*** y pasan las reglas de Compose; **sin probar en el móvil** (§8).
+> **Estado:** **escrito**. Sustituye la mitad «apagar» del tubo del documento 23. Reglas puras **probadas en la JVM** (631 pruebas en total; 14 nuevas; 37 mutantes, todos muertos al final). El cambio entre pantallas es un **barrido del haz**: una línea brillante borra la pantalla vieja de arriba abajo y vuelve a bajar dibujando la nueva, 220 ms (§3). Las cuatro versiones anteriores se describen en §3.3. El dibujo del pulso, el arranque que espera al tubo y el diálogo que espera en una carga silenciosa **compilan contra *stubs*** y pasan las reglas de Compose; **sin probar en el móvil** (§8).
 
 ## Índice
 
@@ -36,7 +36,7 @@ El tubo del documento 23 era **un solo efecto en dos mitades**: la pantalla viej
 |--------|--------|--------|------------|
 | **Encendido** | Solo en el **arranque en frío**, sobre la pantalla de arranque | Un punto → una línea → la imagen (420 ms) | `CrtTransition` |
 | **Corte** (`CUT`) | Un ligando (o el segundo de una comparación) **recién descargado** | Ninguno: el diálogo de carga ya fue la transición | `Navigation.change` |
-| **Barrido** (`CHANNEL`) | **Todo lo demás**: un ligando archivado, Atrás, ajustes, tutorial, acceso, bloqueo y desbloqueo | Una línea de fósforo borra la pantalla vieja hacia abajo y dibuja la nueva hacia abajo (150 ms) | `ChannelChange` |
+| **Barrido** (`CHANNEL`) | **Todo lo demás**: un ligando archivado, Atrás, ajustes, tutorial, acceso, bloqueo y desbloqueo | Una línea de fósforo borra la pantalla vieja hacia abajo y dibuja la nueva hacia abajo (220 ms) | `ChannelChange` |
 
 La regla es **una función pura**, probada:
 
@@ -54,18 +54,18 @@ fun change(from: Screen, to: Screen): Change = when {
 ## 3. El barrido del haz
 
 ```
-progreso 0 ──────── 0,45 ──────────────── 1          (150 ms)
+progreso 0 ──────── 0,45 ──────────────── 1          (220 ms)
           la línea borra hacia abajo │ la línea dibuja hacia abajo
           (negro por encima de ella)  │ (negro por debajo de ella)
 ```
 
-1. **Una línea brillante** (2 dp del color del haz, con 10 dp de resplandor verde a cada lado) **baja** por la pantalla en ~68 ms y **borra** la pantalla vieja: por encima de ella, negro.
+1. **Una línea brillante** (2 dp del color del haz, con 10 dp de resplandor verde a cada lado) **baja** por la pantalla en ~99 ms y **borra** la pantalla vieja: por encima de ella, negro.
 2. **Cuando llega abajo**, la pantalla es toda negra: se intercambian.
-3. **La misma línea baja otra vez** en ~83 ms y **dibuja** la pantalla nueva: por encima de ella, la imagen; por debajo, negro todavía.
+3. **La misma línea baja otra vez** en ~121 ms y **dibuja** la pantalla nueva: por encima de ella, la imagen; por debajo, negro todavía.
 
 Es lo que hace un tubo de verdad: el **haz** recorre la pantalla de arriba abajo y escribe la imagen **línea a línea**. El cogitador «redibuja» su pantalla. La línea va a **velocidad constante**, como el haz real: un barrido con aceleración se leería como una cortina, no como un tubo.
 
-**Más rápido que en la propuesta:** el GIF de la propuesta tardaba 220 ms; se pidió que la línea fuera más deprisa, y el barrido completo baja ahora a 150 ms (cada pasada, < 100 ms).
+**La velocidad:** la de la propuesta, 220 ms. Se probó a 150 ms en el A33 y era **demasiado rápido**: el ojo no seguía la línea, y el efecto se perdía. A 220 ms cada pasada dura unos 0,1 s, se ve la línea bajar y aún no hace esperar en cada «Atrás». Una prueba fija ese margen (200-250 ms, cada pasada entre 80 y 130 ms).
 
 ![El barrido sobre dos capturas del A33, ralentizado ×4](img_26_barrido.gif)
 
@@ -79,7 +79,7 @@ Es lo que hace un tubo de verdad: el **haz** recorre la pantalla de arriba abajo
 
 ### 3.2 Barato
 
-Un rectángulo negro, dos degradados y una línea, solo durante 150 ms y solo en la fase de dibujo. No crea nada por fotograma.
+Un rectángulo negro, dos degradados y una línea, solo durante 220 ms y solo en la fase de dibujo. No crea nada por fotograma.
 
 ### 3.3 Cómo se llegó: cinco versiones vistas en el A33
 
@@ -89,14 +89,14 @@ Un rectángulo negro, dos degradados y una línea, solo durante 150 ms y solo en
 | 2. **Pulso de luz** (160 ms) | Todo el cristal en verde fósforo pálido, casi blanco en el centro | En una app oscura, un fogonazo: **demasiado brillante** |
 | 3. **Parpadeo con resplandor** (180 ms) | A negro, intercambio, y la imagen nueva bajo un resplandor verde (pico 0,6) que se apagaba | En el GIF convencía; **en el móvil no se notaba** |
 | 4. **Pulso oscuro** (160 ms) | La versión 2 con el verde apagado (`#2E6B3E`) y los bordes casi negros | **En el móvil no gustó** |
-| 5. **Barrido del haz** (150 ms, la que se queda) | La línea borra hacia abajo y vuelve a bajar dibujando | — |
+| 5. **Barrido del haz** (220 ms, la que se queda) | La línea borra hacia abajo y vuelve a bajar dibujando | Se probó más rápido (150 ms): no se seguía; vuelve a la velocidad de la propuesta |
 
 **Cómo se eligió:** tras la versión 2 se prepararon tres propuestas como **GIF sobre capturas reales** del A33, ralentizados ×4, con un guion de Python que reproduce las mismas curvas que el código:
 - A, el pulso oscuro;
 - B, el parpadeo con resplandor;
 - C, el barrido.
 
-En el móvil se probaron **B**, luego **A**, y por último **C**, más rápida.
+En el móvil se probaron **B**, luego **A**, y por último **C**: primero acelerada a 150 ms (demasiado), después a su velocidad original, 220 ms.
 
 **Lección:** un GIF ralentizado ×4 enseña la **forma** de un efecto, pero no cómo se **siente** a velocidad real: la última palabra la tiene el móvil. Por eso cada versión es **un fichero puro con sus pruebas** (`ChannelChange`) y **una función de dibujo**: cambiar de efecto no toca nada más.
 
@@ -158,7 +158,7 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 
 | Fichero | Nuevas | Qué fija |
 |---------|--------|----------|
-| `ChannelChangeTest` | 5 | Toda negra en el intercambio y limpia en los dos extremos; la línea borra y luego dibuja, siempre **en el borde del negro**, y en cada pasada solo baja; **velocidad constante**; rápida (≤ 160 ms, cada pasada < 100 ms); un cambio en mitad de otro sigue borrando o empieza un borrado nuevo |
+| `ChannelChangeTest` | 5 | Toda negra en el intercambio y limpia en los dos extremos; la línea borra y luego dibuja, siempre **en el borde del negro**, y en cada pasada solo baja; **velocidad constante**; ni demasiado rápida ni lenta (200-250 ms, cada pasada entre 80 y 130 ms); un cambio en mitad de otro sigue borrando o empieza un borrado nuevo |
 | `LoadingPolicyTest` | 3 | 2 s para una descarga, nada para un archivado; lo que falta nunca es negativo; la gracia entre 0,3 y 1 s |
 | `LigandLoaderTest` | 5 | Una descarga instantánea sigue cargando hasta el mínimo; una silenciosa no espera; sigue silenciosa con las etapas; un Cancel durante la espera no publica nada; un fallo también espera |
 | `NavigationTest` | 1 | Corte solo para lo recién descargado y solo desde el índice (o la molécula, en la comparación); barrido en todo lo demás, incluido volver del acceso; la comparación lleva su origen |
@@ -178,7 +178,7 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 ## 8. Cómo probarlo en el móvil
 
 1. **Arranque en frío** (cerrar desde Recientes): punto → línea → arranque, y **después** las líneas una a una con sus tics. El zumbido suena con el encendido.
-2. **Arranque → acceso**, **acceso → índice**: la línea borra hacia abajo y vuelve a bajar dibujando la pantalla nueva, rápida.
+2. **Arranque → acceso**, **acceso → índice**: la línea borra hacia abajo y vuelve a bajar dibujando la pantalla nueva; se la ve bajar, sin hacer esperar.
 3. Un ligando **nunca abierto**: el diálogo con el cráneo y el módem **2 s** como mínimo, y la molécula **sin** estática.
 4. Un ligando **ARCHIVED**: sin diálogo, sin módem; un barrido y la molécula.
 5. **Atrás** desde la molécula, **ajustes**, **tutorial**: barrido.
@@ -216,7 +216,7 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D91 | **Tres cambios de pantalla**: encendido solo en el arranque en frío, **corte** tras una descarga, **barrido del haz** de 150 ms en todo lo demás (una línea borra hacia abajo y dibuja hacia abajo; la estática, el pulso de luz, el parpadeo y el pulso oscuro se descartaron); la mitad «apagar» del tubo desaparece | Decidida (sin probar en el móvil) | Probado en el móvil por el equipo; sustituye parte de D84 |
+| D91 | **Tres cambios de pantalla**: encendido solo en el arranque en frío, **corte** tras una descarga, **barrido del haz** de 220 ms en todo lo demás (una línea borra hacia abajo y dibuja hacia abajo; la estática, el pulso de luz, el parpadeo y el pulso oscuro se descartaron); la mitad «apagar» del tubo desaparece | Decidida (sin probar en el móvil) | Probado en el móvil por el equipo; sustituye parte de D84 |
 | D92 | La pantalla de arranque **espera al tubo** para empezar su reloj | Decidida (sin probar en el móvil) | El encendido se comía sus primeras líneas |
 | D93 | **Carga silenciosa** de un ligando archivado (sin diálogo ni sonido, salvo que pase de 600 ms) y **mínimo de 2 s** del diálogo de una descarga, aplicado en el `LigandLoader` | Decidida | El diálogo parpadeaba; lo archivado no lo necesita |
 

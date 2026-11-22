@@ -55,15 +55,16 @@ class ChannelChangeTest {
     }
 
     @Test
-    fun itIsFast() {
+    fun itIsQuickButCanBeFollowed() {
         assertEquals(0f, ChannelChange.progress(0f, 0f), 0f)
         assertEquals(0.5f, ChannelChange.progress(0f, ChannelChange.MILLIS / 2), 0.001f)
         assertEquals(1f, ChannelChange.progress(0f, 60_000f), 0f)
         assertEquals(0.3f, ChannelChange.progress(0.3f, -50f), 0f)   // a clock going backwards moves nothing
-        // Faster than the 220 ms of the preview: each sweep of the whole screen under 100 ms.
-        assertTrue(ChannelChange.MILLIS <= 160f)
-        assertTrue(ChannelChange.MILLIS * ChannelChange.SWAP_AT < 100f)
-        assertTrue(ChannelChange.MILLIS * (1f - ChannelChange.SWAP_AT) < 100f)
+        // The speed of the proposal, chosen on the A33: 150 ms was too fast for the eye to follow the line; much
+        // slower and it becomes a curtain that makes every Back wait. Each sweep about a tenth of a second.
+        assertTrue(ChannelChange.MILLIS in 200f..250f)
+        assertTrue(ChannelChange.MILLIS * ChannelChange.SWAP_AT in 80f..130f)
+        assertTrue(ChannelChange.MILLIS * (1f - ChannelChange.SWAP_AT) in 80f..130f)
     }
 
     @Test

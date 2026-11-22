@@ -134,7 +134,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D88 | **Masa** con los pesos de la IUPAC, comprobada contra el CCD en los 1241 ligandos (≤ 0,06 g/mol), un decimal; «?» con un elemento desconocido | Decidida | Documento 24. |
 | D89 | **SPIN sincronizado** por un instante común y el tiempo del fotograma | Decidida (sin probar en el móvil) | Documento 24. |
 | D90 | La tecla «SHR» pasa a **SHARE**; para que quepa, **H** baja al panel de teclas (arriba, quién es y qué hacer; abajo, cómo se dibuja) | Decidida (sin probar en el móvil) | «SHR» no se entendía. Documento 23, §13. |
-| D91 | **Tres cambios de pantalla**: encendido solo al arrancar, **corte** tras una descarga, **barrido del haz** de 150 ms (una línea borra hacia abajo y dibuja hacia abajo) en todo lo demás; la estática, el pulso de luz, el parpadeo y el pulso oscuro se descartaron; el tubo ya no se apaga | Decidida (sin probar en el móvil) | Documento 26. |
+| D91 | **Tres cambios de pantalla**: encendido solo al arrancar, **corte** tras una descarga, **barrido del haz** de 220 ms (una línea borra hacia abajo y dibuja hacia abajo) en todo lo demás; la estática, el pulso de luz, el parpadeo y el pulso oscuro se descartaron; el tubo ya no se apaga | Decidida (sin probar en el móvil) | Documento 26. |
 | D92 | La pantalla de arranque **espera al tubo** para empezar su reloj | Decidida (sin probar en el móvil) | Documento 26. |
 | D93 | **Carga silenciosa** de lo archivado y **mínimo de 2 s** del diálogo de una descarga, en el `LigandLoader` | Decidida | Documento 26. |
 
