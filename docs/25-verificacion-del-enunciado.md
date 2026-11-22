@@ -34,11 +34,11 @@
 | VI.2 Acceso | Cuentas (usuario único, contraseña con requisitos), biometría, diálogos de fallo, alternativa sin biometría, **login siempre**, hash, interfaz clara | ✅ | 05, 05a |
 | VI.3 Lista | Todos los ligandos, lista desplazable, búsqueda en tiempo real, indicador de carga, descarga + *parsing* + navegación, cuatro errores con sus textos | ✅ | 03, 06, 06b, 06c |
 | VI.4 Vista 3D | Filament, CPK, bolas y varillas, ficha del átomo, gestos, compartir, cámara y luces, fluidez | ✅ (compartir y desplazamiento con dos dedos: 🟢) | 02, 07, 09, 12, 18 |
-| VII.1 Modelos | Espacio lleno, varillas, alambre; cambio sin recargar | ✅ | 15, 19 |
-| VII.2 Interfaz | Celdas propias, animaciones, modo oscuro (también en 3D), tutorial, ajustes | ✅ / 🟢 (transición CRT, destello) | 08c, 14, 16, 21, 23 |
-| VII.3 Interacción | Resaltar un elemento, información de enlaces, distancias y ángulos, etiquetas, doble toque | ✅ / 🟢 (etiquetas, regla) | 15, 16, 19 |
-| VII.4 Rendimiento | Caché, carga perezosa, *parsing* en segundo plano con progreso, memoria, 60 FPS | ✅ | 12, 13, 20, 21 §18-20 |
-| VII.5 Compartir | Mensaje con nombre/átomos/fórmula, varios formatos, vídeo, favoritos, comparar dos moléculas | ✅ / 🟢 (formatos, vídeo, comparación) | 15, 16, 18, 22, 24 |
+| VII.1 Modelos | Espacio lleno, alambre, varillas; un control para cambiar en tiempo real sin recargar | ✅ | 15, 19 |
+| VII.2 Interfaz | Celdas propias, animaciones (transiciones, cargas, microinteracciones), modo oscuro también en 3D con sus luces, tutorial, ajustes (modelo, colores) | ✅ / 🟢 (transición CRT, destello) | 08c, 14, 16, 21, 23 |
+| VII.3 Interacción | Resaltar el mismo elemento, tipo y longitud de enlaces, distancias y ángulos, etiquetas conmutables, centrar con doble toque animado | ✅ / 🟢 (etiquetas, regla) | 15, 16, 19 |
+| VII.4 Rendimiento | Caché sin conexión, carga perezosa, *parsing* en segundo plano con progreso, memoria con LOD, 60 FPS con moléculas grandes | ✅ | 12, 13, 20, 21 §18-20 |
+| VII.5 Compartir | Mensaje con nombre/átomos/fórmula, PNG/JPEG/modelo 3D, vídeo girando, favoritos con lista, dos moléculas lado a lado | ✅ / 🟢 (formatos, vídeo, comparación) | 15, 16, 18, 22, 24 |
 
 ---
 
@@ -458,92 +458,326 @@ Las que el enunciado pone fuera de las secciones y también se miran:
 
 # Parte de bonus
 
+> El enunciado (capítulo VII) tiene cinco bloques. Cada exigencia se cita **literalmente**, en inglés, y debajo va cómo la cumplimos.
+
 ## 6. VII.1 Modelos de visualización
 
-> *Space-filling (van der Waals radii), wireframe, stick, with real-time switching without reloading.*
+> *Multiple Visualization Models. Implement additional molecular representation models beyond the mandatory Ball-and-Stick model. Users should be able to switch between different visualization modes.*
 
-**✅** **Cuatro** modelos en el desplegable **MODEL…** (`scene/Representation.kt`, `scene/VanDerWaals.kt`; documento 15):
+**✅** Cuatro modelos en total (los tres del enunciado más el obligatorio), todos en `scene/Representation.kt` (puro, probado), con los radios de van der Waals en `scene/VanDerWaals.kt`. Documentos 15 y 19.
 
-| Modelo | Cómo se dibuja | Base |
-|--------|----------------|------|
-| **Ball & stick** | El obligatorio | — |
-| **Space-filling** | Esferas del **radio de van der Waals**, sin varillas: los vecinos **se solapan** (ese solape es el enlace) | Radios de **Mantina et al. 2009** (extensión de Bondi 1964); H = 1,10 Å |
-| **Sticks** | Varillas gruesas, **cada mitad del color de su átomo** | Como PyMOL y Jmol |
-| **Wireframe** | Líneas finas, también en dos colores | Ídem |
+### 6.1 Espacio lleno
 
-- **Sin recargar:** cambiar de modelo vuelve a dibujar la **misma** molécula que ya está en memoria; no se descarga ni se interpreta nada (no sale el diálogo de carga).
-- En espacio lleno, la zona táctil es la esfera grande: tocar su **borde** la selecciona.
-- El modelo con el que se abre cada molécula se elige en **Ajustes**.
+> *Space-Filling Model (CPK Model): Atoms are represented as overlapping spheres with sizes proportional to their van der Waals radii. This shows the molecule's actual volume and surface.*
 
-🎯 MODEL… → los cuatro en ATP.
+**✅** **Space-filling**: cada átomo es una esfera de su **radio de van der Waals** y no se dibujan varillas. Los vecinos **se solapan** más de un radio entero, porque un enlace C–C mide ~1,54 Å y el radio de van der Waals del C es 1,70 Å: ese solape **es** el enlace (lo fija la prueba `inSpaceFillingNeighboursOverlapThatIsTheBond`).
+- **Radios:** **Mantina et al. 2009**, la extensión a todo el sistema periódico de los radios de **Bondi 1964**; H = 1,10 Å.
+- **Toque:** la zona táctil es la esfera grande, así que tocar su **borde** la selecciona.
+- **Detalle de malla:** más fino (`MeshDetail.bigBall`), porque en este modelo las esferas son lo único que se ve.
+
+### 6.2 Alambre
+
+> *Wireframe Model: Display only the bonds as lines, without atom spheres. This provides a clearer view of the molecular structure for complex molecules.*
+
+**✅** **Wireframe**: solo los enlaces, como **líneas muy finas** (cilindros de 0,05 Å), y **cada mitad del color de su átomo**: el color de la línea dice qué une.
+- ⚠️ **Matiz que explicar:** en cada átomo hay una esfera del **mismo grosor que la línea** (0,05 Å). A la vista no es una esfera: es la **unión** que redondea el codo entre dos líneas, y la zona que responde al toque, para poder tocar el átomo (que nunca baja de 0,35 Å). La única esfera visible es la de un átomo **sin ningún enlace dibujado** (un ion, o un átomo que solo tenía hidrógenos y se ocultaron): sin ella desaparecería de la pantalla.
+- **Por qué cilindros y no líneas de la GPU:** Filament dibuja líneas de **1 píxel**, que no se pueden tocar ni engrosar, y los cilindros sí; además funcionan con la misma selección y el mismo halo que el resto.
+
+### 6.3 Varillas
+
+> *Stick Model: Similar to ball-and-stick but with very small or no spheres, emphasizing the bond structure.*
+
+**✅** **Sticks**: varillas **gruesas** (0,2 Å), cada mitad del color de su átomo, como en PyMOL o Jmol. Las «esferas» tienen **el grosor de la varilla**: no se ven como bolas, solo cierran las uniones. Es lo que el enunciado llama «very small or no spheres».
+
+### 6.4 Cambiar de modelo en tiempo real
+
+> *Include a UI control (segmented control, dropdown, or buttons) to switch between models in real-time without reloading the molecule.*
+
+**✅** Un **desplegable** (*dropdown*), la tecla **MODEL…** en el panel inferior, con el modelo actual marcado («> Ball & stick»).
+- **Sin recargar:** el modelo es un **estado** de la pantalla; cambiarlo vuelve a dibujar la **misma** molécula que ya está en memoria. No se descarga ni se interpreta nada, y no sale el diálogo de carga.
+- El panel dice el modelo actual («Elements / Jmol · Ball & stick»), y TalkBack lo lee.
+- El modelo con el que se **abre** cada molécula se elige en Ajustes (VII.2).
+
+🎯 MODEL… → los cuatro en ATP; luego en 15P.
 
 ## 7. VII.2 Interfaz avanzada
 
-> *Custom cells, animations, dark mode (also in 3D), onboarding, settings screen.*
+> *Advanced User Interface. Enhance the visual design and user experience of your application.*
 
-| Exigencia | Lo que hay | Dónde | Estado |
-|-----------|-----------|-------|--------|
-| **Celdas propias** | Línea de consola: «> ATP», fórmula con subíndices reales, nº de átomos, **ARCHIVED** si está en el móvil, **barra de composición** (la proporción de cada elemento en su color CPK), estrella de favorito. TalkBack lee la celda entera en una frase | `ui/LigandListScreen.kt` (`PatternRow`), `assets/ligand_index.tsv` (generado con el **parser de la propia app**) | ✅ |
-| **Animaciones** | Ver la lista debajo de la tabla | documentos 21, 23 | ✅ / 🟢 |
-| **Modo oscuro, también en 3D** | Tema **oscuro por defecto** (consola de fósforo verde) y **claro «pergamino»**, o «como el móvil». Incluye el **fondo de la escena 3D**, los halos y las luces, y las barras del sistema | `ui/theme/PaletteSpec.kt`, `scene/SceneLook.kt` | ✅ (3D claro: 🟢) |
-| ***Onboarding*** | Tutorial de **4 páginas** (el índice, la vista 3D, las teclas, compartir), con ilustraciones, NEXT/BACK/SKIP o deslizando; se puede repetir desde Ajustes | `ui/Onboarding.kt`, `ui/OnboardingScreen.kt` | 🟢 |
-| **Ajustes** | Modelo y H al abrir, **tema**, **colores de átomos** (Jmol o RasMol), sonidos, repetir el tutorial | `ui/SettingsScreen.kt`, `prefs/` | ✅ |
+**✅** Además de lo que pide cada punto, la app tiene un **diseño propio completo**, el «Culto de la Máquina» de Warhammer 40k: paneles de cristal y bronce dibujados en código, tipografía gótica y de consola, arte pintado y diez sonidos sintetizados (documentos 08a-08d y 14). Ver la nota sobre el **lore** en 7.6.
 
-**Las animaciones:**
-- el **cambio de pantalla como un tubo CRT** que se apaga en una línea y un punto y se enciende (`ui/CrtSwitch.kt`);
-- el **destello** que recorre «Swifty Proteins» cada 6 s;
-- el arranque que se escribe;
-- el cráneo que flota en la carga;
-- el **cursor de consola**;
-- la molécula que se **desliza** al nuevo centro cuando cambia un panel;
-- las páginas del tutorial que se deslizan.
+### 7.1 Celdas propias
 
-**Además** (no se pide): un **diseño propio** completo, el «Culto de la Máquina», con paneles de cristal y bronce dibujados en código, tipografía gótica y de consola, y arte pintado (documentos 08a-08d). También **diez sonidos sintetizados** propios (documento 14).
+> *Custom Table/List Cells: Design beautiful custom cells for the ligand list with icons, previews, or additional information.*
 
-⚠️ **Si preguntan por los «dos temas»:** el enunciado pide «modo oscuro». La app **es** oscura por defecto y, además, se puede cambiar (documento 21, §17.1).
+**✅** Cada celda de la lista (`PatternRow` en `ui/LigandListScreen.kt`):
+
+```
+> ATP                                               ☆
+  C₁₀H₁₆N₅O₁₃P₃ · 47 ATOMS                  ARCHIVED
+  ▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇▇
+```
+
+- **Información adicional:** la **fórmula** con subíndices reales y el **número de átomos**, **antes** de descargar nada. Vienen de un índice incluido en la app (`assets/ligand_index.tsv`), generado con **el parser de la propia app**: una celda nunca promete otra fórmula que la que se verá en 3D.
+- **Vista previa:** la **barra de composición**, la proporción de cada elemento en su color CPK. De un vistazo se ve si es casi todo carbono e hidrógeno o un ion metálico.
+- **Iconos:** la estrella de favorito (su propia tecla de 48 dp) y la marca **ARCHIVED** si ya está en el móvil (se abre sin conexión).
+- TalkBack lee la celda entera en una frase, con la fórmula separada por elementos.
+
+### 7.2 Animaciones
+
+> *Smooth Animations: Add polished transitions between views, animated loading states, and micro-interactions.*
+
+**✅ / 🟢**
+
+| El enunciado dice | Lo que hay |
+|-------------------|-----------|
+| **Transitions between views** | Cada cambio de pantalla es un **tubo de rayos catódicos**: la pantalla vieja se aplasta en una línea brillante y luego en un punto, y la nueva se enciende al revés, con líneas de barrido y halo de fósforo (`ui/CrtSwitch.kt`, `ui/CrtTransition.kt`; documento 23). Dentro del tutorial, las páginas **se deslizan** en la dirección del gesto |
+| **Animated loading states** | El arranque que se escribe línea a línea; en la carga, el **cráneo servidor que flota**, las etapas que se marcan `[OK]` y la barra con porcentaje; al abrir la molécula, la barra **ASSEMBLY** mientras la escena se monta por lotes |
+| **Micro-interactions** | El **destello** que recorre «Swifty Proteins» cada 6 s; el **cursor de consola** que parpadea en el buscador; el **halo** al seleccionar; la molécula que **se desliza** al nuevo centro cuando cambia un panel; la cámara que **planea** al orbitar un átomo; un **clic de relé** en cada tecla |
+
+- **Ninguna animación cuesta fotogramas en reposo:** cada una pide fotogramas solo mientras se mueve (documento 23, §6).
+- Con **«quitar animaciones»** activado en el sistema, todas se paran o pasan a ser inmediatas.
+
+### 7.3 Modo oscuro, también en 3D
+
+> *Dark Mode: Implement a complete dark mode theme that works throughout the app, including the 3D view with appropriate lighting adjustments.*
+
+**✅** **Oscuro por defecto** (la consola de fósforo verde), y además un tema **claro «pergamino»** o «como el móvil», en Ajustes (`ui/theme/PaletteSpec.kt`, `ui/theme/Color.kt`; documento 21):
+- **En toda la app:** todos los colores salen de una paleta (`LocalSwiftyPalette`), y las barras del sistema siguen el tema.
+- **En la vista 3D:** cada tema tiene su `SceneLook` (`scene/SceneLook.kt`) con el **fondo** de la escena, los **halos** y las **luces**. Son los «lighting adjustments» del enunciado:
+
+  | Luz | Oscuro | Claro | Por qué |
+  |-----|--------|-------|---------|
+  | Principal | 10 000 lux | 10 000 lux | |
+  | Relleno | 3 000 lux | 3 500 lux | Sobre un fondo claro, las sombras duras parecen agujeros |
+  | Contraluz | 5 000 lux | 2 000 lux | Un borde brillante separa las bolas del negro; sobre pergamino solo deslumbra |
+
+- **Contraste medido** (WCAG) en los dos temas: una prueba comprueba que cada color de texto sobre cada fondo llega al menos a **4,5:1**.
+- ⚠️ Si preguntan «¿por qué dos temas?»: el enunciado pide modo oscuro; la app lo es, y además se puede cambiar (documento 21, §17.1).
+
+### 7.4 Tutorial de bienvenida
+
+> *Onboarding: Create an onboarding flow for first-time users explaining how to use the app and its features.*
+
+**🟢** Cuatro páginas (`ui/Onboarding.kt`, `ui/OnboardingScreen.kt`), cada una con su ilustración:
+
+1. **El índice:** buscar, cargar, la copia en el móvil, los favoritos.
+2. **La vista 3D:** girar, zoom, tocar un átomo o un enlace, el doble toque.
+3. **Las teclas:** MODEL…, H, LABELS, RULER.
+4. **Compartir:** SHR (imagen, vídeo, ficheros), CMP (comparar) y los Ajustes.
+
+- Se pasa con **NEXT / BACK / SKIP** o deslizando, y dice «2 / 4».
+- Sale **la primera vez**, después del arranque y antes del acceso (no enseña nada privado). Se puede **repetir** desde Ajustes.
+- Una prueba comprueba que el tutorial **nombra cada tecla** de la vista 3D (MODEL, H, LABELS, RULER, SHR, CMP).
+
+### 7.5 Ajustes
+
+> *Settings Screen: Add a settings view where users can customize preferences (default visualization model, color schemes, etc.).*
+
+**✅** La rueda dentada de la lista abre los Ajustes (`ui/SettingsScreen.kt`, `prefs/`), con **exactamente** los dos ejemplos del enunciado y más:
+
+| Grupo | Ajuste | Opciones |
+|-------|--------|----------|
+| AUSPEX DEFAULTS | **Modelo al abrir** («default visualization model») | Los cuatro de VII.1 |
+| | Hidrógenos al abrir | Visibles / ocultos |
+| PICT-DISPLAY | Tema | Oscuro / claro / como el móvil |
+| | **Colores de los átomos** («color schemes») | **Jmol** o **RasMol** (las dos tablas CPK de referencia, comprobadas el 21-11-2026) |
+| VOX-CASTER | Sonidos | Sí / no |
+| NOVITIATE | Repetir el tutorial | |
+
+Se guardan en el móvil y se aplican al abrir la siguiente molécula.
+
+### 7.6 Una nota sobre el lore
+
+La app habla **en el idioma del Mechanicus**: «Pict-capture ready», «AUSPEX READOUT», «The Noosphere is Silent», «Data-Vault Index». Es una decisión de diseño, no un descuido. Pero los evaluadores **pueden no conocer** Warhammer 40k, y esto es ante todo un proyecto de 42. La regla que sigue la app:
+
+- **El lore va en lo decorativo:** títulos de paneles, pestañas, títulos de diálogos.
+- **La información va en palabras claras**, y donde el enunciado da el texto, **con su texto exacto**: el diálogo de un error se titula «The Noosphere is Silent», pero su mensaje es «No internet connection. Please check your network.».
+
+En la defensa basta una frase: *«el estilo es el de un ordenador del universo Warhammer 40k: el lenguaje del decorado viene de ahí; los mensajes que importan están en inglés llano»*.
 
 ## 8. VII.3 Interacción molecular
 
-> *Highlight atoms of the same element, bond information (type and length), measure distances and angles, labels, center with double tap.*
+> *Enhanced Molecular Interactions. Add advanced interaction features for exploring molecular structures.*
 
-| Exigencia | Lo que hay | Estado |
-|-----------|-----------|--------|
-| **Resaltar el mismo elemento** | Seleccionar un átomo pone un halo dorado en **todos** los de su elemento; o se elige el elemento en la leyenda | ✅ |
-| **Información de enlaces** | Tocar una varilla: «C1 – O2 · Double bond» (sencillo, doble, triple, aromático), los elementos que une y la **longitud** en Å | ✅ |
-| **Medir distancias y ángulos** | **RULER**: 2 átomos → distancia; 3 → ángulo; 4 → **torsión** (ángulo diedro), con líneas entre ellos | 🟢 |
-| **Etiquetas** | **LABELS**: el símbolo de cada átomo, en 3D, siempre de cara a la cámara y en la cara visible de la bola (una imagen **por elemento**, no por átomo: 256 etiquetas serían 64 MB) | 🟢 |
-| **Centrar con doble toque** | Doble toque en un átomo: la cámara **orbita alrededor de él**, deslizándose; doble toque en el vacío: vuelve a la molécula entera | ✅ |
-| Además | Ocultar/mostrar los **hidrógenos** (H) | ✅ |
+Dónde: `ui/MoleculeScreen.kt`, `scene/Measurement.kt`, `ui/MeasureText.kt`, `ui/BondText.kt`, `scene/AtomLabels.kt`, `scene/SceneFraming.kt`; documentos 15, 16 y 19.
 
-Dónde: `ui/MoleculeScreen.kt`, `scene/Measurement.kt`, `ui/MeasureText.kt`, `ui/BondText.kt`, `scene/AtomLabels.kt`; documentos 15, 16, 19.
+### 8.1 Resaltar los átomos del mismo elemento
+
+> *Atom Highlighting: When hovering over or selecting an atom, highlight all atoms of the same element type.*
+
+**✅** Al **seleccionar** un átomo (en un móvil no hay *hover*), cada átomo **de su elemento** recibe un **halo dorado**; el seleccionado, uno verde. Los átomos **conservan** su color CPK: el halo va alrededor. Además se puede elegir el elemento **en la leyenda** sin tocar ningún átomo; tocarlo otra vez lo apaga.
+
+### 8.2 Información del enlace
+
+> *Bond Information: Display bond types (single, double, triple) and bond lengths when tapping on bonds.*
+
+**✅** Tocar una **varilla**: un tubo translúcido la rodea y el panel dice «C1 – O2 · **Double bond**» (también *Single*, *Triple*, *Aromatic*), los elementos que une y la **longitud** en Å, calculada de las coordenadas. El tipo viene de la columna `value_order` del `.cif`. La zona táctil de la varilla es la propia varilla, así que se distingue de los átomos.
+
+### 8.3 Medir
+
+> *Measurement Tools: Allow users to measure distances between atoms or angles between bonds.*
+
+**🟢** La tecla **RULER** cambia los toques a «medir»:
+
+| Átomos tocados | Medida |
+|----------------|--------|
+| 2 | **Distancia** (Å) |
+| 3 | **Ángulo** en el átomo del medio (°): el ángulo entre dos enlaces cuando los tres están enlazados |
+| 4 | **Torsión** (ángulo diedro, °), que el enunciado no pide |
+
+Los átomos medidos tienen halo y van unidos por una línea; el panel RULER enseña los átomos y las medidas. Tocar el vacío empieza de nuevo. Las fórmulas (producto escalar, `atan2` para la torsión con su signo) son puras y están probadas.
+
+### 8.4 Etiquetas
+
+> *Atom Labels: Option to display element symbols directly on atoms in the 3D view (toggleable).*
+
+**🟢** La tecla **LABELS** (encendida / apagada) escribe el **símbolo** de cada átomo **sobre él, en 3D**:
+- de cara a la cámara siempre (*billboard*);
+- colocada en la **cara visible** de la bola, para que la bola no la tape;
+- cuando la cámara gira, solo se mueven las etiquetas que lo necesitan.
+- **Memoria:** una imagen **por elemento** compartida por todos sus átomos. 256 etiquetas de texto serían 256 imágenes, unos 64 MB.
+
+### 8.5 Centrar en un átomo
+
+> *Center on Atom: Double-tap an atom to center the camera on it with a smooth animation.*
+
+**✅** **Doble toque** en un átomo: la cámara **planea** (~0,6 s) hasta tenerlo en el centro y desde entonces **gira alrededor de él**; el átomo queda seleccionado. **Doble toque en el vacío:** vuelve, también planeando, a la molécula entera. El doble toque de SceneView para hacer zoom está desactivado a propósito, porque aquí el doble toque significa «centrar».
 
 ## 9. VII.4 Rendimiento y caché
 
-> *Local cache of .cif files, lazy loading, background parsing with progress, memory management, guaranteed 60 FPS.*
+> *Performance and Caching. Optimize the application for better performance and offline capability.*
 
-| Exigencia | Lo que hay | Estado |
-|-----------|-----------|--------|
-| **Caché local** | Cada `.cif` descargado se guarda en la caché de la app (`net/LigandCache.kt`): **30 días** sin preguntar al servidor, como mucho **20 MB**, borrando lo más viejo. **Sin conexión**, abre lo que ya se vio («AUSPEX // OFFLINE ARCHIVE») | ✅ |
-| **Carga perezosa** | `LazyColumn`; la escena se **monta por lotes**: átomos primero, luego enlaces, un lote por fotograma, con un tamaño de lote que se adapta a lo que tardan los fotogramas, y una barra **ASSEMBLY 312 / 511** | ✅ |
-| ***Parsing* en segundo plano con progreso** | `Dispatchers.IO`; las **etapas** Archive / Connect / Download / Parse con porcentaje y KB; Cancel en cualquier momento | ✅ |
-| **Memoria** | **Nivel de detalle** según el tamaño: menos triángulos por bola cuanto más grande es la molécula, con un presupuesto de 204 800 triángulos (`scene/MeshDetail.kt`); **un material por elemento**, no por átomo; una imagen de etiqueta por elemento; tope de 2 MB por fichero descargado | ✅ |
-| **60 FPS** | Contador de FPS siempre visible; **IDLE en reposo** comprobado en el A33 (documento 21, §18-20) | ✅ |
+Documentos 12, 13 y 20, y el documento 21, §18-20.
 
-Documentos 12, 13, 20.
+### 9.1 Caché local
+
+> *Local Caching: Cache downloaded .cif files locally so previously viewed ligands can be accessed offline.*
+
+**✅** Cada `.cif` descargado se guarda en la caché de la app (`net/LigandCache.kt`, `FileLigandCache`):
+- **30 días** sin volver a preguntar al servidor (las definiciones del CCD casi nunca cambian);
+- como mucho **20 MB**: al pasar, se borran los más viejos;
+- se escribe en un fichero temporal y luego se **renombra**, así que un corte a medias nunca deja un fichero roto;
+- **sin conexión**, abre cualquier ligando ya visto, y la pestaña lo dice: «AUSPEX // OFFLINE ARCHIVE»;
+- en la lista, esos ligandos llevan **ARCHIVED**.
+
+🎯 Modo avión → abrir un ligando ya visto (se abre) y uno nuevo (diálogo «No internet connection»).
+
+### 9.2 Carga perezosa
+
+> *Lazy Loading: Implement efficient lazy loading for the ligand list if it contains many items.*
+
+**✅** La lista es un **`LazyColumn`**: solo **compone las filas visibles** (unas diez de 1243), y las reutiliza por su clave. La información de cada celda se lee de un índice local; **nada** se descarga para pintar la lista. Además, la escena 3D también es «perezosa»: se **monta por lotes** (9.4).
+
+### 9.3 *Parsing* en segundo plano con progreso
+
+> *Background Parsing: Parse .cif files on a background thread with progress indication.*
+
+**✅** La descarga y el *parsing* corren en **`Dispatchers.IO`** (`loading/LigandLoader.kt`); el hilo principal no se bloquea nunca. El **progreso** se ve en el diálogo de carga (`loading/LoadStage.kt`, `ui/LoadStageText.kt`):
+
+```
+[OK] Archive     (¿está en el móvil?)
+[OK] Connect
+[..] Download    62 % · 4.6 / 7.4 KB
+[  ] Parse       atoms and bonds
+```
+
+**Cancel** detiene el trabajo en cualquier momento. Cada etapa llega del hilo de trabajo y **se escribe en el hilo principal**: una etapa que llega tarde, de una carga cancelada, no puede volver a enseñar el indicador.
+
+### 9.4 Memoria y nivel de detalle
+
+> *Memory Management: Implement efficient memory management for large molecules, possibly using level-of-detail (LOD) techniques.*
+
+**✅**
+- **LOD** (`scene/MeshDetail.kt`): cuantos más átomos tiene la molécula, **menos triángulos** por bola y menos caras por varilla, dentro de un **presupuesto de 204 800 triángulos**. Se decide por el tamaño de la **molécula**, no de lo visible: ocultar los hidrógenos no reconstruye todas las mallas.
+- **Montaje por lotes** (`scene/Assembly.kt`): los nodos se crean **un lote por fotograma**, primero los átomos y luego los enlaces, con un lote que **se adapta** a lo que tardan los fotogramas. La pantalla no se congela con una molécula grande, y la barra **ASSEMBLY 312 / 511** lo enseña.
+- **Compartir lo compartible:** un **material por elemento**, no por átomo; una **imagen de etiqueta por elemento**.
+- **Topes:** 2 MB por fichero descargado (más es imposible para un ligando: se rechaza como `TooLarge`); 20 MB de caché.
+
+### 9.5 60 FPS garantizados
+
+> *60 FPS Guarantee: Ensure smooth 60 FPS rendering even for complex molecules with many atoms.*
+
+**✅** Comprobado en el A33:
+- Un **contador de FPS** siempre visible (`scene/FpsMeter.kt`): verde ≥ 55, ámbar, rojo < 30, e **IDLE** en reposo. Filament solo dibuja cuando algo cambia, así que en reposo no gasta batería.
+- **Con moléculas grandes** (15P), el giro va a la frecuencia de la pantalla.
+- El IDLE **de verdad** costó tres rondas en el móvil, con un diagnóstico en Logcat (`SwiftyFrames`). Eran recomposiciones que pedían fotogramas sin que nada se moviera: el texto del contador, que cambiaba de ancho, y la escena dentro de un `BoxWithConstraints` (documento 21, §18-20). Es una buena historia para la presentación.
 
 ## 10. VII.5 Compartir y exportar ampliado
 
-> *Custom share message (name, number of atoms, formula), multiple formats, video of the rotation, favourites, comparison view of two molecules.*
+> *Extended Sharing and Export. Enhance the sharing capabilities of your application.*
 
-| Exigencia | Lo que hay | Estado |
-|-----------|-----------|--------|
-| **Mensaje personalizado** | «Ligand ATP · ADENOSINE-5'-TRIPHOSPHATE / C10H16N5O13P3 · 47 atoms · 49 bonds / Viewed in Swifty Proteins». La **fórmula** se cuenta de los átomos (Hill) y se comprobó contra la de RCSB en los **1242** ligandos: 1242 iguales | ✅ |
-| **Varios formatos** | Ocho entradas en SHR: PNG, JPEG, galería, **`.cif`** original, **`.mol`** (MDL V2000, validado con RDKit en los 1242), **modelo 3D `.glb`** (glTF 2.0; validador de Khronos: 0 errores), vídeo y vídeo a la galería | 🟢 |
-| **Vídeo de la rotación** | **Una vuelta completa en 6 s a 30 fps**, MP4, con el `SceneRecorder` de SceneView (sin grabar la pantalla: ni diálogo de consentimiento, ni paneles en el vídeo). Gira la **molécula**, no la cámara; el rótulo va dentro del fotograma; se comparte o va a Movies/Swifty Proteins; Cancel o Atrás lo anulan y borran | 🟢 |
-| **Favoritos** | La estrella en la celda y en la molécula; el filtro «solo favoritos»; **por cuenta**, cada usuario los suyos | ✅ |
-| **Comparar dos moléculas** | **CMP** → elegir otra → **CONCORDANCE**: dos escenas 3D lado a lado, cada una con su FPS; H y **SPIN** (las dos giran juntas, con el mismo ángulo en cada fotograma) para las dos. Debajo, una tabla: fórmula, **masa** (comprobada contra el CCD en los 1241, ≤ 0,06 g/mol), átomos, pesados, enlaces, **anillos**, aromáticos, carga, tamaño en Å, cada elemento (un toque lo ilumina en las dos) y el parecido de composición | 🟢 |
+Dónde: `share/`, `export/`, `ui/CompareScreen.kt`, `molecule/Comparison.kt`, `molecule/AtomicMass.kt`, `prefs/FavoritesStore.kt`; documentos 15, 16, 18, 22 y 24.
 
-Dónde: `share/`, `export/`, `ui/CompareScreen.kt`, `molecule/Comparison.kt`, `molecule/AtomicMass.kt`; documentos 15, 16, 18, 22, 24.
+### 10.1 Mensaje propio
+
+> *Custom Share Messages: When sharing, include a custom message with the ligand name, number of atoms, and molecular formula.*
+
+**✅** Con cada imagen o fichero va este texto (`share/ShareText.kt`):
+
+```
+Ligand ATP · ADENOSINE-5'-TRIPHOSPHATE      ← el nombre
+C10H16N5O13P3 · 47 atoms · 49 bonds         ← la fórmula y el número de átomos (y de enlaces)
+Viewed in Swifty Proteins
+```
+
+- **El nombre** viene del propio `.cif` (`_chem_comp.name`), limpio.
+- **La fórmula** se **cuenta** de los átomos (orden de Hill) y se comprobó contra la de RCSB en los **1242** ligandos: **1242 iguales**.
+- La imagen lleva además una **banda** con los mismos datos.
+
+### 10.2 Varios formatos
+
+> *Multiple Export Formats: Allow exporting the view as different image formats (PNG, JPEG) or even as a 3D model file.*
+
+**🟢** El menú SHR tiene **ocho** entradas (`share/ExportFormat.kt`):
+
+| Entrada | Formato | Nota |
+|---------|---------|------|
+| Share image | **PNG** | Sin pérdida |
+| Share image | **JPEG** | Más ligero |
+| Save to gallery | PNG | Álbum «Swifty Proteins» |
+| Share ligand file | `.cif` | El original de RCSB |
+| Share chemical model | **`.mol`** (MDL V2000) | Abre en cualquier programa de química; validado con **RDKit** en los 1242 |
+| Share 3D model | **`.glb`** (glTF 2.0) | **El «3D model file» del enunciado**: el modelo con el modelo de visualización y los colores actuales; el validador oficial de Khronos da **0 errores** |
+| Share video / Save video to gallery | MP4 | 10.3 |
+
+### 10.3 Vídeo
+
+> *Video Recording: Record a short video of the molecule rotating and share it.*
+
+**🟢** **Una vuelta completa en 6 s, a 30 fps**, en MP4 (documento 22):
+- Con el **`SceneRecorder`** de SceneView: Filament dibuja la escena **una segunda vez** directamente en el codificador de vídeo. **No** se graba la pantalla: no hay diálogo de consentimiento de Android ni servicio en primer plano, y el vídeo no lleva paneles ni barras del sistema.
+- **Gira la molécula, no la cámara**, a velocidad constante: el vídeo se puede repetir en bucle sin salto.
+- El **rótulo** (nombre, fórmula, átomos) va **dentro** del fotograma.
+- Mientras graba: «● REC 2.4 / 6.0 s» y **Cancel**, y los toques se ignoran.
+- Se **comparte** (`video/mp4`: WhatsApp, Telegram…) o se **guarda** en Movies/Swifty Proteins. Cancel o Atrás lo anulan y borran el fichero a medias.
+
+### 10.4 Favoritos
+
+> *Favorites System: Allow users to favorite ligands and maintain a favorites list for quick access.*
+
+**✅**
+- **Marcar:** la estrella ☆/★ en cada celda y en la molécula.
+- **La lista de acceso rápido:** la estrella junto al buscador muestra **solo los favoritos**, y se puede seguir buscando dentro de ellos.
+- **Por cuenta:** cada usuario tiene los suyos, y al bloquear la app desaparecen hasta que alguien entra.
+- Se guardan en el móvil (`prefs/FavoritesStore.kt`).
+
+### 10.5 Comparar dos moléculas
+
+> *Comparison View: Display two molecules side-by-side for comparison.*
+
+**🟢** **CMP** en la molécula → elegir otra (el mismo buscador) → **CONCORDANCE** (documento 24):
+- **Lado a lado:** dos escenas 3D, cada una con su **FPS**. **H** actúa en las dos; **SPIN** las hace **girar juntas**, con el mismo ángulo en cada fotograma.
+- **Para comparar:** una tabla en dos columnas, la izquierda y la derecha como las escenas:
+  - fórmula;
+  - **masa** (pesos de la IUPAC, comprobados contra el CCD en los **1241** ligandos: ≤ 0,06 g/mol);
+  - átomos, átomos pesados, enlaces;
+  - **anillos** (número ciclomático: enlaces − átomos + piezas);
+  - enlaces aromáticos, carga, tamaño en Å;
+  - cada elemento con sus dos cuentas, y un toque en él lo ilumina **en las dos** escenas;
+  - el **parecido de composición** (Tanimoto de las fórmulas).
+
+  El valor mayor de cada fila va en oro.
 
 ---
 
