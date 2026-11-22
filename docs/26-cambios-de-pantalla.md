@@ -1,6 +1,6 @@
 # 26 · Cambios de pantalla: encender, barrer, cortar
 
-> **Estado:** **escrito**. Sustituye la mitad «apagar» del tubo del documento 23. Reglas puras **probadas en la JVM** (631 pruebas en total; 14 nuevas; 37 mutantes, todos muertos al final). El cambio entre pantallas es un **barrido del haz**: una línea brillante borra la pantalla vieja de arriba abajo y vuelve a bajar dibujando la nueva, 220 ms (§3). Las cuatro versiones anteriores se describen en §3.3. El dibujo del pulso, el arranque que espera al tubo y el diálogo que espera en una carga silenciosa **compilan contra *stubs*** y pasan las reglas de Compose; **sin probar en el móvil** (§8).
+> **Estado:** **escrito**. Sustituye la mitad «apagar» del tubo del documento 23. Reglas puras **probadas en la JVM** (631 pruebas en total; 14 nuevas; 38 mutantes, todos muertos al final). El cambio entre pantallas es un **barrido del haz**: una línea brillante borra la pantalla vieja de arriba abajo y vuelve a bajar dibujando la nueva, 220 ms (§3). Las cuatro versiones anteriores se describen en §3.3. El dibujo del barrido, el arranque que espera al tubo y el diálogo que espera en una carga silenciosa **compilan contra *stubs*** y pasan las reglas de Compose; **sin probar en el móvil** (§8).
 
 ## Índice
 
@@ -166,9 +166,12 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 | `CrtTransitionTest` | 1 (−2) | Solo queda el encendido: tiempo, desde la mitad, reloj hacia atrás, por debajo de 600 ms |
 | `GlintTest` | (cambiada) | La primera pasada del **destello** de la cabecera espera al encendido y al barrido |
 
-**Mutantes (19, muertos):**
-- (primera versión) estática incompleta en el intercambio, intercambio tardío, reinicio desde cero, barra antes de tiempo, cambio largo;
+**Mutantes (38, muertos):**
+- (estática) estática incompleta en el intercambio, intercambio tardío, reinicio desde cero, barra antes de tiempo, cambio largo;
 - (pulso de luz) luz incompleta en el intercambio, caída en línea recta, 320 ms, reinicio desde cero, líneas de barrido a tope todo el tiempo;
+- (parpadeo) resplandor sobre la pantalla vieja, pico sin escalar, negro que se levanta en línea recta, reinicio desde cero, 320 ms, y un resplandor **apagado** (0,3) que al principio **sobrevivió**: se añadió el mínimo de 0,5;
+- (pulso oscuro) pulso incompleto en el intercambio, caída en línea recta, 320 ms, reinicio desde cero, líneas a tope todo el tiempo;
+- (barrido) con aceleración, una franja sin tapar abajo, el negro al otro lado de la línea, reinicio que no distingue borrar de dibujar, demasiado rápido (150 ms), demasiado lento (400 ms), pasadas desiguales, y 220 ms cuando el tope era 160 (al volver a 220 se cambió la prueba, no el código);
 - corte para lo archivado, corte desde cualquier pantalla, comparación sin origen;
 - mínimo también para lo silencioso, resto negativo, sin espera, etapas que pierden el silencio, silencioso que espera;
 - la misma etiqueta de sonido.
