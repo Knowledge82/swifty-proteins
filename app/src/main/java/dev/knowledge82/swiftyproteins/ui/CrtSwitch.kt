@@ -31,8 +31,8 @@ import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
  * - the COLD START: the tube switches ON over the boot screen, a dot that stretches into a line that opens into the
  *   picture ([CrtTransition]). [content] is told when the tube is fully on, so the boot sequence starts only then;
  * - a molecule that was just DOWNLOADED: a CUT, at once (its loading dialog was the transition) ([Navigation.change]);
- * - every other change: the tube BLINKS, to black and back up under a pale green afterglow, with the screens swapped
- *   in the black ([ChannelChange]; document 26, §3, also tells the two versions before it).
+ * - every other change: a DARK PULSE, the glass sinking for an instant into a smouldering phosphor green, with the
+ *   screens swapped under it ([ChannelChange]; document 26, §3, also tells the three versions before it).
  *
  * WHY A CURTAIN AND NOT A TRANSFORM. The molecule screen holds a SurfaceView (Filament draws into its own window
  * surface): Compose's transforms and alpha do not reach it reliably. So nothing is transformed: everything is DRAWN
@@ -44,8 +44,8 @@ import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
  * @param target       the screen the app wants now ([Navigation.screenOf])
  * @param startOff     true on a cold start: the app opens with the tube switching on
  * @param reduceMotion the user asked the system for no animations: screens change at once
- * @param content      draws one screen, and whether the tube is fully ON ([on]); while it goes dark, the screen it
- *                     is given may be the OLD one
+ * @param content      draws one screen, and whether the tube is fully ON ([on]); while the pulse rises, the screen
+ *                     it is given may be the OLD one
  */
 @Composable
 fun CrtSwitch(
@@ -54,12 +54,12 @@ fun CrtSwitch(
     reduceMotion: Boolean,
     content: @Composable (screen: Screen, on: Boolean) -> Unit,
 ) {
-    // The screen on the tube. It lags behind [target] while it goes dark: the old screen keeps drawing until the black
+    // The screen on the tube. It lags behind [target] while the pulse rises: the old screen keeps drawing until the pulse
     // hides it, and it carries its own data (a molecule screen carries its molecule).
     var shown by remember { mutableStateOf(target) }
     // The switching on (cold start only): 1 = off, 0 = fully on.
     val cover = remember { mutableFloatStateOf(if (startOff && !reduceMotion) 1f else 0f) }
-    // The blink of a change of screen: its progress 0..1, or NONE when none is running.
+    // The pulse of a change of screen: its progress 0..1, or NONE when none is running.
     val channel = remember { mutableFloatStateOf(NONE) }
 
     LaunchedEffect(target.key, reduceMotion) {
@@ -82,9 +82,9 @@ fun CrtSwitch(
                 shown = target
             }
             Navigation.Change.CHANNEL -> {
-                // A change in the middle of another goes on from the black already on screen, never from a picture.
+                // A change in the middle of another goes on from the pulse already on screen, never from a picture.
                 val running = channel.floatValue
-                val from = if (running >= 0f) ChannelChange.restartAt(ChannelChange.frame(running).black) else 0f
+                val from = if (running >= 0f) ChannelChange.restartAt(ChannelChange.frame(running).pulse) else 0f
                 changeChannel(channel, from) { shown = target }
             }
         }
@@ -121,7 +121,7 @@ private suspend fun switchOn(cover: MutableFloatState) {
     }
 }
 
-/** A blink from progress [from] to the end; [swap] runs once, the frame the black is complete. */
+/** A pulse from progress [from] to the end; [swap] runs once, the frame the pulse is complete. */
 private suspend fun changeChannel(channel: MutableFloatState, from: Float, swap: () -> Unit) {
     var swapped = ChannelChange.swapped(from)
     if (swapped) swap()
@@ -138,7 +138,7 @@ private suspend fun changeChannel(channel: MutableFloatState, from: Float, swap:
     channel.floatValue = NONE
 }
 
-/** Everything over the screen: the switching on, or the blink of a change of screen. Nothing at rest. */
+/** Everything over the screen: the switching on, or the pulse of a change of screen. Nothing at rest. */
 @Composable
 private fun TubeCurtain(cover: MutableFloatState, channel: MutableFloatState) {
     Canvas(Modifier.fillMaxSize()) {
@@ -146,25 +146,23 @@ private fun TubeCurtain(cover: MutableFloatState, channel: MutableFloatState) {
         val c = cover.floatValue
         val p = channel.floatValue
         if (c > 0f) drawCrt(CrtTransition.frame(c, size.width, size.height, LINE_DP.dp.toPx()))
-        if (p >= 0f) drawBlink(ChannelChange.frame(p))
+        if (p >= 0f) drawPulse(ChannelChange.frame(p))
     }
 }
 
 /**
- * The blink of a change of screen: the pale green afterglow over the new picture (a radial gradient, brightest in the
- * middle, as a tube glows), the black glass over it, and faint scanlines. At the swap the black is complete: nothing
- * of either screen shows through.
+ * The dark pulse of a change of screen: a smouldering phosphor green, brighter in the middle and nearly black at the
+ * edges (a radial gradient, as a tube glows), with dark scanlines across it. Both colours are opaque: at the swap
+ * nothing of either screen shows through.
  */
-private fun DrawScope.drawBlink(f: ChannelChange.Frame) {
+private fun DrawScope.drawPulse(f: ChannelChange.Frame) {
+    if (f.pulse <= 0f) return
     val w = size.width
     val h = size.height
-    if (f.glow > 0f) {
-        drawRect(
-            Brush.radialGradient(listOf(GLOW_CORE, GLOW_EDGE), center = Offset(w / 2f, h / 2f), radius = maxOf(w, h) * 0.75f),
-            alpha = f.glow,
-        )
-    }
-    if (f.black > 0f) drawRect(GLASS, alpha = f.black)
+    drawRect(
+        Brush.radialGradient(listOf(PULSE_CORE, PULSE_EDGE), center = Offset(w / 2f, h / 2f), radius = maxOf(w, h) * 0.75f),
+        alpha = f.pulse,
+    )
     if (f.scan > 0f) {
         val step = 3.dp.toPx()
         var y = 0f
@@ -233,6 +231,6 @@ private const val LINE_DP = 2           // the line a tube shows just before it 
 private const val HALO_DP = 28
 private const val HALO_ALPHA = 0.45f
 private const val DOT_DP = 10
-// The afterglow: pale phosphor green, whiter in the middle.
-private val GLOW_CORE = Color(0xFFB4F5C2)
-private val GLOW_EDGE = Color(0xFF3E8F55)
+// The dark pulse: smouldering phosphor green in the middle, almost black at the edges (both opaque).
+private val PULSE_CORE = Color(0xFF2E6B3E)
+private val PULSE_EDGE = Color(0xFF020604)
