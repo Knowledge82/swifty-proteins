@@ -31,8 +31,8 @@ import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
  * - the COLD START: the tube switches ON over the boot screen, a dot that stretches into a line that opens into the
  *   picture ([CrtTransition]). [content] is told when the tube is fully on, so the boot sequence starts only then;
  * - a molecule that was just DOWNLOADED: a CUT, at once (its loading dialog was the transition) ([Navigation.change]);
- * - every other change: a SWEEP, a bright line that wipes the old screen to black and then draws the new one, top to
- *   bottom ([ChannelChange]; document 26, §3, also tells the four versions before it).
+ * - every other change: an INTERLACED REDRAW, the old screen going out in thin bands (odd ones, then even ones) and
+ *   the new one coming back the same way ([ChannelChange]; document 26, §3, also tells the five versions before it).
  *
  * WHY A CURTAIN AND NOT A TRANSFORM. The molecule screen holds a SurfaceView (Filament draws into its own window
  * surface): Compose's transforms and alpha do not reach it reliably. So nothing is transformed: everything is DRAWN
@@ -44,8 +44,8 @@ import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
  * @param target       the screen the app wants now ([Navigation.screenOf])
  * @param startOff     true on a cold start: the app opens with the tube switching on
  * @param reduceMotion the user asked the system for no animations: screens change at once
- * @param content      draws one screen, and whether the tube is fully ON ([on]); while the line wipes, the screen it
- *                     is given may be the OLD one
+ * @param content      draws one screen, and whether the tube is fully ON ([on]); while its bands go out, the screen
+ *                     it is given may be the OLD one
  */
 @Composable
 fun CrtSwitch(
@@ -54,12 +54,12 @@ fun CrtSwitch(
     reduceMotion: Boolean,
     content: @Composable (screen: Screen, on: Boolean) -> Unit,
 ) {
-    // The screen on the tube. It lags behind [target] while the line wipes: the old screen keeps drawing until the black
+    // The screen on the tube. It lags behind [target] while its bands go out: the old screen keeps drawing until the black
     // covers it, and it carries its own data (a molecule screen carries its molecule).
     var shown by remember { mutableStateOf(target) }
     // The switching on (cold start only): 1 = off, 0 = fully on.
     val cover = remember { mutableFloatStateOf(if (startOff && !reduceMotion) 1f else 0f) }
-    // The sweep of a change of screen: its progress 0..1, or NONE when none is running.
+    // The interlaced redraw of a change of screen: its progress 0..1, or NONE when none is running.
     val channel = remember { mutableFloatStateOf(NONE) }
 
     LaunchedEffect(target.key, reduceMotion) {
@@ -82,7 +82,7 @@ fun CrtSwitch(
                 shown = target
             }
             Navigation.Change.CHANNEL -> {
-                // A change in the middle of another: a wipe goes on where it is; a drawing starts a new wipe.
+                // A change in the middle of another: going out goes on where it is; coming back starts a new pass out.
                 val running = channel.floatValue
                 val from = if (running >= 0f) ChannelChange.restartAt(running) else 0f
                 changeChannel(channel, from) { shown = target }
@@ -121,7 +121,7 @@ private suspend fun switchOn(cover: MutableFloatState) {
     }
 }
 
-/** A sweep from progress [from] to the end; [swap] runs once, the frame the screen is all black. */
+/** A redraw from progress [from] to the end; [swap] runs once, the frame the screen is all black. */
 private suspend fun changeChannel(channel: MutableFloatState, from: Float, swap: () -> Unit) {
     var swapped = ChannelChange.swapped(from)
     if (swapped) swap()
@@ -138,7 +138,7 @@ private suspend fun changeChannel(channel: MutableFloatState, from: Float, swap:
     channel.floatValue = NONE
 }
 
-/** Everything over the screen: the switching on, or the sweep of a change of screen. Nothing at rest. */
+/** Everything over the screen: the switching on, or the redraw of a change of screen. Nothing at rest. */
 @Composable
 private fun TubeCurtain(cover: MutableFloatState, channel: MutableFloatState) {
     Canvas(Modifier.fillMaxSize()) {
@@ -146,26 +146,24 @@ private fun TubeCurtain(cover: MutableFloatState, channel: MutableFloatState) {
         val c = cover.floatValue
         val p = channel.floatValue
         if (c > 0f) drawCrt(CrtTransition.frame(c, size.width, size.height, LINE_DP.dp.toPx()))
-        if (p >= 0f) drawSweep(ChannelChange.frame(p))
+        if (p >= 0f) drawInterlace(p)
     }
 }
 
 /**
- * The sweep of a change of screen: the black band (above the line while it wipes, below it while it draws), and the
- * line itself: a thin bright core with a soft phosphor glow above and below it.
+ * The interlaced redraw of a change of screen: one rectangle per band, black where the band is out, and a green blink
+ * over a band the instant it changes. About 240 bands on a phone: a few hundred rectangles per frame, for 200 ms.
  */
-private fun DrawScope.drawSweep(f: ChannelChange.Frame) {
+private fun DrawScope.drawInterlace(progress: Float) {
     val w = size.width
-    val h = size.height
-    val top = f.blackFrom * h
-    val bottom = f.blackTo * h
-    if (bottom > top) drawRect(GLASS, Offset(0f, top), Size(w, bottom - top))
-    val y = f.line * h
-    val glow = SWEEP_GLOW_DP.dp.toPx()
-    drawRect(Brush.verticalGradient(listOf(Color.Transparent, SWEEP_GLOW), startY = y - glow, endY = y), Offset(0f, y - glow), Size(w, glow))
-    drawRect(Brush.verticalGradient(listOf(SWEEP_GLOW, Color.Transparent), startY = y, endY = y + glow), Offset(0f, y), Size(w, glow))
-    val core = SWEEP_CORE_DP.dp.toPx()
-    drawRect(BEAM, Offset(0f, y - core / 2f), Size(w, core))
+    val bandPx = ChannelChange.BAND_DP.dp.toPx()
+    val count = ChannelChange.bandCount(size.height, bandPx)
+    for (k in 0 until count) {
+        val b = ChannelChange.band(k, count, progress)
+        val top = k * bandPx
+        if (b.black) drawRect(GLASS, Offset(0f, top), Size(w, bandPx))
+        if (b.blink > 0f) drawRect(BLINK, Offset(0f, top), Size(w, bandPx), alpha = b.blink)
+    }
 }
 
 /** The tube switching on (the cold start): black around a window that opens from a dot. */
@@ -226,7 +224,5 @@ private const val LINE_DP = 2           // the line a tube shows just before it 
 private const val HALO_DP = 28
 private const val HALO_ALPHA = 0.45f
 private const val DOT_DP = 10
-// The sweep: a 2 dp line of the beam's colour, with 10 dp of soft phosphor glow on each side.
-private const val SWEEP_CORE_DP = 2
-private const val SWEEP_GLOW_DP = 10
-private val SWEEP_GLOW = Color(0xA6C9FFD3)   // pale phosphor green, ~65 %
+// The blink of a band as it changes: pale phosphor green.
+private val BLINK = Color(0xFFC9FFD3)

@@ -7,71 +7,74 @@ import org.junit.Test
 
 class ChannelChangeTest {
 
-    private fun covered(f: ChannelChange.Frame) = f.blackTo - f.blackFrom
+    private val n = 240   // about a phone screen in 4 dp bands
+
+    private fun blackCount(p: Float) = (0 until n).count { ChannelChange.band(it, n, p).black }
 
     @Test
-    fun theScreenIsAllBlackAtTheSwapAndClearAtBothEnds() {
-        assertEquals(0f, covered(ChannelChange.frame(0f)), 0f)
-        assertEquals(0f, covered(ChannelChange.frame(1f)), 0.0001f)
-        // At the swap the black covers everything: neither screen shows while they change places.
-        val swap = ChannelChange.frame(ChannelChange.SWAP_AT)
-        assertEquals(0f, swap.blackFrom, 0f)
-        assertEquals(1f, swap.blackTo, 0f)
+    fun everyBandIsBlackAtTheSwapAndNoneAtEitherEnd() {
+        assertEquals(0, blackCount(0f))
+        assertEquals(n, blackCount(ChannelChange.SWAP_AT))
+        assertEquals(0, blackCount(1f))
+        // The end is clean: no blink left over the new picture.
+        assertTrue((0 until n).all { ChannelChange.band(it, n, 1f).blink == 0f })
         assertFalse(ChannelChange.swapped(ChannelChange.SWAP_AT - 0.01f))
         assertTrue(ChannelChange.swapped(ChannelChange.SWAP_AT))
     }
 
     @Test
-    fun theLineWipesDownThenDrawsDownAndIsAlwaysAtTheEdgeOfTheBlack() {
-        var lastLine = -1f
+    fun theOddBandsGoFirstThenTheEvenOnesTopToBottom() {
+        // Just before half way through going out: every odd band is out, no even band yet (the interlace).
+        val half = ChannelChange.SWAP_AT * 0.5f - 0.001f
+        for (k in 0 until n) assertEquals("band $k", k % 2 == 1, ChannelChange.band(k, n, half).black)
+        // Within a pass, a band never changes before the one above it.
+        for (k in 3 until n) assertTrue(ChannelChange.bandTime(k, n) >= ChannelChange.bandTime(k - 2, n))
+        // Every band changes inside its half (always before its end).
+        for (k in 0 until n) assertTrue(ChannelChange.bandTime(k, n) in 0f..0.999999f)
+    }
+
+    @Test
+    fun goingOutOnlyAddsBlackAndComingBackOnlyRemovesIt() {
+        var last = -1
         for (step in 0..1000) {
             val p = step / 1000f
-            val f = ChannelChange.frame(p)
-            if (p < ChannelChange.SWAP_AT) {
-                assertEquals("wiping: black from the top at $p", 0f, f.blackFrom, 0f)
-                assertEquals("the line leads the black at $p", f.blackTo, f.line, 0f)
-            } else {
-                assertEquals("drawing: black down to the bottom at $p", 1f, f.blackTo, 0f)
-                assertEquals("the line leads the picture at $p", f.blackFrom, f.line, 0f)
-            }
-            // Within each sweep the line only moves DOWN (it jumps back to the top once, at the swap).
-            if (p != ChannelChange.SWAP_AT && step > 0 && (p < ChannelChange.SWAP_AT) == ((step - 1) / 1000f < ChannelChange.SWAP_AT)) {
-                assertTrue("down at $p", f.line >= lastLine)
-            }
-            assertTrue(f.line in 0f..1f)
-            lastLine = f.line
+            val c = blackCount(p)
+            if (p <= ChannelChange.SWAP_AT) assertTrue("out at $p", c >= last) else assertTrue("back at $p", c <= last)
+            last = c
         }
     }
 
     @Test
-    fun theLineMovesAtAConstantSpeed() {
-        // A tube's beam scans evenly: equal times, equal distances (in each sweep).
-        val a = ChannelChange.frame(ChannelChange.SWAP_AT * 0.25f).line
-        val b = ChannelChange.frame(ChannelChange.SWAP_AT * 0.5f).line
-        assertEquals(0.25f, a, 0.0001f)
-        assertEquals(0.5f, b, 0.0001f)
-        val mid = ChannelChange.SWAP_AT + (1f - ChannelChange.SWAP_AT) / 2f
-        assertEquals(0.5f, ChannelChange.frame(mid).line, 0.0001f)
+    fun aBandBlinksGreenOnlyTheMomentItChanges() {
+        // Band 1 is the first to go out (odd, top): at the very start it blinks, a moment later it no longer does.
+        val atOnce = ChannelChange.band(1, n, 0.0001f)
+        assertTrue(atOnce.black)
+        assertEquals(ChannelChange.BLINK_OUT, atOnce.blink, 0f)
+        assertEquals(0f, ChannelChange.band(1, n, ChannelChange.SWAP_AT * 0.2f).blink, 0f)
+        // Coming back the blink is softer: over the new picture, not over the black.
+        assertTrue(ChannelChange.BLINK_IN < ChannelChange.BLINK_OUT)
+        // At any moment only a thin slice of the screen blinks: a line, not a flash.
+        for (step in 1 until 100) {
+            val p = step / 100f
+            val blinking = (0 until n).count { ChannelChange.band(it, n, p).blink > 0f }
+            assertTrue("$blinking bands blink at $p", blinking <= n / 10)
+        }
     }
 
     @Test
-    fun itIsQuickButCanBeFollowed() {
-        assertEquals(0f, ChannelChange.progress(0f, 0f), 0f)
+    fun itIsShortAndTheBandsFitTheScreen() {
         assertEquals(0.5f, ChannelChange.progress(0f, ChannelChange.MILLIS / 2), 0.001f)
         assertEquals(1f, ChannelChange.progress(0f, 60_000f), 0f)
-        assertEquals(0.3f, ChannelChange.progress(0.3f, -50f), 0f)   // a clock going backwards moves nothing
-        // The speed of the proposal, chosen on the A33: 150 ms was too fast for the eye to follow the line; much
-        // slower and it becomes a curtain that makes every Back wait. Each sweep about a tenth of a second.
-        assertTrue(ChannelChange.MILLIS in 200f..250f)
-        assertTrue(ChannelChange.MILLIS * ChannelChange.SWAP_AT in 80f..130f)
-        assertTrue(ChannelChange.MILLIS * (1f - ChannelChange.SWAP_AT) in 80f..130f)
+        assertEquals(0.3f, ChannelChange.progress(0.3f, -50f), 0f)
+        assertTrue(ChannelChange.MILLIS in 150f..250f)
+        assertEquals(240, ChannelChange.bandCount(2400f, 10f))
+        assertEquals(241, ChannelChange.bandCount(2405f, 10f))   // the last band is cut, never missing
+        assertEquals(1, ChannelChange.bandCount(5f, 10f))
     }
 
     @Test
-    fun aChangeDuringAnotherWipesOnOrStartsANewWipe() {
-        // Still wiping: it simply goes on, the black already hides that much of the leaving screen.
+    fun aChangeDuringAnotherGoesOutOnOrStartsOver() {
         assertEquals(0.2f, ChannelChange.restartAt(0.2f), 0f)
-        // Already drawing the new screen: a new wipe from the top.
         assertEquals(0f, ChannelChange.restartAt(ChannelChange.SWAP_AT), 0f)
         assertEquals(0f, ChannelChange.restartAt(0.8f), 0f)
     }

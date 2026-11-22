@@ -2,7 +2,7 @@
 
 > **Para qué sirve.** Recorre el enunciado **frase a frase**: primero la parte obligatoria (VI.1–VI.4), luego las instrucciones generales y por último los bonus (VII.1–VII.5). Para cada exigencia dice **si está hecha**, **cómo**, **en qué ficheros**, **por qué así** y **qué enseñar** en la defensa. Es la base de la presentación: cada apartado puede convertirse en una o dos diapositivas.
 >
-> **Estado de la app a 22-11-2026:** 631 pruebas automáticas en 63 clases, todas en verde; pruebas de mutación en cada regla nueva. Las rutas de código son relativas a `app/src/main/java/dev/knowledge82/swiftyproteins/`; las de recursos, a `app/src/main/`.
+> **Estado de la app a 22-11-2026:** 632 pruebas automáticas en 63 clases, todas en verde; pruebas de mutación en cada regla nueva. Las rutas de código son relativas a `app/src/main/java/dev/knowledge82/swiftyproteins/`; las de recursos, a `app/src/main/`.
 >
 > **Términos:** los conceptos técnicos (Argon2id, `CryptoObject`, IDLE, LOD, `SrcAtop`, número ciclomático…) y las palabras del *lore* de Warhammer 40k que usa la interfaz (Auspex, Noosphere, Pict-capture…) se explican en el [**glosario**](00-glosario.md), ordenado por temas; el *lore*, en su sección 22.
 >
@@ -533,8 +533,8 @@ Las que el enunciado pone fuera de las secciones y también se miran:
 
 | El enunciado dice | Lo que hay |
 |-------------------|-----------|
-| **Transitions between views** | Un televisor antiguo (`ui/CrtSwitch.kt`; documentos 23 y 26). Al **arrancar**, el tubo **se enciende**: un punto, una línea y la imagen. Entre pantallas, el **barrido del haz**: una línea de fósforo baja borrando la pantalla vieja a negro y vuelve a bajar dibujando la nueva, como un tubo que escribe su imagen (220 ms). Tras una **descarga**, el diálogo de carga ya es la transición y la molécula aparece directamente. Dentro del tutorial, las páginas **se deslizan** en la dirección del gesto |
-| **Animated loading states** | El arranque que se escribe línea a línea (después de que el tubo se encienda); en la carga, el **servo-cráneo que flota** con el sonido del módem, **al menos 2 s**, las etapas que se marcan `[OK]` y la barra con porcentaje; un ligando ARCHIVED se abre sin diálogo, con un barrido; al abrir la molécula, la barra **ASSEMBLY** mientras la escena se monta por lotes |
+| **Transitions between views** | Un televisor antiguo (`ui/CrtSwitch.kt`; documentos 23 y 26). Al **arrancar**, el tubo **se enciende**: un punto, una línea y la imagen. Entre pantallas, un **entrelazado**: la pantalla vieja sale en bandas finas, primero las impares y luego las pares, con un hilo verde que la recorre, y la nueva vuelve igual, como un tubo que escribe un cuadro entrelazado (200 ms). Tras una **descarga**, el diálogo de carga ya es la transición y la molécula aparece directamente. Dentro del tutorial, las páginas **se deslizan** en la dirección del gesto |
+| **Animated loading states** | El arranque que se escribe línea a línea (después de que el tubo se encienda); en la carga, el **servo-cráneo que flota** con el sonido del módem, **al menos 2 s**, las etapas que se marcan `[OK]` y la barra con porcentaje; un ligando ARCHIVED se abre sin diálogo, con un entrelazado; al abrir la molécula, la barra **ASSEMBLY** mientras la escena se monta por lotes |
 | **Micro-interactions** | El **destello** que recorre «Swifty Proteins» cada 6 s; el **cursor de consola** que parpadea en el buscador; el **halo** al seleccionar; la molécula que **se desliza** al nuevo centro cuando cambia un panel; la cámara que **planea** al orbitar un átomo; un **clic de relé** en cada tecla |
 
 - **Ninguna animación cuesta fotogramas en reposo:** cada una pide fotogramas solo mientras se mueve (documento 23, §6).
@@ -789,7 +789,7 @@ Todo compila y está probado en la JVM, pero **antes de la defensa** hay que ver
 
 | # | Qué | Apartado | Riesgo si falla |
 |---|-----|----------|-----------------|
-| 1 | El **negro del barrido** tapa también la escena 3D; el arranque espera al tubo; un ligando ARCHIVED se abre sin diálogo | 1.2, 3.4, VII.2 | Medio: la molécula se vería por encima del negro |
+| 1 | El **negro del entrelazado** tapa también la escena 3D; el arranque espera al tubo; un ligando ARCHIVED se abre sin diálogo | 1.2, 3.4, VII.2 | Medio: la molécula se vería por encima del negro |
 | 2 | **Guardar en la galería** (imagen) y compartir PNG | 4.6 | **Alto: es obligatorio** |
 | 3 | Desplazar con **dos dedos** | 4.5 | Bajo (recomendado, no obligatorio) |
 | 4 | Formatos `.cif` / `.mol` / `.glb` en otras apps | VII.5 | Bajo |
