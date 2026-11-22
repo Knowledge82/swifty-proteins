@@ -1,6 +1,13 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+}
+
+// keystore.properties (git-ignored, document 27): storeFile, storePassword, keyAlias, keyPassword. Null when absent.
+val releaseKeys: Properties? = rootProject.file("keystore.properties").takeIf { it.isFile }?.let { file ->
+    Properties().apply { file.inputStream().use { load(it) } }
 }
 
 android {
@@ -30,6 +37,17 @@ android {
             keyAlias = "androiddebugkey"
             keyPassword = "android"
         }
+        // The RELEASE key (document 27): its passwords and its path live in keystore.properties at the project root,
+        // which git ignores, and the key file itself lives OUTSIDE the repository. Without that file the release is
+        // built UNSIGNED (it cannot be installed): the secret never has to be in the repository for the build to work.
+        if (releaseKeys != null) {
+            create("release") {
+                storeFile = rootProject.file(releaseKeys.getProperty("storeFile"))
+                storePassword = releaseKeys.getProperty("storePassword")
+                keyAlias = releaseKeys.getProperty("keyAlias")
+                keyPassword = releaseKeys.getProperty("keyPassword")
+            }
+        }
     }
 
     testOptions {
@@ -42,9 +60,13 @@ android {
 
     buildTypes {
         release {
+            // R8 (shrinking and obfuscation) stays OFF (document 27): Filament and SceneView reach their classes through
+            // JNI and reflection, and keep rules written without testing on the phone could break the 3D in release
+            // only. The cost is a bigger APK; the speed comes from the release build itself (no debuggable runtime).
             optimization {
                 enable = false
             }
+            if (releaseKeys != null) signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {

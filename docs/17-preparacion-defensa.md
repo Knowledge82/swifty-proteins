@@ -28,6 +28,8 @@
 | 4 | El A33 cargado, con **huella** registrada, la app instalada y **una cuenta creada** | Puntos 4, 5, 7, 8 |
 | 5 | Saber poner el **modo avión** y abrir un ligando **nunca abierto** | Punto 11 (la caché abre sin red los ya vistos) |
 | 6 | Volumen a media altura o modo silencio, según la sala | Los sonidos (documento 14) |
+| 7 | La **release** instalada en el A33 (`assembleRelease`, documento 27) y una cuenta creada en ella | Más fluida que la debug: el FPS que se enseña es el real |
+| 8 | El repositorio del **campus** compila en una copia limpia (`git clone` + `./gradlew :app:testDebugUnitTest :app:assembleDebug`) | Lo que se evalúa es ese repositorio (documento 27, §9) |
 
 ---
 

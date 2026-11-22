@@ -1,5 +1,6 @@
 package dev.knowledge82.swiftyproteins.ui
 
+import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -268,7 +269,9 @@ fun MoleculeScene(
 
     val currentOnFrame by rememberUpdatedState(onFrame)
     // WHY frames are drawn (document 21, §19): a line a second in Logcat, tag SwiftyFrames, while the scene draws.
+    // Only in a DEBUGGABLE build (document 27): a release does not write its frame log, nor does the work for it.
     val diagnosis = remember { FrameDiagnosis() }
+    val debuggable = remember(context) { (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0 }
     // Which parameter made this function run again (document 21, §20): named in the Logcat line.
     val watched = listOf(
         molecule, representation, showHydrogens, selection, highlightElement, focus, measured, showLabels,
@@ -278,14 +281,14 @@ fun MoleculeScene(
     val previousWatched = remember { arrayOfNulls<Any?>(WATCHED.size) }
     val firstWatch = remember { booleanArrayOf(true) }
     SideEffect {
-        diagnosis.onSceneRecomposed(FrameDiagnosis.changes(WATCHED, previousWatched, watched, firstWatch[0]))
+        if (debuggable) diagnosis.onSceneRecomposed(FrameDiagnosis.changes(WATCHED, previousWatched, watched, firstWatch[0]))
         firstWatch[0] = false
     }
     val afterFrame: (Long) -> Unit = remember {
         { frameTime ->
             currentOnFrame(frameTime)
             val eye = cameraNode.worldPosition
-            diagnosis.onFrame(frameTime, eye.x, eye.y, eye.z)?.let { Log.d(FrameDiagnosis.LOG_TAG, it) }
+            if (debuggable) diagnosis.onFrame(frameTime, eye.x, eye.y, eye.z)?.let { Log.d(FrameDiagnosis.LOG_TAG, it) }
             if (labelNodes.isNotEmpty()) {
                 // The camera in the MOLECULE's own coordinates: the same as the world's at rest, turned while the
                 // turntable turns (document 22). Asked of the node itself, so no sign convention can be got wrong.
@@ -357,7 +360,7 @@ fun MoleculeScene(
             onDoubleTap = { _, node -> currentOnDoubleTap(ScenePick.of(node?.name)) },
         ),
     ) {
-        SideEffect { diagnosis.onContentRecomposed() }
+        SideEffect { if (debuggable) diagnosis.onContentRecomposed() }
         // The third light (SceneView only has parameters for two): the rim. In its own function: with the same lux,
         // Compose SKIPS it on a recomposition, so its setters (which ask for a frame each) do not run again.
         RimLight(look.rimLux)

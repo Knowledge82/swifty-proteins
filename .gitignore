@@ -15,3 +15,12 @@
 local.properties
 .kotlin/
 /.idea/
+
+# Release signing (document 27): the passwords file and any key file never enter the repository.
+keystore.properties
+*.jks
+*.keystore
+!app/debug.keystore
+# Python byte-code of the tools
+__pycache__/
+*.pyc

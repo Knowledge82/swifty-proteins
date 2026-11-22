@@ -137,6 +137,9 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D91 | **Tres cambios de pantalla**: encendido solo al arrancar, **corte** tras una descarga, **entrelazado** de 200 ms (bandas que salen y vuelven en dos pasadas, impares y pares) en todo lo demás; la estática, el pulso de luz, el parpadeo, el pulso oscuro y el barrido se descartaron; el tubo ya no se apaga | Decidida (sin probar en el móvil) | Documento 26. |
 | D92 | La pantalla de arranque **espera al tubo** para empezar su reloj | Decidida (sin probar en el móvil) | Documento 26. |
 | D93 | **Carga silenciosa** de lo archivado y **mínimo de 2 s** del diálogo de una descarga, en el `LigandLoader` | Decidida | Documento 26. |
+| D94 | **Firma de la release** con una clave propia leída de `keystore.properties` (ignorado), la clave fuera del repositorio; sin el fichero, release sin firmar | Decidida (sin compilar con Gradle aquí) | Documento 27. |
+| D95 | **R8 apagado** también en release | Decidida | Filament y SceneView: JNI y reflexión. Documento 27. |
+| D96 | **Diagnóstico de fotogramas solo en *debug*** (`FLAG_DEBUGGABLE`); el contador de FPS se queda | Decidida | Documento 27. |
 
 ---
 
@@ -151,10 +154,11 @@ tools/index/          índice de nombres y fórmulas de la lista: BuildLigandInd
 tools/sound/          síntesis de los sonidos: make_sounds.py (documento 14)
 gradle/, gradlew      wrapper de Gradle
 build.gradle.kts, settings.gradle.kts, gradle.properties
+keystore.properties.example   cómo apuntar la clave de la release (el real no se versiona)
 ```
 
 El proyecto Android se movió a la raíz al cerrar el spike (la rama `spike/3d` se conserva con la etiqueta `spike-3d-final`).
-`.kotlin/` y `/.idea/` no se versionan.
+`.kotlin/`, `/.idea/`, `build/`, `local.properties`, `keystore.properties`, las claves (`*.jks`) y `__pycache__/` no se versionan.
 
 ---
 
@@ -199,6 +203,7 @@ Cada documento explica la teoría, los riesgos, las alternativas y las trampas d
 | [`docs/24-comparar-dos-moleculas.md`](docs/24-comparar-dos-moleculas.md) | **Comparar dos moléculas**: el recorrido CMP → selector → carga → CONCORDANCE, la tabla (masa, anillos por número ciclomático, parecido de composición), las masas comprobadas contra el CCD, dos escenas a la vez y el giro sincronizado | **Escrito** (reglas probadas; sin probar en el móvil) |
 | [`docs/25-verificacion-del-enunciado.md`](docs/25-verificacion-del-enunciado.md) | **Verificación punto por punto** contra el enunciado: cada frase de la parte obligatoria, las instrucciones generales y los bonus, con cómo se cumple, dónde está, por qué así y qué enseñar; lo que falta ver en el móvil y un guion para la presentación | **Escrito** |
 | [`docs/26-cambios-de-pantalla.md`](docs/26-cambios-de-pantalla.md) | **Cambios de pantalla**: el encendido solo al arrancar (y el arranque que lo espera), el **entrelazado** entre pantallas (y las cinco versiones descartadas, dos rondas de propuestas), el corte tras una descarga, la carga silenciosa de lo archivado y los 2 s del diálogo | **Escrito** (reglas probadas; sin probar en el móvil) |
+| [`docs/27-release-y-entrega.md`](docs/27-release-y-entrega.md) | **Release y entrega**: debug frente a release, la firma con una clave fuera del repositorio, crear la clave, compilar e instalar, por qué R8 sigue apagado, el diagnóstico solo en debug, **qué va al repositorio del campus** y cómo copiarlo con `git archive` | **Escrito** (Gradle sin compilar aquí) |
 | [`docs/17-preparacion-defensa.md`](docs/17-preparacion-defensa.md) | **Preparación de la defensa**: lista de comprobación previa; las 18 preguntas de la hoja de evaluación con qué comprueban, qué decir, qué enseñar, dónde está en el código, repreguntas y el Kotlin que aparece; riesgos marcados (guardar en galería, varios formatos, popup de la huella) | **En curso** (parte 1 escrita; partes 2 y 3 pendientes) |
 | [`docs/09-captura-y-compartir.md`](docs/09-captura-y-compartir.md) | Captura del 3D y «compartir» (H4): por qué `view.draw()` da negro con un `SurfaceView`, `PixelCopy` como `suspend`, banda con el nombre, escritura atómica en la caché, `FileProvider` y permisos de URI, hoja del sistema, simulación, plan B | **Escrito** (parte pura probada; captura sin probar en el móvil) |
 | 09 · Bonus | Solo cuando la parte obligatoria sea sólida | Pendiente |
@@ -244,11 +249,12 @@ El *wrapper* de Gradle (`./gradlew`) descarga la versión de Gradle del proyecto
 ./gradlew :app:testDebugUnitTest                              # pruebas en la JVM
 ./gradlew :app:testDebugUnitTest --tests '*BootSequenceTest'  # una clase
 ./gradlew :app:installDebug                                   # compilar e instalar en el móvil (USB)
+./gradlew :app:assembleRelease                                # release firmada (con keystore.properties, documento 27)
 adb shell am start -n dev.knowledge82.swiftyproteins/.MainActivity
 adb logcat -s SwiftyProteins                                  # los avisos de la app
 ```
 
-`:app:` es la ruta completa de la tarea (proyecto raíz → módulo `app`); sin ella, Gradle ejecuta la tarea en **todos** los módulos que la tengan (hoy solo hay uno). Las compilaciones *debug* se firman con la clave común del repositorio: se pueden instalar desde cualquier máquina sin desinstalar ([`docs/11-firma-de-depuracion.md`](docs/11-firma-de-depuracion.md)).
+`:app:` es la ruta completa de la tarea (proyecto raíz → módulo `app`); sin ella, Gradle ejecuta la tarea en **todos** los módulos que la tengan (hoy solo hay uno). Las compilaciones *debug* se firman con la clave común del repositorio: se pueden instalar desde cualquier máquina sin desinstalar ([`docs/11-firma-de-depuracion.md`](docs/11-firma-de-depuracion.md)). La *release* se firma con una clave propia **fuera** del repositorio: se crea una vez y se apunta en `keystore.properties` (ignorado; hay un `keystore.properties.example`); sin ese fichero sale sin firmar ([`docs/27-release-y-entrega.md`](docs/27-release-y-entrega.md)).
 
 ---
 
