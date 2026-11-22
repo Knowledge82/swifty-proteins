@@ -159,7 +159,7 @@ if (debuggable) diagnosis.onFrame(...)?.let { Log.d(FrameDiagnosis.LOG_TAG, it) 
 | Los APK | Se generan desde el código; un binario en el repositorio no se puede revisar ni defender línea a línea. Para la defensa, la app va **instalada** en el móvil |
 | `__pycache__/`, `*.pyc` | *Bytecode* de Python generado al ejecutar las herramientas (había uno subido por error: se quitó) |
 
-**El repositorio pesa** unos 6,5 MB de ficheros (sin `.git`), sobre todo arte (`webp`) y las imágenes de los documentos.
+**El repositorio pesa** unos 5,8 MB de ficheros (sin `.git`), sobre todo arte (`webp`) y las imágenes de los documentos.
 
 ## 8. Cómo copiarlo sin arrastrar basura
 
