@@ -407,7 +407,7 @@ private fun ConsoleButton(text: String, onClick: () -> Unit, modifier: Modifier,
 }
 
 /**
- * A square console key (52 dp): "H" for hydrogens, "SHR" for share. [active] draws it lit (phosphor edge and text);
+ * A square console key (52 dp): "H" for hydrogens, "SHARE". [active] draws it lit (phosphor edge and text);
  * the state is ALSO announced to TalkBack ([stateDescription]), never only by colour.
  */
 @Composable

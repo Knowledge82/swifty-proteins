@@ -4,6 +4,8 @@
 >
 > **Estado de la app a 22-11-2026:** 618 pruebas automáticas en 61 clases, todas en verde; pruebas de mutación en cada regla nueva. Las rutas de código son relativas a `app/src/main/java/dev/knowledge82/swiftyproteins/`; las de recursos, a `app/src/main/`.
 >
+> **Términos:** los conceptos técnicos (Argon2id, `CryptoObject`, IDLE, LOD, `SrcAtop`, número ciclomático…) y las palabras del *lore* de Warhammer 40k que usa la interfaz (Auspex, Noosphere, Pict-capture…) se explican en el [**glosario**](00-glosario.md), ordenado por temas; el *lore*, en su sección 22.
+>
 > **Leyenda:** ✅ hecho y comprobado en el Samsung Galaxy A33 · 🟢 hecho y probado en la JVM, **falta verlo en el móvil** · ⚠️ riesgo o matiz que hay que explicar.
 
 ## Índice
@@ -387,7 +389,7 @@ El cuadro es un *prompt* de consola: «> _ Search by ID», con el «_» parpadea
 
 > *A "Share" button: capture a screenshot of the current 3D view · share via the native share sheet · to social media, messaging apps, email, or save to photos.*
 
-**✅ / 🟢** La tecla **SHR** abre el menú «PICT-CAPTURE // EXPORT» (`share/`):
+**✅ / 🟢** La tecla **SHARE**, arriba a la derecha de la vista 3D, abre el menú «PICT-CAPTURE // EXPORT» (`share/`). Se llamaba «SHR», como en el diseño; se escribió entera porque «SHR» no se entendía. Para que cupiera, la tecla **H** bajó al panel de teclas, junto a MODEL…, RULER y LABELS (documento 23, §13).
 - **Share image** (PNG o JPEG):
   - captura la escena 3D con **`PixelCopy`**: la escena es una superficie de la GPU, y una captura normal de la vista saldría **negra**;
   - añade una banda «Swifty Proteins · ATP · C10H16N5O13P3 · 47 atoms · 49 bonds»;
@@ -402,7 +404,7 @@ El cuadro es un *prompt* de consola: «> _ Search by ID», con el «_» parpadea
   **Por qué la app lo hace sola:** que la hoja de compartir ofrezca «guardar imagen» depende de las apps que tenga cada móvil.
 - Ficheros `.cif`, `.mol`, `.glb` y vídeo: bonus VII.5.
 
-🎯 SHR → Save to gallery → abrir la Galería: álbum Swifty Proteins. SHR → Share image (PNG) → la hoja de compartir.
+🎯 SHARE → Save to gallery → abrir la Galería: álbum Swifty Proteins. SHARE → Share image (PNG) → la hoja de compartir.
 
 ### 4.7 Cámara y luces
 
@@ -564,11 +566,11 @@ Las que el enunciado pone fuera de las secciones y también se miran:
 1. **El índice:** buscar, cargar, la copia en el móvil, los favoritos.
 2. **La vista 3D:** girar, zoom, tocar un átomo o un enlace, el doble toque.
 3. **Las teclas:** MODEL…, H, LABELS, RULER.
-4. **Compartir:** SHR (imagen, vídeo, ficheros), CMP (comparar) y los Ajustes.
+4. **Compartir:** SHARE (imagen, vídeo, ficheros), CMP (comparar) y los Ajustes.
 
 - Se pasa con **NEXT / BACK / SKIP** o deslizando, y dice «2 / 4».
 - Sale **la primera vez**, después del arranque y antes del acceso (no enseña nada privado). Se puede **repetir** desde Ajustes.
-- Una prueba comprueba que el tutorial **nombra cada tecla** de la vista 3D (MODEL, H, LABELS, RULER, SHR, CMP).
+- Una prueba comprueba que el tutorial **nombra cada tecla** de la vista 3D (MODEL, H, LABELS, RULER, SHARE, CMP).
 
 ### 7.5 Ajustes
 
@@ -729,7 +731,7 @@ Viewed in Swifty Proteins
 
 > *Multiple Export Formats: Allow exporting the view as different image formats (PNG, JPEG) or even as a 3D model file.*
 
-**🟢** El menú SHR tiene **ocho** entradas (`share/ExportFormat.kt`):
+**🟢** El menú SHARE tiene **ocho** entradas (`share/ExportFormat.kt`):
 
 | Entrada | Formato | Nota |
 |---------|---------|------|

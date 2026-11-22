@@ -22,7 +22,7 @@
 
 ## 1. Qué pide el enunciado
 
-VII.5 *Extended Sharing and Export* nombra un **vídeo de la rotación de la molécula**. Desde el menú SHR hay ahora dos entradas nuevas:
+VII.5 *Extended Sharing and Export* nombra un **vídeo de la rotación de la molécula**. Desde el menú SHARE hay ahora dos entradas nuevas:
 
 | Entrada | Qué hace |
 |---------|----------|
@@ -90,9 +90,9 @@ Atrás durante la grabación **cancela** y no sale de la pantalla: su `BackHandl
 
 ## 8. Cómo probarlo en el móvil
 
-1. ATP → SHR → **Share video**. Desaparecen los paneles, «Preparing the turntable…», después «● REC 0.0 / 6.0 s» que cuenta hasta 6.0; la molécula da **una** vuelta y se abre el menú de compartir.
+1. ATP → SHARE → **Share video**. Desaparecen los paneles, «Preparing the turntable…», después «● REC 0.0 / 6.0 s» que cuenta hasta 6.0; la molécula da **una** vuelta y se abre el menú de compartir.
 2. Mandarlo (a uno mismo) y verlo: 6 s, la molécula centrada, una vuelta suave, el rótulo abajo; **sin paneles ni barras del sistema**.
-3. SHR → **Save video to gallery**: en la galería, álbum «Swifty Proteins», en vídeos.
+3. SHARE → **Save video to gallery**: en la galería, álbum «Swifty Proteins», en vídeos.
 4. Grabar y pulsar **Cancel** a los 2 s, y otra vez con **Atrás**: «Recording cancelled.» y nada en la galería.
 5. Con **LABELS** activas: las letras siguen mirando a la cámara mientras gira.
 6. 15P en espacio lleno: ¿la vuelta va fluida a 30 fps en el vídeo?

@@ -133,6 +133,7 @@ Los detalles del enunciado, qué es obligatorio y qué es bonus están en
 | D87 | **Comparación de dos moléculas**: CMP, selector con el buscador del índice, segunda carga propia, dos escenas lado a lado con su FPS, H y SPIN para las dos, tabla contada de los átomos y parecido de composición | Decidida (sin probar en el móvil) | VII.5. Documento 24. |
 | D88 | **Masa** con los pesos de la IUPAC, comprobada contra el CCD en los 1241 ligandos (≤ 0,06 g/mol), un decimal; «?» con un elemento desconocido | Decidida | Documento 24. |
 | D89 | **SPIN sincronizado** por un instante común y el tiempo del fotograma | Decidida (sin probar en el móvil) | Documento 24. |
+| D90 | La tecla «SHR» pasa a **SHARE**; para que quepa, **H** baja al panel de teclas (arriba, quién es y qué hacer; abajo, cómo se dibuja) | Decidida (sin probar en el móvil) | «SHR» no se entendía. Documento 23, §13. |
 
 ---
 

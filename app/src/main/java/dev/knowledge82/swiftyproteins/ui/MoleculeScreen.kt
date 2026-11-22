@@ -168,7 +168,7 @@ fun MoleculeScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val view = LocalView.current
-    // The export menu (document 18): SHR opens it; each choice runs here.
+    // The export menu (document 18): SHARE opens it; each choice runs here.
     var exportMenu by remember { mutableStateOf(false) }
 
     // THE VIDEO (bonus VII.5, document 22). SceneView's recorder encodes what the scene draws (none of the panels) into
@@ -292,7 +292,7 @@ fun MoleculeScreen(
 
     // The subject (VI.4): the atom information disappears when the user taps ANYWHERE else. A tap on the empty scene or
     // on another atom already does it (MoleculeScene); this makes a tap on a PANEL do it too. Only on the panels: the
-    // middle of the screen must keep sending every touch to the molecule. The keys inside the panels (H, SHR, back)
+    // middle of the screen must keep sending every touch to the molecule. The keys inside the panels (H, SHARE, back)
     // keep their own action: they take the tap first. No ripple; TalkBack announces the action.
     val deselect = Modifier.clickable(
         interactionSource = remember { MutableInteractionSource() },
@@ -375,13 +375,6 @@ fun MoleculeScreen(
                 TopPanel(
                     modifier = deselect,
                     molecule = molecule,
-                    hasHydrogens = hasHydrogens,
-                    showHydrogens = showHydrogens,
-                    onToggleHydrogens = {
-                        showHydrogens = !showHydrogens
-                        // A highlighted element that disappears from the key stops being highlighted.
-                        if (!showHydrogens && highlightElement == "H") highlightElement = null
-                    },
                     onBack = onBack,
                     share = share,
                     onShare = onShare,
@@ -429,6 +422,13 @@ fun MoleculeScreen(
                     onToggle = { element -> highlightElement = if (highlightElement == element) null else element },
                     representation = representation,
                     atomColors = atomColors,
+                    hasHydrogens = hasHydrogens,
+                    showHydrogens = showHydrogens,
+                    onToggleHydrogens = {
+                        showHydrogens = !showHydrogens
+                        // A highlighted element that disappears from the key stops being highlighted.
+                        if (!showHydrogens && highlightElement == "H") highlightElement = null
+                    },
                     labels = showLabels,
                     onToggleLabels = { showLabels = !showLabels },
                     onModel = { representation = it },
@@ -480,14 +480,15 @@ private val READOUT_MIN_HEIGHT = 150.dp
 // The side column in landscape: about half the screen, never wider than this.
 private val SIDE_COLUMN_MAX = 440.dp
 
-/** "AUSPEX // RUNNING": back, "Pattern 001", "87 ATOMS :: 90 BONDS", the H key and the SHR key. */
+/**
+ * "AUSPEX // LIVE": back, "Pattern 001", "87 ATOMS :: 90 BONDS" and the SHARE key. Only who the molecule is and what
+ * to do with it: the keys that change how it is DRAWN (MODEL…, H, RULER, LABELS) are together in the key panel below.
+ * (H lived here until the "SHR" key became SHARE, document 25: on a 360 dp phone the title had no room left for both.)
+ */
 @Composable
 private fun TopPanel(
     modifier: Modifier,
     molecule: Molecule,
-    hasHydrogens: Boolean,
-    showHydrogens: Boolean,
-    onToggleHydrogens: () -> Unit,
     onBack: () -> Unit,
     share: ShareStatus,
     onShare: () -> Unit,
@@ -516,19 +517,10 @@ private fun TopPanel(
                     FpsLabel(fps)
                 }
             }
-            if (hasHydrogens) {
-                ConsoleKey(
-                    text = "H",
-                    onClick = onToggleHydrogens,
-                    contentDescription = "Hydrogen atoms",
-                    active = showHydrogens,
-                    stateDescription = if (showHydrogens) "shown" else "hidden",
-                )
-                Spacer(Modifier.width(8.dp))
-            }
             ConsoleKey(
-                // "SHR" as in the design; "..." while the capture is being prepared (the key is off: no double taps).
-                text = if (share is ShareStatus.Working) "..." else "SHR",
+                // SHARE in full (it was "SHR", as in the design: too cryptic, document 25). "..." while the capture is
+                // being prepared (the key is off: no double taps).
+                text = if (share is ShareStatus.Working) "..." else "SHARE",
                 onClick = onShare,
                 contentDescription = "Share or export the molecule",
                 enabled = share.canStart,
@@ -573,7 +565,7 @@ internal const val FPS_REFRESH_MILLIS = 250L
 private val FPS_LABEL_WIDTH = 64.dp
 
 /**
- * "PICT-CAPTURE // EXPORT" (documents 18 and 22): the eight things SHR can do. Each row is a 64 dp button with what it does and
+ * "PICT-CAPTURE // EXPORT" (documents 18 and 22): the eight things SHARE can do. Each row is a 64 dp button with what it does and
  * the format; Back or a tap outside closes it.
  */
 @Composable
@@ -794,6 +786,9 @@ private fun ElementKey(
     onToggle: (String) -> Unit,
     representation: Representation,
     atomColors: AtomColors,
+    hasHydrogens: Boolean,
+    showHydrogens: Boolean,
+    onToggleHydrogens: () -> Unit,
     onModel: (Representation) -> Unit,
     labels: Boolean,
     onToggleLabels: () -> Unit,
@@ -805,7 +800,8 @@ private fun ElementKey(
     CogitatorPanel(fill = SwiftyColors.ConsoleOverlay, contentPadding = 10.dp, scanlines = false, modifier = modifier.fillMaxWidth()) {
         Text("Elements / ${atomColors.label} · ${representation.label}", style = MaterialTheme.typography.labelSmall, color = SwiftyColors.Ash, maxLines = 1)
         Spacer(Modifier.height(6.dp))
-        // Three keys sharing the width: the MODEL list (VII.1: "dropdown"), the RULER and the LABELS (VII.3).
+        // The keys that change how the molecule is drawn: the MODEL list (VII.1: "dropdown"), the RULER and the LABELS
+        // (VII.3) share the width; H (hydrogens shown or hidden) is a narrow key at the end, only if there are any.
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             var open by remember { mutableStateOf(false) }
             Box(modifier = Modifier.weight(1f)) {
@@ -852,6 +848,15 @@ private fun ElementKey(
                 stateDescription = if (labels) "on" else "off",
                 modifier = Modifier.weight(1f),
             )
+            if (hasHydrogens) {
+                ConsoleKey(
+                    text = "H",
+                    onClick = onToggleHydrogens,
+                    contentDescription = "Hydrogen atoms",
+                    active = showHydrogens,
+                    stateDescription = if (showHydrogens) "shown" else "hidden",
+                )
+            }
         }
         Spacer(Modifier.height(4.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {

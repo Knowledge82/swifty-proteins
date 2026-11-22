@@ -45,6 +45,6 @@ class OnboardingTest {
     @Test
     fun theTutorialMentionsEveryKeyOfTheMoleculeScreen() {
         val all = Onboarding.pages.flatMap { it.lines }.joinToString(" ")
-        for (key in listOf("MODEL", "H ", "LABELS", "RULER", "SHR", "CMP")) assertTrue(key, all.contains(key))
+        for (key in listOf("MODEL", "H ", "LABELS", "RULER", "SHARE", "CMP")) assertTrue(key, all.contains(key))
     }
 }

@@ -26,7 +26,7 @@
 
 ## 2. El menú de exportación
 
-**SHR** abre «PICT-CAPTURE // EXPORT» con seis opciones (`ExportFormat`):
+**SHARE** abre «PICT-CAPTURE // EXPORT» con seis opciones (`ExportFormat`):
 
 | Opción | Qué hace | Fichero |
 |--------|----------|---------|
@@ -152,7 +152,7 @@ El `.mol` lleva las cargas, y nuestro *parser* **no las leía**: 175 de los 1242
 
 ## 8. Cómo probarlo en el móvil
 
-1. ATP → SHR → **Save to gallery**: «Saved to Pictures/Swifty Proteins». Abrir la **Galería** del Samsung: álbum **Swifty Proteins** con la imagen y su banda. *(Es el punto 16 de la hoja: ensayarlo.)*
+1. ATP → SHARE → **Save to gallery**: «Saved to Pictures/Swifty Proteins». Abrir la **Galería** del Samsung: álbum **Swifty Proteins** con la imagen y su banda. *(Es el punto 16 de la hoja: ensayarlo.)*
 2. Share image **PNG** y **JPEG**: la hoja de compartir con la imagen y el mensaje.
 3. Share **.cif**, **.mol**, **.glb**: enviarlos a uno mismo (correo o Telegram). Abrir el `.glb` en un ordenador con el Visor 3D de Windows, Blender o <https://gltf-viewer.donmccurdy.com/>: la molécula con sus colores CPK.
 4. Exportar el `.glb` en **espacio lleno sin hidrógenos**: el fichero tiene exactamente eso.
@@ -188,7 +188,7 @@ El `.mol` lleva las cargas, y nuestro *parser* **no las leía**: 175 de los 1242
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D57 | **Menú de exportación** en SHR: PNG, JPEG, **galería**, `.cif` original, `.mol`, `.glb`; una carpeta compartida con extensiones de una lista cerrada; ficheros químicos como `application/octet-stream` | Decidida | Punto 16 de la hoja (obligatorio) y VII.5 «varios formatos… incluso un modelo 3D» |
+| D57 | **Menú de exportación** en SHARE: PNG, JPEG, **galería**, `.cif` original, `.mol`, `.glb`; una carpeta compartida con extensiones de una lista cerrada; ficheros químicos como `application/octet-stream` | Decidida | Punto 16 de la hoja (obligatorio) y VII.5 «varios formatos… incluso un modelo 3D» |
 | D58 | **Galería** con `MediaStore` + `IS_PENDING` en Android 10+ (sin permiso) y fichero + escáner con `WRITE_EXTERNAL_STORAGE` (`maxSdkVersion` 28) en 7–9 | Decidida | La forma recomendada en cada versión |
 | D59 | **`.mol` V2000** propio, con cargas (`M  CHG`), tipo 8 para órdenes desconocidos, sin fecha (reproducible) | Decidida | Validado con RDKit en 1242/1242 |
 | D60 | **`.glb`** (glTF 2.0) propio de lo que se ve: una malla por color, colores lineales, `min`/`max` exactos | Decidida | Validador de Khronos: 0 errores en 25 ficheros |

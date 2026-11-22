@@ -1,7 +1,7 @@
 # 00 · Glosario
 
 > Estado: **vivo**. Se amplía cuando aparece un término nuevo en los documentos. Cada entrada indica dónde se desarrolla.
-> Lo que no está verificado en esta sesión se marca como tal. Redactado el 18/11/2026.
+> Lo que no está verificado en esta sesión se marca como tal. Redactado el 18/11/2026; ampliado el 22/11/2026 con las secciones 14-22 (documentos 05 y 12-25).
 
 ## Índice
 
@@ -14,6 +14,19 @@
 7. [Red y HTTP](#7-red-y-http)
 8. [Android y Compose: el pegamento con la pantalla](#8-android-y-compose-el-pegamento-con-la-pantalla)
 9. [La escena 3D de la molécula](#9-la-escena-3d-de-la-molécula)
+10. [Icono y pantalla de inicio](#10-icono-y-pantalla-de-inicio)
+11. [Captura y compartir](#11-captura-y-compartir)
+12. [Diseño v2 «Cogitador»](#12-diseño-v2-cogitador)
+13. [Firma de la app](#13-firma-de-la-app)
+14. [Acceso y seguridad](#14-acceso-y-seguridad)
+15. [Luz, fotogramas y rendimiento](#15-luz-fotogramas-y-rendimiento)
+16. [Caché y carga por etapas](#16-caché-y-carga-por-etapas)
+17. [Sonidos](#17-sonidos)
+18. [Modelos e interacción molecular](#18-modelos-e-interacción-molecular)
+19. [Interfaz avanzada: temas y animación](#19-interfaz-avanzada-temas-y-animación)
+20. [Exportar y vídeo](#20-exportar-y-vídeo)
+21. [Comparación de dos moléculas](#21-comparación-de-dos-moléculas)
+22. [Vocabulario del Mechanicus (el *lore*)](#22-vocabulario-del-mechanicus-el-lore)
 
 ---
 
@@ -274,3 +287,169 @@ Desarrollado en [`11-firma-de-depuracion.md`](11-firma-de-depuracion.md).
 | **PKCS12** | Formato estándar de almacén de claves (desde Java 9); la contraseña del almacén y la de la clave coinciden. | Formato de `app/debug.keystore`. |
 | **Clave de publicación (*release*)** | La que firmaría las versiones oficiales; **nunca** en el repositorio. | No existe: el proyecto no se publica. |
 
+## 14. Acceso y seguridad
+
+Desarrollado en [`05-acceso-y-seguridad.md`](05-acceso-y-seguridad.md) y [`05a-codigo-acceso.md`](05a-codigo-acceso.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Hash de contraseña** | Función de un solo sentido: de la contraseña sale un resumen, y del resumen no se puede volver atrás. Al entrar se repite el cálculo y se comparan los resúmenes. | Nunca se guarda la contraseña, solo su hash. |
+| **Argon2id** | Función de hash de contraseñas que ganó la *Password Hashing Competition* (2015), descrita en el RFC 9106. Es **lenta y gasta memoria** a propósito, lo que encarece los ataques con tarjetas gráficas. | 19 MiB, 2 pasadas, 1 carril: la configuración mínima de OWASP (`auth/PasswordHasher.kt`, Bouncy Castle). |
+| **Sal** (*salt*) | Bytes aleatorios distintos por cuenta que se mezclan con la contraseña. Dos personas con la misma contraseña tienen hashes distintos, y las tablas precalculadas no sirven. | 16 bytes por cuenta, guardados junto al hash. |
+| **OWASP** | Fundación que publica guías de seguridad; su *Password Storage Cheat Sheet* recomienda Argon2id y sus parámetros. | De ahí salen los parámetros. |
+| **Comparación en tiempo constante** | Comparar dos secuencias tardando lo mismo, coincidan en uno o en todos los bytes, para no dar pistas por el tiempo de respuesta. | `MessageDigest.isEqual`. |
+| **Android Keystore** | Almacén de llaves del sistema: la llave se usa **dentro** del móvil (a menudo en hardware seguro) y **no se puede sacar**. | Una llave para el fichero de cuentas y otra por cuenta para la huella (`auth/AndroidSecurity.kt`). |
+| **AES-256-GCM** | Cifrado simétrico (AES con llave de 256 bits) en modo GCM, que además **detecta cualquier cambio** en lo cifrado (cifrado autenticado, AEAD). | El fichero de cuentas. |
+| **`noBackupFilesDir`** | Carpeta privada de la app que Android **no** incluye en las copias de seguridad en la nube. | Ahí vive el fichero de cuentas. |
+| **`BiometricPrompt`** | El diálogo **del sistema** para huella, cara o iris (biblioteca `androidx.biometric`). La app no ve la huella: recibe el resultado. | La tecla de huella del acceso. |
+| **Biometría de clase 3** (*strong*) | La categoría más segura de Android (`BIOMETRIC_STRONG`): la única que puede desbloquear llaves del Keystore. | La única que se acepta. |
+| **`CryptoObject`** | Un `Cipher` que el `BiometricPrompt` **desbloquea** con el dedo. El éxito no es un `true` falsificable: sin huella válida la llave no funciona. | La huella descifra un *token* de la cuenta. |
+| **`setInvalidatedByBiometricEnrollment`** | Opción de una llave del Keystore: si se añade o quita una huella del móvil, la llave **deja de valer**. | Hay que volver a activar la huella con la contraseña. |
+| **`ProcessLifecycleOwner`** | El ciclo de vida **del proceso entero**: su `ON_STOP` llega cuando **ninguna** pantalla de la app está visible, y espera un momento, así que un giro no lo dispara. | `ON_STOP` → `lock()`: el acceso siempre al volver (D43). |
+| **Freno de intentos** (*throttle*) | Espera obligatoria tras varios fallos seguidos. | 5 fallos → 30 s, que se duplica hasta 5 min (`LoginThrottle`). |
+| **`setRecentsScreenshotEnabled(false)`** | Android 13+: la miniatura de la app en Recientes sale en blanco. | El contenido no se ve en Recientes. No se usa `FLAG_SECURE`, que también dejaría en negro nuestras capturas. |
+| **Autorrelleno** (`ContentType`) | Decirle al sistema qué es cada campo (usuario, contraseña, contraseña nueva) para que el gestor de contraseñas lo rellene. | Los tres campos del acceso. |
+
+## 15. Luz, fotogramas y rendimiento
+
+Desarrollado en [`12-luz-y-fps.md`](12-luz-y-fps.md), [`20-carga-por-etapas-y-detalle.md`](20-carga-por-etapas-y-detalle.md) y [`21-interfaz-avanzada.md`](21-interfaz-avanzada.md), §18-20.
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **FPS** (*frames per second*) | Fotogramas que llegan a la pantalla por segundo. El enunciado pide 60; el A33 da 90. | El contador de la vista 3D, en todas las compilaciones (`scene/FpsMeter.kt`). |
+| **IDLE / dibujo a demanda** | SceneView solo dibuja cuando **algo cambia**. Sin cambios no hay fotogramas, y el contador dice IDLE. | La prueba de que en reposo no se gasta nada; costó tres rondas en el móvil. |
+| **Iluminación de tres puntos** | La de fotografía y cine: luz **principal** (*key*), de **relleno** (*fill*) y **contraluz** (*rim*). | 10 000 / 3 000 / 5 000 lux en el tema oscuro. |
+| **Lux** | Unidad de iluminación. Filament usa unidades físicas: las luces se dan en lux. | `SceneLook`. |
+| **IBL** (*image-based lighting*) | Luz ambiental que sale de una imagen del entorno, no de una lámpara. | La que SceneView añade por defecto, bajo las tres luces. |
+| ***Tone mapper*** | Paso final de Filament que convierte la luz física en colores de pantalla. **Cambia** los colores que se le dan. | PBR Neutral; por eso el fondo claro se compensa (`SceneLook.skyboxColor`). |
+| ***Skybox*** | El fondo de la escena 3D, detrás de todo. | Negro en el tema oscuro, pergamino en el claro. |
+| **LOD** (*level of detail*) | Menos triángulos cuando hay muchos objetos. | `scene/MeshDetail.kt`: según el tamaño de la molécula, con un presupuesto de 204 800 triángulos. |
+| **Montaje por lotes** | Crear los nodos de la escena unos cuantos por fotograma, no todos a la vez. | `scene/Assembly.kt` y la barra ASSEMBLY; el lote se adapta a lo que tardan los fotogramas. |
+| **`contentPadding`** (SceneView) | Las partes de la vista tapadas por paneles: la cámara apunta a lo que queda. | La molécula se centra en la **ventana** entre paneles (`scene/Viewport.kt`). |
+| **`autoCenterContent`** | Opción de SceneView que mueve todo el contenido **una vez**, en el primer fotograma con algo. | Apagada: con el montaje por lotes centraba solo los primeros átomos. |
+| **`BoxWithConstraints`** | Contenedor de Compose que da su tamaño al contenido; **vuelve a ejecutar** su contenido en cada medida. | Una escena 3D dentro de uno no llegaba nunca a IDLE: las escenas están **fuera**. |
+| **`@LayoutScopeMarker`** (`@DslMarker`) | Prohíbe usar, dentro de un ámbito de Compose, el receptor implícito de un ámbito **exterior**. | El error de Gradle con `maxWidth` dentro de un `Row` (documento 21, §18.6). |
+| **Diagnóstico de fotogramas** | Una línea por segundo en Logcat (etiqueta `SwiftyFrames`): fotogramas, recomposiciones y qué parámetro cambió. | `scene/FrameDiagnosis.kt`; encontró la causa del FPS sin IDLE. |
+
+## 16. Caché y carga por etapas
+
+Desarrollado en [`13-cache-sin-conexion.md`](13-cache-sin-conexion.md) y [`20-carga-por-etapas-y-detalle.md`](20-carga-por-etapas-y-detalle.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Caché de disco** | Copia local de lo descargado, para no volver a pedirlo. | `net/LigandCache.kt`: los `.cif`, en la carpeta de caché de la app. |
+| **Caducidad** (*TTL*) | Tiempo durante el que una copia se usa sin preguntar al servidor. | 30 días. |
+| **Tope de tamaño** | Al pasar de un límite, se borra lo más viejo. | 20 MB. |
+| **Archivo sin conexión** | Abrir una copia de la caché cuando no hay red. | La pestaña dice «AUSPEX // OFFLINE ARCHIVE»; la celda, ARCHIVED. |
+| **Etapa de carga** (`LoadStage`) | En qué punto está una carga: archivo, conexión, descarga, análisis, con los bytes recibidos. | El diálogo de carga, con porcentaje y KB. |
+| **Estado único de carga** (`LoadState`) | `Idle`, `Loading`, `Loaded` o `Failed`, **uno solo** a la vez. | Imposible enseñar el indicador y un error a la vez. |
+
+## 17. Sonidos
+
+Desarrollado en [`14-sonidos.md`](14-sonidos.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Síntesis de sonido** | Generar el sonido con cálculo (ondas, ruido, filtros), sin grabarlo. | Los diez sonidos, con `tools/sound/make_sounds.py` (numpy, scipy), reproducibles byte a byte. |
+| **Síntesis modal** | Imitar un objeto golpeado sumando sus «modos»: senos que se apagan cada uno a su ritmo. | El metal golpeado de varios sonidos del cogitador. |
+| **Ogg Vorbis** | Formato de audio comprimido y libre. | `res/raw/snd_*.ogg`. |
+| **`SoundPool`** | Reproductor de Android para sonidos **cortos**: los decodifica una vez en memoria y los lanza casi sin retraso. | `sound/CogitatorSounds.kt`; `MediaPlayer` decodificaría cada vez. |
+| **`SoundOnChange`** | Hacer sonar algo solo cuando cambia una etiqueta, no al recomponer ni al girar la pantalla. | Los sonidos de carga, acceso y error. |
+
+## 18. Modelos e interacción molecular
+
+Desarrollado en [`15-bonus.md`](15-bonus.md), [`16-regla-favoritos-ajustes.md`](16-regla-favoritos-ajustes.md) y [`19-etiquetas-y-resaltado.md`](19-etiquetas-y-resaltado.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Espacio lleno** (*space-filling*, modelo CPK) | Cada átomo, una esfera de su radio de van der Waals; los vecinos se solapan. Enseña el **volumen** de la molécula. | Modelo «Space-filling». |
+| **Radio de van der Waals** | La mitad de la distancia mínima entre dos átomos **no enlazados**: el «tamaño» de un átomo que no comparte electrones (C: 1,70 Å). | `scene/VanDerWaals.kt`, radios de **Mantina et al. 2009**, que extienden los de **Bondi 1964**. |
+| **Varillas** (*sticks*) | Solo varillas gruesas, cada mitad del color de su átomo. | Modelo «Sticks». |
+| **Alambre** (*wireframe*) | Solo los enlaces, como líneas finas. | Modelo «Wireframe»: cilindros de 0,05 Å. |
+| **Fórmula de Hill** | Orden de la fórmula química: C, luego H, luego el resto alfabéticamente (todo alfabético si no hay carbono). | `molecule/MolecularFormula.kt`; igual que la de RCSB en los 1242. |
+| **Orden de enlace** | Sencillo, doble, triple o aromático. | La ficha del enlace (sección 3.2). |
+| **Ángulo de enlace** | El ángulo entre dos enlaces que comparten un átomo (A–B–C). | RULER con 3 átomos. |
+| **Torsión** (ángulo diedro) | El giro entre dos planos A–B–C y B–C–D, de −180° a 180°. | RULER con 4 átomos (`atan2`, con signo). |
+| **Billboard** | Un plano 3D que siempre mira a la cámara. | Las etiquetas de los elementos (LABELS). |
+| **Órbita en un átomo** | Que la cámara gire alrededor de un átomo y no del centro de la molécula. | El doble toque. |
+| **Favorito por cuenta** | La lista de favoritos va con el usuario que ha entrado. | `prefs/FavoritesStore.kt`. |
+
+## 19. Interfaz avanzada: temas y animación
+
+Desarrollado en [`21-interfaz-avanzada.md`](21-interfaz-avanzada.md) y [`23-tubo-destello-y-cursor.md`](23-tubo-destello-y-cursor.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **`CompositionLocal`** | Un valor que Compose pasa **implícitamente** a todo lo que hay debajo, sin parámetros. | La paleta del tema (`LocalSwiftyPalette`). |
+| **`@ReadOnlyComposable`** | Marca de una función de Compose que solo **lee** (no dibuja): más barata. | Los colores `SwiftyColors.*`. No se pueden leer dentro de un `Canvas`: la paleta se lee antes. |
+| **`SceneLook`** | El aspecto del 3D en cada tema: fondo, halos y luces. | Los «lighting adjustments» del modo oscuro (VII.2). |
+| **Índice incluido** | Un fichero con la fórmula y los átomos de cada ligando, generado de antemano con el parser de la app. | `assets/ligand_index.tsv`: celdas ricas sin descargar nada. |
+| **Barra de composición** | Una tira partida en la proporción de cada elemento, en su color. | La vista previa de cada celda. |
+| **Tutorial** (*onboarding*) | Páginas de bienvenida que explican la app la primera vez. | Cuatro páginas; se repite desde Ajustes. |
+| **Tubo CRT** (cambio de pantalla) | La pantalla vieja se aplasta en una línea y un punto (como un televisor antiguo al apagarse) y la nueva se enciende al revés. | `ui/CrtSwitch.kt`; 240 + 420 ms. |
+| **Cortina** | Lo que se **dibuja encima** de la pantalla en vez de transformarla. Un `SurfaceView` no sigue las transformaciones de Compose. | La cortina del tubo tapa también el 3D. |
+| **Cobertura** | Un solo número de 0 (encendida) a 1 (apagada) del que sale todo el dibujo del tubo. | `CrtTransition.frame`. |
+| ***Ease-in* / *smoothstep*** | Curvas de animación: `t²` (empieza lenta y acelera) y `t²(3−2t)` (suave en los dos extremos). | El tubo se cierra cada vez más deprisa; el destello se suaviza en los bordes. |
+| **Capa *offscreen*** (`CompositingStrategy.Offscreen`) | Dibujar algo en su propio búfer antes de mezclarlo con el resto. | Necesaria para el destello. |
+| **`BlendMode.SrcAtop`** | «Dibuja solo donde ya hay algo dibujado». | La luz del destello cae solo sobre las letras de «Swifty Proteins». |
+| **Fase de dibujo** | La última de las tres fases de Compose (composición, medida, dibujo). Un valor leído **solo** en el dibujo repinta sin recomponer. | El tubo, el destello y el cursor no recomponen nada. |
+
+## 20. Exportar y vídeo
+
+Desarrollado en [`18-exportar-y-galeria.md`](18-exportar-y-galeria.md) y [`22-video-del-giro.md`](22-video-del-giro.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **`MediaStore`** | La base de datos de fotos, vídeos y audio del móvil. En Android 10+ una app añade sus ficheros **sin permisos**. | Pictures/ y Movies/Swifty Proteins. |
+| **`IS_PENDING`** | Marca de una entrada de `MediaStore` que aún se está escribiendo: la galería no la enseña hasta que se quita. | Nunca aparece una imagen a medias. |
+| **Tipo MIME** | La etiqueta del tipo de un fichero (`image/png`, `video/mp4`, `model/gltf-binary`). | Decide qué apps ofrece la hoja de compartir. |
+| **MDL Molfile (`.mol`, V2000)** | Formato clásico de química: átomos, coordenadas y enlaces. | Validado con **RDKit** en los 1242. |
+| **RDKit** | Biblioteca libre de química computacional, la referencia para leer y validar moléculas. | Solo para comprobar nuestros `.mol` (no va en la app). |
+| **glTF 2.0 / `.glb`** | El formato estándar de modelos 3D («el JPEG del 3D»); `.glb` es su versión binaria en un solo fichero. | «Share 3D model»; el validador oficial de Khronos da 0 errores. |
+| **`SceneRecorder`** | Grabador de vídeo de SceneView: el motor dibuja la escena **una segunda vez** en el codificador. | El vídeo de una vuelta. |
+| **`SurfaceMirrorer`** | La pieza de SceneView que copia cada fotograma a otra superficie (aquí, la del codificador). | Sin coste cuando no se graba. |
+| **`MediaProjection`** | API de Android para grabar **la pantalla**: pide consentimiento y un servicio en primer plano. | No se usa. |
+| **H.264 / MP4** | El códec de vídeo más extendido y su contenedor. | 30 fps, una vuelta de 6 s. |
+| **Plataforma giratoria** (*turntable*) | Girar el objeto, no la cámara, a velocidad constante. | `scene/Turntable.kt`: el vídeo y el SPIN de la comparación. |
+
+## 21. Comparación de dos moléculas
+
+Desarrollado en [`24-comparar-dos-moleculas.md`](24-comparar-dos-moleculas.md).
+
+| Término | Qué es | En el proyecto |
+|---------|--------|----------------|
+| **Peso atómico estándar** | La masa media de un elemento con sus isótopos naturales, publicada por la IUPAC (C = 12,011). | `molecule/AtomicMass.kt`, los 50 elementos del catálogo. |
+| **Masa molar** | La suma de los pesos atómicos de una molécula, en g/mol. | ATP: 507,2 g/mol. |
+| **`formula_weight`** | La masa que el CCD da a cada ligando. | Nuestra referencia independiente: ≤ 0,06 g/mol en los 1241. |
+| **Átomos pesados** | Los que no son hidrógeno. | Una fila de la tabla. |
+| **Número ciclomático** | Enlaces − átomos + piezas: el número de **anillos** independientes de un grafo. | ATP: 49 − 47 + 1 = 3. |
+| ***Union-find*** | Estructura para unir conjuntos y saber si dos elementos están en el mismo, casi en tiempo constante. | Cuenta las piezas de la molécula. |
+| **Índice de Tanimoto (Jaccard)** | Parecido entre dos conjuntos: lo común dividido entre el total. | «Composition match»: solo la fórmula, no la forma. |
+| **`Math.floorMod`** | El resto que nunca es negativo (`%` sí lo es con números negativos). | El ángulo del SPIN. |
+
+## 22. Vocabulario del Mechanicus (el *lore*)
+
+El estilo de la app es el de un **cogitador**, un ordenador del universo **Warhammer 40 000**, la estética del *Adeptus Mechanicus* (documento 08c). Las palabras del lore van en lo **decorativo** (paneles, pestañas, títulos); los mensajes que importan están en inglés llano (documento 25, §7.6). Esta tabla sirve a quien no conozca el universo:
+
+| En la app | Del lore | Significa aquí |
+|-----------|----------|----------------|
+| **Cogitator** | El ordenador del Imperio | La app entera; «COGITATOR // MK.VII» en la cabecera |
+| **Machine Spirit** (Espíritu Máquina) | El alma que habita cada máquina | El sistema: «MACHINE SPIRIT ... AWAKE» en el arranque |
+| **Litany of Ignition** | La oración con que se enciende una máquina | La pantalla de arranque |
+| **Noosphere** (Noosfera) | La red de datos del Mechanicus | La red y el acceso: «NOOSPHERE ACCESS // IDENTIFY», «The Noosphere is Silent» (sin conexión) |
+| **Adept** (Adepto) | Un miembro del Mechanicus | El usuario: «ADEPT IDENTIFICATION» (entrar), «NEW ADEPT REGISTRY» (crear cuenta) |
+| **Bio-auspex** | Un escáner biológico | La huella |
+| **Data-Vault** | Un archivo de datos | La lista de ligandos: «Data-Vault Index» |
+| **Pattern** | Un patrón; en el lore, las plantillas sagradas de fabricación (STC) | Un ligando: «Pattern ATP», «PATTERNS FOUND» |
+| **Auspex** | El escáner o sensor | La vista 3D y su panel: «AUSPEX READOUT» (información), «AUSPEX QUERY» (búsqueda) |
+| **Pict / pict-capture** | Imagen / captura | La imagen exportada: «PICT-CAPTURE // EXPORT», «Pict-capture ready» |
+| **Vid-capture** | Grabación de vídeo | La grabación del giro |
+| **Vox-caster** | El emisor de voz y sonido | Los ajustes de sonido |
+| **Pict-display** | La pantalla | Los ajustes del tema y los colores |
+| **Novitiate** (Noviciado) | La formación de un aprendiz | El tutorial: «NOVITIATE INSTRUCTION», «RITE I-IV» |
+| **Rite** (Rito) | Un ritual | Cada página del tutorial; «RITES OF CONFIGURATION» (ajustes guardados) |
+| **Servo-skull** (servo-cráneo) | Un cráneo con motores que vuela y asiste | La ilustración de la carga (flota) y del icono |
+| **Servitor / Tech-priest** | Un siervo cibernético / un sacerdote de la máquina | Ilustraciones del acceso |
+| **Binharic** | El idioma de las máquinas (binario sagrado) | Decorado: «BINHARIC PATTERN REGISTRY», «01001011» |
+| **Forge** | Una forja, un mundo-fábrica | Decorado: «FORGE-NET ACTIVE»; «The Forge is Troubled» (error del servidor) |
+| **Concordance** | Concordancia, puesta en común | La comparación de dos moléculas |

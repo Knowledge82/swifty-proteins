@@ -16,6 +16,7 @@
 10. [Alternativas](#10-alternativas)
 11. [Decisiones](#11-decisiones)
 12. [Qué recordar](#12-qué-recordar)
+13. [Después: SHR pasa a SHARE y H baja al panel de teclas](#13-después-shr-pasa-a-share-y-h-baja-al-panel-de-teclas)
 
 ---
 
@@ -210,3 +211,29 @@ La pantalla de la molécula **no tiene cabecera** con el nombre ni cursor: su ID
 - `SrcAtop` + capa propia = luz **solo sobre lo dibujado**.
 - Lo que se anima se lee **en el dibujo**; lo que solo cambia de vez en cuando, con un `delay`, no con una animación infinita.
 - Si se quita algo de la vista, hay que quitar también **lo que dependía de verlo** (la búsqueda por nombre).
+
+## 13. Después: SHR pasa a SHARE y H baja al panel de teclas
+
+**El problema.** «SHR» era la abreviatura del diseño, pero **no se entendía**: quien no sabe qué es no la toca, y en la defensa el compartir es **obligatorio** (VI.4).
+
+**El sitio.** La fila de arriba de la vista 3D tenía «<», «Pattern ATP», **H** y **SHR**. Con «SHARE» entera (~75 dp en lugar de 52), las cuentas con las fuentes reales (Share Tech Mono 19 sp en las teclas, Pirata One 32 sp en el título):
+
+| Ancho del móvil | Sitio para el título con H y SHARE arriba | «Pattern ATP» necesita |
+|-----------------|-------------------------------------------|------------------------|
+| A33, 411 dp | ~188 dp | ~150 dp: cabe justo |
+| Móvil pequeño, 360 dp | ~137 dp | **no cabe** |
+
+**La solución.** **H** baja al panel de teclas, al final de la fila MODEL… · RULER · LABELS, y solo aparece si la molécula tiene hidrógenos. Además de dar sitio, **ordena** la pantalla:
+- **arriba**, quién es la molécula y qué hacer con ella: volver, el nombre, SHARE;
+- **abajo**, cómo se **dibuja**: el modelo, la regla, las etiquetas y los hidrógenos.
+
+Con H fuera, el título tiene ~248 dp en el A33 y ~197 dp en un móvil de 360 dp.
+
+- El tutorial dice ahora «SHARE sends a picture…», y su prueba busca «SHARE».
+- La comparación (documento 24) conserva su H arriba: allí no hay tecla de compartir.
+- En los documentos que siguen vivos (17, 18, 22, 25), «SHR» pasó a «SHARE»; los de diseño y los anteriores lo dejan como estaba en su momento.
+- **Alternativas:**
+  - un icono de compartir (el estándar de Android) en vez de la palabra: menos sitio, pero se sale del estilo de consola;
+  - dos filas en la cabecera: más alta, y quitaría ventana al 3D;
+  - «Pattern ATP» → «ATP»: ganaría sitio, pero perdería la placa del diseño.
+
