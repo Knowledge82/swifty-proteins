@@ -1,9 +1,10 @@
 package dev.knowledge82.swiftyproteins.ui
 
 /**
- * The change of screen as an old cathode-ray tube (bonus VII.2 "smooth transitions", document 23): the screen that
- * leaves SWITCHES OFF (the picture is squeezed into a bright horizontal line, the line into a dot) and the new one
- * SWITCHES ON (the dot stretches into a line, the line opens into the picture).
+ * The old cathode-ray tube SWITCHING ON (documents 23 and 26): a dot in the middle stretches into a bright horizontal
+ * line, and the line opens into the picture. Only at the COLD START, over the boot screen; every other change of
+ * screen is a change of channel ([ChannelChange]). (The first version also switched the old screen OFF, squeezing it
+ * into the line and the dot, before every change: it was taken out, document 26.)
  *
  * Everything here is pure arithmetic, tested on the JVM; [SwiftyApp] only reads the clock and draws the result.
  *
@@ -14,10 +15,7 @@ package dev.knowledge82.swiftyproteins.ui
  */
 object CrtTransition {
 
-    /** Switching the old screen off, from fully on to the dot. Short: nobody waits for the old screen. */
-    const val OFF_MILLIS = 240f
-
-    /** Switching the new screen on, from the dot to fully on. Longer: this is the part people see. */
+    /** Switching on, from the dot to fully on. */
     const val ON_MILLIS = 420f
 
     /** The share of the cover spent squeezing the picture into a line; the rest shrinks the line into a dot. */
@@ -32,7 +30,7 @@ object CrtTransition {
      *                      energy on fewer lines), so the line glows
      * @property scan       0..1, how strong the scanlines over the window are (they show as the tube warms up)
      * @property dot        0..1, how bright the dot in the middle is: it appears while the line shrinks, and it is
-     *                      all that is left when the tube is off (the moment the screens are swapped)
+     *                      where the switching on starts (the tube still off)
      */
     data class Frame(val halfWidth: Float, val halfHeight: Float, val glow: Float, val scan: Float, val dot: Float)
 
@@ -52,13 +50,6 @@ object CrtTransition {
             dot = smooth(shrink),
         )
     }
-
-    /**
-     * The cover while switching OFF, [elapsedMillis] after starting from [start]. A change of screen in the middle of
-     * another one starts from where that one was, so the time left is shorter (a straight line from [start] to 1).
-     */
-    fun closing(start: Float, elapsedMillis: Float): Float =
-        (start.coerceIn(0f, 1f) + elapsedMillis.coerceAtLeast(0f) / OFF_MILLIS).coerceAtMost(1f)
 
     /** The cover while switching ON, [elapsedMillis] after starting from [start] (1 = from the dot). */
     fun opening(start: Float, elapsedMillis: Float): Float =

@@ -300,4 +300,65 @@ class LigandLoaderTest {
         letLateResultsArrive()
         assertEquals(LoadState.Loaded(molecule("ATP")), loader.state.value)
     }
+
+    // ---------------------------------------------------------------- the minimum time of the dialog (document 26)
+
+    private fun slowLoader(minimum: Long, source: LigandSource) = LigandLoader(source, scope, workPool.asCoroutineDispatcher(), minimum)
+
+    @Test
+    fun aDownloadStaysLoadingForTheMinimumEvenWhenTheFileIsInstant() {
+        val loader = slowLoader(400L) { id, _, _ -> LigandLoadResult.Success(molecule(id)) }
+        val start = System.nanoTime()
+        onMain { loader.load("ATP") }
+        Thread.sleep(200)
+        assertEquals(LoadState.Loading("ATP"), loader.state.value)   // the file was there at once; the dialog stays
+        assertEquals(LoadState.Loaded(molecule("ATP")), awaitState(loader) { it !is LoadState.Loading })
+        assertTrue("waited ${(System.nanoTime() - start) / 1_000_000} ms", System.nanoTime() - start >= 380_000_000L)
+    }
+
+    @Test
+    fun aQuietLoadHasNoMinimum() {
+        val loader = slowLoader(2_000L) { id, _, _ -> LigandLoadResult.Success(molecule(id)) }
+        val start = System.nanoTime()
+        onMain { loader.load("ATP", quiet = true) }
+        assertEquals(LoadState.Loaded(molecule("ATP")), awaitState(loader) { it !is LoadState.Loading })
+        assertTrue(System.nanoTime() - start < 1_500_000_000L)
+    }
+
+    @Test
+    fun aQuietLoadStaysQuietThroughItsStages() {
+        val report = AtomicReference<(LoadStage) -> Unit>()
+        val release = CountDownLatch(1)
+        val loader = loader { id, _, onStage ->
+            report.set(onStage)
+            release.await(5, TimeUnit.SECONDS)
+            LigandLoadResult.Success(molecule(id))
+        }
+        onMain { loader.load("ATP", quiet = true) }
+        assertEquals(LoadState.Loading("ATP", quiet = true), loader.state.value)
+        while (report.get() == null) Thread.sleep(5)
+        report.get()(LoadStage.Parsing)
+        assertEquals(LoadState.Loading("ATP", LoadStage.Parsing, quiet = true), awaitState(loader) { (it as? LoadState.Loading)?.stage == LoadStage.Parsing })
+        release.countDown()
+    }
+
+    @Test
+    fun aCancelDuringTheMinimumWaitPublishesNothing() {
+        val loader = slowLoader(400L) { id, _, _ -> LigandLoadResult.Success(molecule(id)) }
+        onMain { loader.load("ATP") }
+        Thread.sleep(100)            // the file is in; the loader waits for the minimum
+        onMain { loader.cancel() }
+        Thread.sleep(450)            // past the end of the minimum
+        onMain { }
+        assertEquals(LoadState.Idle, loader.state.value)
+    }
+
+    @Test
+    fun aFailureAlsoKeepsTheMinimum() {
+        val loader = slowLoader(300L) { _, _, _ -> LigandLoadResult.Failure(LoadError.NoConnection) }
+        val start = System.nanoTime()
+        onMain { loader.load("ATP") }
+        assertEquals(LoadState.Failed("ATP", LoadError.NoConnection), awaitState(loader) { it !is LoadState.Loading })
+        assertTrue(System.nanoTime() - start >= 280_000_000L)
+    }
 }

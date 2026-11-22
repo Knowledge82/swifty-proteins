@@ -29,6 +29,8 @@ sealed interface Screen {
     data class Compare(
         val first: dev.knowledge82.swiftyproteins.molecule.Molecule,
         val second: dev.knowledge82.swiftyproteins.molecule.Molecule,
+        /** Where the SECOND one came from: downloaded now, it arrives after its loading dialog (no channel change). */
+        val secondOrigin: Origin = Origin.ARCHIVE,
     ) : Screen {
         override val key = "compare:${first.id}:${second.id}"
     }
@@ -63,10 +65,32 @@ object Navigation {
         !tutorialSeen -> Screen.Tutorial
         !unlocked -> Screen.Access
         replayTutorial -> Screen.Tutorial
-        load is LoadState.Loaded && compare is LoadState.Loaded -> Screen.Compare(load.molecule, compare.molecule)
+        load is LoadState.Loaded && compare is LoadState.Loaded -> Screen.Compare(load.molecule, compare.molecule, compare.origin)
         load is LoadState.Loaded -> Screen.Molecule(load.molecule, load.origin)
         showSettings -> Screen.Settings
         else -> Screen.Index
+    }
+
+    /** How one screen gives way to another (document 26). */
+    enum class Change {
+        /** The old television changing channel: a burst of static ([ChannelChange]). */
+        CHANNEL,
+
+        /** At once: the loading dialog of a download WAS the transition, a second one on top would be too much. */
+        CUT,
+    }
+
+    /**
+     * Which change from [from] to [to]:
+     * - a molecule (or a comparison) that was just DOWNLOADED arrives with a CUT: its loading dialog, the servo-skull
+     *   with its sound, already played for at least two seconds;
+     * - everything else changes channel: an archived molecule, Back, the settings, the tutorial, locking and unlocking.
+     * The cold start is neither: the tube switches ON there ([CrtTransition]), it is not a change between screens.
+     */
+    fun change(from: Screen, to: Screen): Change = when {
+        from is Screen.Index && to is Screen.Molecule && to.origin == Origin.NETWORK -> Change.CUT
+        from is Screen.Molecule && to is Screen.Compare && to.secondOrigin == Origin.NETWORK -> Change.CUT
+        else -> Change.CHANNEL
     }
 
     /** The boot screen is a CRT starting up: dark whatever the theme. Every other screen follows the theme. */

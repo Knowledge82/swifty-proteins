@@ -343,6 +343,8 @@ Desarrollado en [`13-cache-sin-conexion.md`](13-cache-sin-conexion.md) y [`20-ca
 | **Archivo sin conexión** | Abrir una copia de la caché cuando no hay red. | La pestaña dice «AUSPEX // OFFLINE ARCHIVE»; la celda, ARCHIVED. |
 | **Etapa de carga** (`LoadStage`) | En qué punto está una carga: archivo, conexión, descarga, análisis, con los bytes recibidos. | El diálogo de carga, con porcentaje y KB. |
 | **Estado único de carga** (`LoadState`) | `Idle`, `Loading`, `Loaded` o `Failed`, **uno solo** a la vez. | Imposible enseñar el indicador y un error a la vez. |
+| **Carga silenciosa** | Abrir un ligando archivado sin diálogo ni sonido, salvo que tarde más de 600 ms. | `LoadingPolicy`, `LoadState.Loading.quiet` (documento 26). |
+| **Tiempo mínimo del indicador** | Mantener el diálogo de carga visible un tiempo mínimo aunque el trabajo termine antes, para que no parpadee. | 2 s en una descarga, aplicado en el `LigandLoader` (documento 26). |
 
 ## 17. Sonidos
 
@@ -386,7 +388,10 @@ Desarrollado en [`21-interfaz-avanzada.md`](21-interfaz-avanzada.md) y [`23-tubo
 | **Índice incluido** | Un fichero con la fórmula y los átomos de cada ligando, generado de antemano con el parser de la app. | `assets/ligand_index.tsv`: celdas ricas sin descargar nada. |
 | **Barra de composición** | Una tira partida en la proporción de cada elemento, en su color. | La vista previa de cada celda. |
 | **Tutorial** (*onboarding*) | Páginas de bienvenida que explican la app la primera vez. | Cuatro páginas; se repite desde Ajustes. |
-| **Tubo CRT** (cambio de pantalla) | La pantalla vieja se aplasta en una línea y un punto (como un televisor antiguo al apagarse) y la nueva se enciende al revés. | `ui/CrtSwitch.kt`; 240 + 420 ms. |
+| **Encendido del tubo** | Un televisor antiguo al encenderse: un punto que se estira en una línea y la línea que se abre en la imagen. | Solo en el arranque en frío (420 ms), y el arranque espera a que termine (documento 26). |
+| **Cambio de canal** | Un televisor antiguo al girar el dial: una ráfaga de estática (nieve), las pantallas se cambian debajo, y la barra del sincronismo vertical baja por la imagen nueva. | Todo cambio de pantalla salvo el arranque y una descarga (320 ms, `ui/ChannelChange.kt`). |
+| **Corte** | Cambiar de pantalla sin ningún efecto. | Tras una descarga: el diálogo de carga ya fue la transición. |
+| **Nieve** (*snow*) | La estática de un televisor sin señal. | Una tesela de granos aleatorios creada una vez y movida en cada fotograma. |
 | **Cortina** | Lo que se **dibuja encima** de la pantalla en vez de transformarla. Un `SurfaceView` no sigue las transformaciones de Compose. | La cortina del tubo tapa también el 3D. |
 | **Cobertura** | Un solo número de 0 (encendida) a 1 (apagada) del que sale todo el dibujo del tubo. | `CrtTransition.frame`. |
 | ***Ease-in* / *smoothstep*** | Curvas de animación: `t²` (empieza lenta y acelera) y `t²(3−2t)` (suave en los dos extremos). | El tubo se cierra cada vez más deprisa; el destello se suaviza en los bordes. |

@@ -16,6 +16,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -26,6 +30,8 @@ import androidx.compose.ui.window.DialogProperties
 import dev.knowledge82.swiftyproteins.R
 import dev.knowledge82.swiftyproteins.loading.LoadStage
 import dev.knowledge82.swiftyproteins.loading.LoadState
+import dev.knowledge82.swiftyproteins.loading.LoadingPolicy
+import kotlinx.coroutines.delay
 import dev.knowledge82.swiftyproteins.net.LoadError
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyColors
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyDataText
@@ -54,7 +60,13 @@ fun LoadStateDialogs(
     onClose: () -> Unit,
 ) {
     when (state) {
-        is LoadState.Loading -> LoadingDialog(id = state.id, stage = state.stage, onCancel = onClose)
+        is LoadState.Loading -> {
+            // A quiet load (archived, document 26) shows no dialog, unless it lasts past the grace time: then the user
+            // gets the usual feedback after all (an old copy being refreshed over a slow network).
+            var visible by remember(state.id, state.quiet) { mutableStateOf(!state.quiet) }
+            if (!visible) LaunchedEffect(state.id) { delay(LoadingPolicy.QUIET_GRACE_MILLIS); visible = true }
+            if (visible) LoadingDialog(id = state.id, stage = state.stage, onCancel = onClose)
+        }
         is LoadState.Failed -> {
             // The user sees a friendly sentence; the technical cause (parser failure, reason text) goes to Logcat.
             LaunchedEffect(state) {

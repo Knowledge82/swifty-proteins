@@ -55,27 +55,15 @@ class CrtTransitionTest {
     }
 
     @Test
-    fun switchingOffAndOnTakeTheirTime() {
-        assertEquals(0f, CrtTransition.closing(0f, 0f), 0f)
-        assertEquals(0.5f, CrtTransition.closing(0f, CrtTransition.OFF_MILLIS / 2), 0.001f)
-        assertEquals(1f, CrtTransition.closing(0f, CrtTransition.OFF_MILLIS), 0.001f)
-        assertEquals(1f, CrtTransition.closing(0f, 10_000f), 0f)
+    fun switchingOnTakesItsTimeAndNeverGoesBack() {
         assertEquals(1f, CrtTransition.opening(1f, 0f), 0f)
+        assertEquals(0.5f, CrtTransition.opening(1f, CrtTransition.ON_MILLIS / 2), 0.001f)
         assertEquals(0f, CrtTransition.opening(1f, CrtTransition.ON_MILLIS), 0.001f)
         assertEquals(0f, CrtTransition.opening(1f, 10_000f), 0f)
-        // The part people see (switching on) is the longer one, and the whole change stays under a second.
-        assertTrue(CrtTransition.ON_MILLIS > CrtTransition.OFF_MILLIS)
-        assertTrue(CrtTransition.ON_MILLIS + CrtTransition.OFF_MILLIS < 1000f)
-    }
-
-    @Test
-    fun aChangeInTheMiddleOfAnotherGoesOnFromWhereItWas() {
-        // Half switched on, and a new screen is asked for: it closes from 0.5, so it needs only half the time.
-        assertEquals(0.5f, CrtTransition.closing(0.5f, 0f), 0f)
-        assertEquals(1f, CrtTransition.closing(0.5f, CrtTransition.OFF_MILLIS / 2), 0.001f)
+        // From half way it needs only half the time; a clock that went backwards does not move it.
         assertEquals(0.25f, CrtTransition.opening(0.5f, CrtTransition.ON_MILLIS / 4), 0.001f)
-        // A clock that went backwards (it should not) does not move the cover the wrong way.
-        assertEquals(0.5f, CrtTransition.closing(0.5f, -100f), 0f)
         assertEquals(0.5f, CrtTransition.opening(0.5f, -100f), 0f)
+        // Short enough not to delay the boot screen much (its sequence starts after it, document 26).
+        assertTrue(CrtTransition.ON_MILLIS < 600f)
     }
 }

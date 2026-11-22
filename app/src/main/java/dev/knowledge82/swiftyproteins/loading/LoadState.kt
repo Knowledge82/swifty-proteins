@@ -16,8 +16,9 @@ sealed interface LoadState {
     /**
      * The load is in progress: show the loading indicator. It is the ONLY state that shows it.
      * [stage] says what is happening now (document 20); it changes while the state stays Loading.
+     * [quiet]: the ligand is on the phone, so no dialog unless it takes long ([LoadingPolicy], document 26).
      */
-    data class Loading(val id: String, val stage: LoadStage = LoadStage.Starting) : LoadState
+    data class Loading(val id: String, val stage: LoadStage = LoadStage.Starting, val quiet: Boolean = false) : LoadState
 
     /** The molecule is ready to be drawn. */
     data class Loaded(val molecule: Molecule, val origin: Origin = Origin.NETWORK) : LoadState

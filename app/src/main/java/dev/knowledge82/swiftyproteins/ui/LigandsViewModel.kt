@@ -10,6 +10,7 @@ import dev.knowledge82.swiftyproteins.catalog.LigandIndex
 import dev.knowledge82.swiftyproteins.loading.LigandLoader
 import dev.knowledge82.swiftyproteins.loading.LigandSource
 import dev.knowledge82.swiftyproteins.loading.LoadState
+import dev.knowledge82.swiftyproteins.loading.LoadingPolicy
 import dev.knowledge82.swiftyproteins.net.FileLigandCache
 import dev.knowledge82.swiftyproteins.net.HttpUrlConnectionFetcher
 import dev.knowledge82.swiftyproteins.net.LigandRepository
@@ -68,13 +69,13 @@ class LigandsViewModel(
         viewModelScope.launch(Dispatchers.IO) { mutableArchived.value = archivedIds() }
     }
 
-    private val loader = LigandLoader(source, viewModelScope, Dispatchers.IO)
+    private val loader = LigandLoader(source, viewModelScope, Dispatchers.IO, LoadingPolicy.MIN_SHOWN_MILLIS)
 
     /** What the screens observe. */
     val loadState: StateFlow<LoadState> = loader.state
 
-    /** Called from the main thread (a tap). */
-    fun open(id: String) = loader.load(id)
+    /** Called from the main thread (a tap). An ARCHIVED ligand loads quietly: no dialog, no minimum (document 26). */
+    fun open(id: String) = loader.load(id, quiet = id in archived.value)
 
     /** Called from the main thread (Cancel, Back, closing an error). Returns the state to Idle, the comparison too. */
     fun cancel() {
@@ -84,13 +85,13 @@ class LigandsViewModel(
 
     // THE SECOND MOLECULE of the comparison view (bonus VII.5, document 24): a loader of its own, the same rules (the
     // same repository, so the same cache and the same errors). Its state is separate: the first molecule stays loaded.
-    private val compareLoader = LigandLoader(source, viewModelScope, Dispatchers.IO)
+    private val compareLoader = LigandLoader(source, viewModelScope, Dispatchers.IO, LoadingPolicy.MIN_SHOWN_MILLIS)
 
     /** The second molecule: Idle until CMP picks one. */
     val compareState: StateFlow<LoadState> = compareLoader.state
 
     /** Loads [id] as the second molecule of the comparison. */
-    fun openCompare(id: String) = compareLoader.load(id)
+    fun openCompare(id: String) = compareLoader.load(id, quiet = id in archived.value)
 
     /** Leaves the comparison (or stops its load): back to the first molecule alone. */
     fun cancelCompare() = compareLoader.cancel()

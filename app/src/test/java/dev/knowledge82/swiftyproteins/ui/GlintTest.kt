@@ -40,6 +40,7 @@ class GlintTest {
         assertEquals(0f, Glint.progress(-5f), 0f)
         // Most of the cycle is rest (a glint, not a strobe), and the first pass waits for the screen to switch on.
         assertTrue(Glint.SWEEP_MILLIS * 4 < Glint.EVERY_MILLIS)
-        assertTrue(Glint.FIRST_DELAY_MILLIS > (CrtTransition.OFF_MILLIS + CrtTransition.ON_MILLIS).toLong())
+        assertTrue(Glint.FIRST_DELAY_MILLIS > CrtTransition.ON_MILLIS.toLong())
+        assertTrue(Glint.FIRST_DELAY_MILLIS > ChannelChange.MILLIS.toLong())
     }
 }

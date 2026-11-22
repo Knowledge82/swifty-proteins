@@ -5,6 +5,7 @@ import dev.knowledge82.swiftyproteins.net.LoadError
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -39,6 +40,8 @@ class LigandLoader(
     private val source: LigandSource,
     private val scope: CoroutineScope,
     private val workDispatcher: CoroutineDispatcher,
+    /** The least time a NOT quiet load stays Loading ([LoadingPolicy], document 26); 0 in most tests. */
+    private val minShownMillis: Long = 0L,
 ) {
     private val mutableState = MutableStateFlow<LoadState>(LoadState.Idle)
 
@@ -47,16 +50,21 @@ class LigandLoader(
 
     private var job: Job? = null
 
-    /** Starts loading [id]. If another load is running it is cancelled first and its result is thrown away. */
-    fun load(id: String) {
+    /**
+     * Starts loading [id]. If another load is running it is cancelled first and its result is thrown away.
+     * [quiet]: the ligand is archived on the phone, so there is no minimum time (document 26).
+     */
+    fun load(id: String, quiet: Boolean = false) {
         job?.cancel()
-        mutableState.value = LoadState.Loading(id)
+        mutableState.value = LoadState.Loading(id, quiet = quiet)
+        val started = System.nanoTime()
+        val minimum = LoadingPolicy.minimumMillis(quiet, minShownMillis)
 
         job = scope.launch {
             val mine = coroutineContext.job
             // Called on the WORK thread: hands the stage over to the main thread, where the state is written.
             val onStage: (LoadStage) -> Unit = { stage ->
-                scope.launch { if (job === mine && mutableState.value is LoadState.Loading) mutableState.value = LoadState.Loading(id, stage) }
+                scope.launch { if (job === mine && mutableState.value is LoadState.Loading) mutableState.value = LoadState.Loading(id, stage, quiet) }
             }
             val result = try {
                 // The lambda { !isActive } is what the network code asks while it reads: false once this job
@@ -67,6 +75,10 @@ class LigandLoader(
             } catch (e: Exception) {
                 LigandLoadResult.Failure(LoadError.Unexpected(e.toString()))
             }
+            // The loading dialog keeps its time (document 26). Waiting here, on the main thread and inside THIS job,
+            // keeps every guarantee: a cancel during the wait stops it, and nothing is published afterwards.
+            val rest = LoadingPolicy.remainingMillis(minimum, (System.nanoTime() - started) / 1_000_000L)
+            if (rest > 0 && result !is LigandLoadResult.Cancelled) delay(rest)
 
             mutableState.value = when (result) {
                 is LigandLoadResult.Success -> LoadState.Loaded(result.molecule, result.origin)

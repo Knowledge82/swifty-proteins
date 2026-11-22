@@ -2,7 +2,7 @@
 
 > **Para qué sirve.** Recorre el enunciado **frase a frase**: primero la parte obligatoria (VI.1–VI.4), luego las instrucciones generales y por último los bonus (VII.1–VII.5). Para cada exigencia dice **si está hecha**, **cómo**, **en qué ficheros**, **por qué así** y **qué enseñar** en la defensa. Es la base de la presentación: cada apartado puede convertirse en una o dos diapositivas.
 >
-> **Estado de la app a 22-11-2026:** 618 pruebas automáticas en 61 clases, todas en verde; pruebas de mutación en cada regla nueva. Las rutas de código son relativas a `app/src/main/java/dev/knowledge82/swiftyproteins/`; las de recursos, a `app/src/main/`.
+> **Estado de la app a 22-11-2026:** 631 pruebas automáticas en 63 clases, todas en verde; pruebas de mutación en cada regla nueva. Las rutas de código son relativas a `app/src/main/java/dev/knowledge82/swiftyproteins/`; las de recursos, a `app/src/main/`.
 >
 > **Términos:** los conceptos técnicos (Argon2id, `CryptoObject`, IDLE, LOD, `SrcAtop`, número ciclomático…) y las palabras del *lore* de Warhammer 40k que usa la interfaz (Auspex, Noosphere, Pict-capture…) se explican en el [**glosario**](00-glosario.md), ordenado por temas; el *lore*, en su sección 22.
 >
@@ -98,7 +98,7 @@
    - **Duración: 4,2 s** (`boot/BootSequence.kt`, `DURATION_MILLIS`). Se puede **saltar con un toque**, pero **nunca antes de 1 s** (`MIN_VISIBLE_MILLIS = 1_000`): el mínimo del enunciado se cumple siempre, también para quien toca enseguida.
    - Además **espera de verdad** a algo: no sale hasta que se han leído los **ajustes guardados** (`Navigation.screenOf`: «arranque, hasta que termine **y** se hayan leído los ajustes»). Si no esperara, el tutorial aparecería un instante a quien ya lo vio.
    - Es **siempre oscura** (un CRT que se enciende), sea cual sea el tema elegido.
-   - Al abrir la app en frío, el tubo **se enciende** sobre ella: un punto que se estira en una línea y la línea que se abre (documento 23).
+   - Al abrir la app en frío, el tubo **se enciende** sobre ella: un punto que se estira en una línea y la línea que se abre. El reloj del arranque **espera** a que el tubo esté encendido, así que no se pierde ninguna línea ni su sonido (documentos 23 y 26).
 
 🎯 **Qué enseñar:** cerrar la app desde Recientes y abrirla: punto → línea → arranque completo con sonido → acceso.
 
@@ -277,7 +277,7 @@ El cuadro es un *prompt* de consola: «> _ Search by ID», con el «_» parpadea
 > *Display a loading indicator · Fetch the .cif file from https://files.rcsb.org/ligands/view/{ligand}.cif · Parse it to extract atomic coordinates and bond information · Navigate to the Protein View.*
 
 **✅**
-- **Indicador:** un **diálogo modal** (`ui/LoadDialogs.kt`) con:
+- **Indicador:** un **diálogo modal** (`ui/LoadDialogs.kt`), visible **al menos 2 s** en una descarga para que no parpadee (documento 26), con:
   - el cráneo servidor que flota;
   - «Downloading ligand ATP»;
   - las **etapas** Archive → Connect → Download → Parse con su marca `[OK]`, una **barra de progreso** con el porcentaje y los KB («62 % · 4.6 / 7.4 KB»);
@@ -533,8 +533,8 @@ Las que el enunciado pone fuera de las secciones y también se miran:
 
 | El enunciado dice | Lo que hay |
 |-------------------|-----------|
-| **Transitions between views** | Cada cambio de pantalla es un **tubo de rayos catódicos**: la pantalla vieja se aplasta en una línea brillante y luego en un punto, y la nueva se enciende al revés, con líneas de barrido y halo de fósforo (`ui/CrtSwitch.kt`, `ui/CrtTransition.kt`; documento 23). Dentro del tutorial, las páginas **se deslizan** en la dirección del gesto |
-| **Animated loading states** | El arranque que se escribe línea a línea; en la carga, el **cráneo servidor que flota**, las etapas que se marcan `[OK]` y la barra con porcentaje; al abrir la molécula, la barra **ASSEMBLY** mientras la escena se monta por lotes |
+| **Transitions between views** | Un televisor antiguo (`ui/CrtSwitch.kt`; documentos 23 y 26). Al **arrancar**, el tubo **se enciende**: un punto, una línea y la imagen. Entre pantallas, **cambia de canal**: una ráfaga corta de estática y la barra del sincronismo vertical bajando por la imagen nueva. Tras una **descarga**, el diálogo de carga ya es la transición y la molécula aparece directamente. Dentro del tutorial, las páginas **se deslizan** en la dirección del gesto |
+| **Animated loading states** | El arranque que se escribe línea a línea (después de que el tubo se encienda); en la carga, el **servo-cráneo que flota** con el sonido del módem, **al menos 2 s**, las etapas que se marcan `[OK]` y la barra con porcentaje; un ligando ARCHIVED se abre sin diálogo, con un cambio de canal; al abrir la molécula, la barra **ASSEMBLY** mientras la escena se monta por lotes |
 | **Micro-interactions** | El **destello** que recorre «Swifty Proteins» cada 6 s; el **cursor de consola** que parpadea en el buscador; el **halo** al seleccionar; la molécula que **se desliza** al nuevo centro cuando cambia un panel; la cámara que **planea** al orbitar un átomo; un **clic de relé** en cada tecla |
 
 - **Ninguna animación cuesta fotogramas en reposo:** cada una pide fotogramas solo mientras se mueve (documento 23, §6).
@@ -789,7 +789,7 @@ Todo compila y está probado en la JVM, pero **antes de la defensa** hay que ver
 
 | # | Qué | Apartado | Riesgo si falla |
 |---|-----|----------|-----------------|
-| 1 | La **cortina del tubo** tapa también la escena 3D | 1.2, VII.2 | Medio: la molécula se vería por encima de la cortina |
+| 1 | La **estática del cambio de canal** tapa también la escena 3D; el arranque espera al tubo; un ligando ARCHIVED se abre sin diálogo | 1.2, 3.4, VII.2 | Medio: la molécula se vería por encima de la estática |
 | 2 | **Guardar en la galería** (imagen) y compartir PNG | 4.6 | **Alto: es obligatorio** |
 | 3 | Desplazar con **dos dedos** | 4.5 | Bajo (recomendado, no obligatorio) |
 | 4 | Formatos `.cif` / `.mol` / `.glb` en otras apps | VII.5 | Bajo |

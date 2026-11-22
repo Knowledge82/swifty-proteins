@@ -9,7 +9,7 @@ import dev.knowledge82.swiftyproteins.loading.LoadState
  */
 fun loadSoundTag(state: LoadState): String = when (state) {
     is LoadState.Idle -> "idle"
-    is LoadState.Loading -> "loading:${state.id}"
+    is LoadState.Loading -> (if (state.quiet) "quiet:" else "loading:") + state.id   // a quiet load makes no sound
     is LoadState.Loaded -> "loaded:${state.molecule.id}"
     is LoadState.Failed -> "failed:${state.id}:${state.error::class.simpleName}"   // the kind; a Corrupt carries a whole report
 }

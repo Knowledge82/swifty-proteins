@@ -22,6 +22,8 @@ class SoundTagsTest {
         val loaded = LoadState.Loaded(molecule("ATP"))
         assertEquals(loadSoundTag(loaded), loadSoundTag(LoadState.Loaded(molecule("ATP"))))
         assertEquals(loadSoundTag(LoadState.Loading("ATP")), loadSoundTag(LoadState.Loading("ATP")))
+        // A quiet (archived) load is a different tag: it plays no modem, and a later loud one must still play it.
+        assertTrue(loadSoundTag(LoadState.Loading("ATP", quiet = true)) != loadSoundTag(LoadState.Loading("ATP")))
     }
 
     @Test

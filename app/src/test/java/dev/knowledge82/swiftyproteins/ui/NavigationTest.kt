@@ -72,6 +72,29 @@ class NavigationTest {
     }
 
     @Test
+    fun aDownloadArrivesWithACutEverythingElseChangesChannel() {
+        val cff = Molecule("CFF", listOf(Atom("C1", "C", 0f, 0f, 0f)), emptyList())
+        val downloaded = Screen.Molecule(atp, Origin.NETWORK)
+        val archived = Screen.Molecule(atp, Origin.ARCHIVE)
+        // The loading dialog (two seconds, document 26) was the transition: no channel change on top.
+        assertEquals(Navigation.Change.CUT, Navigation.change(Screen.Index, downloaded))
+        assertEquals(Navigation.Change.CUT, Navigation.change(archived, Screen.Compare(atp, cff, Origin.NETWORK)))
+        // Archived (no dialog), offline, Back, settings, tutorial, unlocking: a change of channel.
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(Screen.Index, archived))
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(Screen.Index, Screen.Molecule(atp, Origin.ARCHIVE_OFFLINE)))
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(archived, Screen.Compare(atp, cff, Origin.ARCHIVE)))
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(downloaded, Screen.Index))
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(Screen.Compare(atp, cff, Origin.NETWORK), archived))
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(Screen.Index, Screen.Settings))
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(Screen.Boot, Screen.Access))
+        // Back from the lock to a molecule downloaded long ago: the dialog is not what came before, so a channel change.
+        assertEquals(Navigation.Change.CHANNEL, Navigation.change(Screen.Access, downloaded))
+        // The comparison carries where its second molecule came from.
+        val both = screen(load = LoadState.Loaded(atp, Origin.NETWORK), compare = LoadState.Loaded(cff, Origin.NETWORK)) as Screen.Compare
+        assertEquals(Origin.NETWORK, both.secondOrigin)
+    }
+
+    @Test
     fun keysAreUniqueSoEveryChangeOfScreenSwitchesTheTube() {
         val cff = Molecule("CFF", listOf(Atom("C1", "C", 0f, 0f, 0f)), emptyList())
         val all = listOf(Screen.Boot, Screen.Tutorial, Screen.Access, Screen.Index, Screen.Settings, Screen.Molecule(atp, Origin.NETWORK), Screen.Compare(atp, cff))

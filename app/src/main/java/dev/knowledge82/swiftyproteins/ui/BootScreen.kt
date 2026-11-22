@@ -42,9 +42,10 @@ import dev.knowledge82.swiftyproteins.ui.theme.glowing
  * The timing rule is pure ([BootSequence], tested); this function only reads the clock every frame and draws.
  *
  * @param catalogSize number of ligands for the "DATA-VAULT ... 1,243" line, or null if the list is unreadable
+ * @param running     false while the tube is still switching on over it (cold start): the sequence waits
  */
 @Composable
-fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = Modifier) {
+fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = Modifier, running: Boolean = true) {
     val reduceMotion = rememberReduceMotion()
     val lines = remember(catalogSize) { BootSequence.lines(catalogSize) }
     var elapsed by remember { mutableLongStateOf(0L) }
@@ -53,7 +54,10 @@ fun BootScreen(catalogSize: Int?, onFinished: () -> Unit, modifier: Modifier = M
 
     // One clock reading per frame (withFrameMillis waits for the next frame: no busy loop). uptimeMillis is
     // monotonic, so the screen always ends.
-    LaunchedEffect(Unit) {
+    // The clock starts only when the tube is fully ON ([running], document 26): the switching on must not eat the
+    // first lines and their sounds. Until then the screen waits at 0 (nothing typed yet); the hum already plays.
+    LaunchedEffect(running) {
+        if (!running) return@LaunchedEffect
         val start = SystemClock.uptimeMillis()
         while (!BootSequence.isDone(elapsed, skipRequested)) {
             withFrameMillis { }

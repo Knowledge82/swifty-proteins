@@ -1,5 +1,7 @@
 # 23 · Pulido: el tubo que se enciende, el destello del nombre y el cursor de consola
 
+> **Actualizado (documento 26):** el tubo ya no se apaga antes de cada cambio. Se **enciende** solo en el arranque en frío; tras una descarga hay un **corte**, y en todo lo demás un **cambio de canal** (una ráfaga de estática). La §2 describe la primera versión.
+
 > **Estado:** **escrito**. Reglas puras **probadas en la JVM** (608 pruebas en total; 9 nuevas; 9 mutantes, todos muertos). El dibujo (la cortina del tubo, el destello, el cursor) **compila contra *stubs*** y pasa las reglas de Compose; **sin probar en el móvil** (§8).
 
 ## Índice

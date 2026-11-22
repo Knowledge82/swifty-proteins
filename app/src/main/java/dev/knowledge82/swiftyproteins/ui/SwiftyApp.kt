@@ -31,7 +31,7 @@ import kotlinx.coroutines.launch
 
 /**
  * The root of the screen: decides WHAT to show ([Navigation.screenOf], pure and tested; no navigation library, D19)
- * and changes from one screen to the next like an old tube switching off and on ([CrtSwitch], bonus VII.2, document 23).
+ * and changes from one screen to the next like an old television ([CrtSwitch], bonus VII.2, documents 23 and 26).
  *
  *   boot screen      -> once per start, until the saved settings are read; ALWAYS dark (a CRT starting up)
  *   tutorial         -> the first time (and again from the settings)
@@ -76,7 +76,8 @@ fun SwiftyApp(
     val loadNow = state
     SoundOnChange(loadSoundTag(loadNow)) {
         when (loadNow) {
-            is LoadState.Loading -> sounds.play(SoundCue.SCAN)
+            // A quiet load (archived, document 26) makes no sound: it is over before the modem would have started.
+            is LoadState.Loading -> if (!loadNow.quiet) sounds.play(SoundCue.SCAN)
             is LoadState.Loaded -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.LOADED) }
             is LoadState.Failed -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.DENIED) }
             is LoadState.Idle -> sounds.stop(SoundCue.SCAN)
@@ -86,7 +87,7 @@ fun SwiftyApp(
     val compareNow = compareState
     SoundOnChange("compare:" + loadSoundTag(compareNow)) {
         when (compareNow) {
-            is LoadState.Loading -> sounds.play(SoundCue.SCAN)
+            is LoadState.Loading -> if (!compareNow.quiet) sounds.play(SoundCue.SCAN)
             is LoadState.Loaded -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.LOADED) }
             is LoadState.Failed -> { sounds.stop(SoundCue.SCAN); sounds.play(SoundCue.DENIED) }
             is LoadState.Idle -> Unit   // leaving the comparison: the SCAN of the first molecule is not ours to stop
@@ -128,12 +129,13 @@ fun SwiftyApp(
             // imePadding() inside the list does not add them a second time when the keyboard opens.
             val content = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding)
 
-            // The change of screen: an old tube switching off and on (bonus VII.2, document 23).
-            CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown ->
+            // The change of screen (bonus VII.2, documents 23 and 26): the tube switches ON at the cold start, a download
+            // arrives with a cut after its loading dialog, and everything else is an old television changing channel.
+            CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, tubeOn ->
                 when (shown) {
                     Screen.Boot -> AlwaysDark {
                         val size = remember(viewModel) { viewModel.catalog?.search("")?.size }
-                        BootScreen(catalogSize = size, onFinished = { booted = true }, modifier = content)
+                        BootScreen(catalogSize = size, onFinished = { booted = true }, modifier = content, running = tubeOn)
                     }
                     Screen.Tutorial -> OnboardingScreen(
                         onDone = {
