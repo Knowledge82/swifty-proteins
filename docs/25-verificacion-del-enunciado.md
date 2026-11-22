@@ -533,8 +533,8 @@ Las que el enunciado pone fuera de las secciones y también se miran:
 
 | El enunciado dice | Lo que hay |
 |-------------------|-----------|
-| **Transitions between views** | Un televisor antiguo (`ui/CrtSwitch.kt`; documentos 23 y 26). Al **arrancar**, el tubo **se enciende**: un punto, una línea y la imagen. Entre pantallas, **cambia de canal**: una ráfaga corta de estática y la barra del sincronismo vertical bajando por la imagen nueva. Tras una **descarga**, el diálogo de carga ya es la transición y la molécula aparece directamente. Dentro del tutorial, las páginas **se deslizan** en la dirección del gesto |
-| **Animated loading states** | El arranque que se escribe línea a línea (después de que el tubo se encienda); en la carga, el **servo-cráneo que flota** con el sonido del módem, **al menos 2 s**, las etapas que se marcan `[OK]` y la barra con porcentaje; un ligando ARCHIVED se abre sin diálogo, con un cambio de canal; al abrir la molécula, la barra **ASSEMBLY** mientras la escena se monta por lotes |
+| **Transitions between views** | Un televisor antiguo (`ui/CrtSwitch.kt`; documentos 23 y 26). Al **arrancar**, el tubo **se enciende**: un punto, una línea y la imagen. Entre pantallas, un **pulso de luz**: el tubo se ilumina un instante (160 ms) en verde fósforo pálido y la pantalla nueva aparece al apagarse. Tras una **descarga**, el diálogo de carga ya es la transición y la molécula aparece directamente. Dentro del tutorial, las páginas **se deslizan** en la dirección del gesto |
+| **Animated loading states** | El arranque que se escribe línea a línea (después de que el tubo se encienda); en la carga, el **servo-cráneo que flota** con el sonido del módem, **al menos 2 s**, las etapas que se marcan `[OK]` y la barra con porcentaje; un ligando ARCHIVED se abre sin diálogo, con un pulso de luz; al abrir la molécula, la barra **ASSEMBLY** mientras la escena se monta por lotes |
 | **Micro-interactions** | El **destello** que recorre «Swifty Proteins» cada 6 s; el **cursor de consola** que parpadea en el buscador; el **halo** al seleccionar; la molécula que **se desliza** al nuevo centro cuando cambia un panel; la cámara que **planea** al orbitar un átomo; un **clic de relé** en cada tecla |
 
 - **Ninguna animación cuesta fotogramas en reposo:** cada una pide fotogramas solo mientras se mueve (documento 23, §6).
@@ -789,7 +789,7 @@ Todo compila y está probado en la JVM, pero **antes de la defensa** hay que ver
 
 | # | Qué | Apartado | Riesgo si falla |
 |---|-----|----------|-----------------|
-| 1 | La **estática del cambio de canal** tapa también la escena 3D; el arranque espera al tubo; un ligando ARCHIVED se abre sin diálogo | 1.2, 3.4, VII.2 | Medio: la molécula se vería por encima de la estática |
+| 1 | El **pulso de luz** tapa también la escena 3D; el arranque espera al tubo; un ligando ARCHIVED se abre sin diálogo | 1.2, 3.4, VII.2 | Medio: la molécula se vería por encima de la luz |
 | 2 | **Guardar en la galería** (imagen) y compartir PNG | 4.6 | **Alto: es obligatorio** |
 | 3 | Desplazar con **dos dedos** | 4.5 | Bajo (recomendado, no obligatorio) |
 | 4 | Formatos `.cif` / `.mol` / `.glb` en otras apps | VII.5 | Bajo |

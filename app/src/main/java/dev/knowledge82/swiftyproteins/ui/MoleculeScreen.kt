@@ -517,6 +517,8 @@ private fun TopPanel(
                     FpsLabel(fps)
                 }
             }
+            // Room between the FPS number (right-aligned at the end of the column) and the key: it touched it (A33).
+            Spacer(Modifier.width(12.dp))
             ConsoleKey(
                 // SHARE in full (it was "SHR", as in the design: too cryptic, document 25). "..." while the capture is
                 // being prepared (the key is off: no double taps).

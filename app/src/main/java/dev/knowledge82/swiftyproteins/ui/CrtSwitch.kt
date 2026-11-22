@@ -1,6 +1,5 @@
 package dev.knowledge82.swiftyproteins.ui
 
-import android.graphics.Bitmap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -22,13 +21,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageShader
-import androidx.compose.ui.graphics.ShaderBrush
-import androidx.compose.ui.graphics.TileMode
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.graphics.drawscope.scale
-import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.unit.dp
 import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
 
@@ -38,8 +31,8 @@ import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
  * - the COLD START: the tube switches ON over the boot screen, a dot that stretches into a line that opens into the
  *   picture ([CrtTransition]). [content] is told when the tube is fully on, so the boot sequence starts only then;
  * - a molecule that was just DOWNLOADED: a CUT, at once (its loading dialog was the transition) ([Navigation.change]);
- * - every other change: a CHANGE OF CHANNEL, a short burst of static with the screens swapped under it, and the bar
- *   of the vertical hold rolling down the new picture ([ChannelChange]).
+ * - every other change: a FLASH of the tube, pale phosphor green, with the screens swapped while it is fully lit
+ *   ([ChannelChange]; it was a burst of television static at first, document 26, §3.3).
  *
  * WHY A CURTAIN AND NOT A TRANSFORM. The molecule screen holds a SurfaceView (Filament draws into its own window
  * surface): Compose's transforms and alpha do not reach it reliably. So nothing is transformed: everything is DRAWN
@@ -51,8 +44,8 @@ import dev.knowledge82.swiftyproteins.ui.theme.SwiftyPalette
  * @param target       the screen the app wants now ([Navigation.screenOf])
  * @param startOff     true on a cold start: the app opens with the tube switching on
  * @param reduceMotion the user asked the system for no animations: screens change at once
- * @param content      draws one screen, and whether the tube is fully ON ([on]); while static covers it, the screen it
- *                     is given may be the OLD one
+ * @param content      draws one screen, and whether the tube is fully ON ([on]); while the flash rises, the screen
+ *                     it is given may be the OLD one
  */
 @Composable
 fun CrtSwitch(
@@ -61,12 +54,12 @@ fun CrtSwitch(
     reduceMotion: Boolean,
     content: @Composable (screen: Screen, on: Boolean) -> Unit,
 ) {
-    // The screen on the tube. It lags behind [target] while the static rises: the old screen keeps drawing until the
-    // static hides it, and it carries its own data (a molecule screen carries its molecule).
+    // The screen on the tube. It lags behind [target] while the light rises: the old screen keeps drawing until the
+    // flash hides it, and it carries its own data (a molecule screen carries its molecule).
     var shown by remember { mutableStateOf(target) }
     // The switching on (cold start only): 1 = off, 0 = fully on.
     val cover = remember { mutableFloatStateOf(if (startOff && !reduceMotion) 1f else 0f) }
-    // The change of channel: its progress 0..1, or NONE when no change is running.
+    // The flash of a change of screen: its progress 0..1, or NONE when none is running.
     val channel = remember { mutableFloatStateOf(NONE) }
 
     LaunchedEffect(target.key, reduceMotion) {
@@ -89,9 +82,9 @@ fun CrtSwitch(
                 shown = target
             }
             Navigation.Change.CHANNEL -> {
-                // A change in the middle of another goes on from the static already on screen, never from a picture.
+                // A change in the middle of another goes on from the light already on screen, never from a picture.
                 val running = channel.floatValue
-                val from = if (running >= 0f) ChannelChange.restartAt(ChannelChange.frame(running).snow) else 0f
+                val from = if (running >= 0f) ChannelChange.restartAt(ChannelChange.frame(running).flash) else 0f
                 changeChannel(channel, from) { shown = target }
             }
         }
@@ -128,7 +121,7 @@ private suspend fun switchOn(cover: MutableFloatState) {
     }
 }
 
-/** A change of channel from progress [from] to the end; [swap] runs once, the frame the static is complete. */
+/** A flash from progress [from] to the end; [swap] runs once, the frame the light is complete. */
 private suspend fun changeChannel(channel: MutableFloatState, from: Float, swap: () -> Unit) {
     var swapped = ChannelChange.swapped(from)
     if (swapped) swap()
@@ -145,71 +138,38 @@ private suspend fun changeChannel(channel: MutableFloatState, from: Float, swap:
     channel.floatValue = NONE
 }
 
-/** Everything over the screen: the switching on, or the static of a change of channel. Nothing at rest. */
+/** Everything over the screen: the switching on, or the flash of a change of screen. Nothing at rest. */
 @Composable
 private fun TubeCurtain(cover: MutableFloatState, channel: MutableFloatState) {
-    val snow = remember { snowBrush() }
     Canvas(Modifier.fillMaxSize()) {
         // Read HERE, in the draw phase: a new value redraws, it does not recompose.
         val c = cover.floatValue
         val p = channel.floatValue
         if (c > 0f) drawCrt(CrtTransition.frame(c, size.width, size.height, LINE_DP.dp.toPx()))
-        if (p >= 0f) drawChannel(ChannelChange.frame(p), p, snow)
+        if (p >= 0f) drawFlash(ChannelChange.frame(p))
     }
 }
 
 /**
- * The static of a change of channel: the glass goes dark under it, the snow (a tile of random grains, shifted to a
- * new place every frame so it boils), scanlines, and after the swap the bright bar of the vertical hold rolling down.
+ * The flash of a change of screen: the whole glass lit in pale phosphor green, brightest in the middle (a radial
+ * gradient, as a tube glows), with faint scanlines over it. Both colours are opaque: at the swap nothing shows through.
  */
-private fun DrawScope.drawChannel(f: ChannelChange.Frame, progress: Float, snow: ShaderBrush) {
+private fun DrawScope.drawFlash(f: ChannelChange.Frame) {
+    if (f.flash <= 0f) return
     val w = size.width
     val h = size.height
-    if (f.snow > 0f) {
-        drawRect(GLASS, alpha = f.snow)
-        // A different offset each frame, from the progress itself: no random generator to allocate per frame.
-        val k = (progress * 9973f).toInt()
-        val dx = ((k * 37) % SNOW_TILE).toFloat()
-        val dy = ((k * 61) % SNOW_TILE).toFloat()
-        val grain = SNOW_GRAIN_DP.dp.toPx()
-        scale(grain, pivot = Offset.Zero) {
-            translate(-dx, -dy) {
-                drawRect(snow, topLeft = Offset.Zero, size = Size(w / grain + 2 * SNOW_TILE, h / grain + 2 * SNOW_TILE), alpha = f.snow * SNOW_ALPHA)
-            }
-        }
-    }
+    drawRect(
+        Brush.radialGradient(listOf(FLASH_CORE, FLASH_EDGE), center = Offset(w / 2f, h / 2f), radius = maxOf(w, h) * 0.75f),
+        alpha = f.flash,
+    )
     if (f.scan > 0f) {
         val step = 3.dp.toPx()
         var y = 0f
         while (y < h) {
-            drawLine(GLASS, Offset(0f, y), Offset(w, y), strokeWidth = 1.dp.toPx(), alpha = f.scan)
+            drawLine(SCANLINE, Offset(0f, y), Offset(w, y), strokeWidth = 1.dp.toPx(), alpha = f.scan)
             y += step
         }
     }
-    val roll = f.roll
-    if (roll != null) {
-        // The vertical hold catching the new picture: a soft bright bar that rolls down once and fades.
-        val band = ROLL_DP.dp.toPx()
-        val y = roll * (h + band) - band
-        val light = BEAM.copy(alpha = ROLL_ALPHA * (1f - roll))
-        drawRect(Brush.verticalGradient(listOf(Color.Transparent, light, Color.Transparent), startY = y, endY = y + band), Offset(0f, y), Size(w, band))
-    }
-}
-
-/**
- * The snow: a square tile of random grains in the tube's green-grey, made once. Seeded, so it is always the same
- * tile (nothing random hides in a test or a screenshot); it looks random because it moves every frame.
- */
-private fun snowBrush(): ShaderBrush {
-    val rnd = java.util.Random(SNOW_SEED)
-    val pixels = IntArray(SNOW_TILE * SNOW_TILE) {
-        val v = rnd.nextInt(256)
-        val g = v
-        val rb = v * 85 / 100   // a touch of phosphor green
-        (0xFF shl 24) or (rb shl 16) or (g shl 8) or rb
-    }
-    val bitmap = Bitmap.createBitmap(pixels, SNOW_TILE, SNOW_TILE, Bitmap.Config.ARGB_8888)
-    return ShaderBrush(ImageShader(bitmap.asImageBitmap(), TileMode.Repeated, TileMode.Repeated))
 }
 
 /** The tube switching on (the cold start): black around a window that opens from a dot. */
@@ -270,10 +230,7 @@ private const val LINE_DP = 2           // the line a tube shows just before it 
 private const val HALO_DP = 28
 private const val HALO_ALPHA = 0.45f
 private const val DOT_DP = 10
-// The static: a 128-pixel tile, each grain 2 dp, almost opaque; the rolling bar.
-private const val SNOW_TILE = 128
-private const val SNOW_GRAIN_DP = 2
-private const val SNOW_ALPHA = 0.9f
-private const val SNOW_SEED = 40_000L
-private const val ROLL_DP = 90
-private const val ROLL_ALPHA = 0.35f
+// The flash: pale phosphor green, a little whiter in the middle (both opaque).
+private val FLASH_CORE = Color(0xFFEFFFF1)
+private val FLASH_EDGE = Color(0xFFB9F5C6)
+private val SCANLINE = SwiftyPalette.Dark.phosphorDim   // darker green lines across the light

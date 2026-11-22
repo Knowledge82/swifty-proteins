@@ -1,12 +1,12 @@
-# 26 · Cambios de pantalla: encender, cambiar de canal, cortar
+# 26 · Cambios de pantalla: encender, pulso de luz, cortar
 
-> **Estado:** **escrito**. Sustituye la mitad «apagar» del tubo del documento 23. Reglas puras **probadas en la JVM** (631 pruebas en total; 14 nuevas; 14 mutantes, todos muertos). El dibujo de la estática, el arranque que espera al tubo y el diálogo que espera en una carga silenciosa **compilan contra *stubs*** y pasan las reglas de Compose; **sin probar en el móvil** (§8).
+> **Estado:** **escrito**. Sustituye la mitad «apagar» del tubo del documento 23. Reglas puras **probadas en la JVM** (631 pruebas en total; 14 nuevas; 19 mutantes, todos muertos). El cambio entre pantallas es un **pulso** (§3): verde pálido, 160 ms. La primera versión, con estática de televisor, se describe en §3.3. *(No confundir con el **destello** que recorre el nombre de la app, documento 23.)* El dibujo del pulso, el arranque que espera al tubo y el diálogo que espera en una carga silenciosa **compilan contra *stubs*** y pasan las reglas de Compose; **sin probar en el móvil** (§8).
 
 ## Índice
 
 1. [Qué se pidió tras verlo en el móvil](#1-qué-se-pidió-tras-verlo-en-el-móvil)
 2. [Tres maneras de cambiar de pantalla](#2-tres-maneras-de-cambiar-de-pantalla)
-3. [El cambio de canal](#3-el-cambio-de-canal)
+3. [El pulso de luz](#3-el-pulso-de-luz)
 4. [El encendido, solo al arrancar, y el arranque que lo espera](#4-el-encendido-solo-al-arrancar-y-el-arranque-que-lo-espera)
 5. [Abrir un ligando: descargado o archivado](#5-abrir-un-ligando-descargado-o-archivado)
 6. [Cómo lo hace `CrtSwitch`](#6-cómo-lo-hace-crtswitch)
@@ -27,8 +27,8 @@ El tubo del documento 23 era **un solo efecto en dos mitades**: la pantalla viej
 |-----------|-------|-----------------|
 | Arranque en frío | Encendido sobre la pantalla de arranque | **Igual**, pero que no se coma el principio del arranque (sus líneas y sus sonidos) |
 | Abrir un ligando que hay que **descargar** | Diálogo de carga **y además** el tubo | **Solo** el diálogo con el servo-cráneo y su sonido, y que dure **al menos 2 s** |
-| Abrir un ligando **archivado** | Un destello del diálogo y el tubo | **Cambio de canal** |
-| Atrás, ajustes, tutorial, acceso… | Apagar + encender | **Cambio de canal**: el efecto de un televisor antiguo que cambia de canal, **corto**, sin abrir ni cerrar desde el centro |
+| Abrir un ligando **archivado** | Un parpadeo del diálogo y el tubo | Un efecto corto de cambio de pantalla (hoy, el **pulso de luz**) |
+| Atrás, ajustes, tutorial, acceso… | Apagar + encender | Un efecto **corto**, sin abrir ni cerrar desde el centro. Primero se pidió «como un televisor que cambia de canal»; al verlo en el móvil, **más brillante y la mitad de largo**: un **pulso** verde pálido (§3) |
 
 ## 2. Tres maneras de cambiar de pantalla
 
@@ -36,7 +36,7 @@ El tubo del documento 23 era **un solo efecto en dos mitades**: la pantalla viej
 |--------|--------|--------|------------|
 | **Encendido** | Solo en el **arranque en frío**, sobre la pantalla de arranque | Un punto → una línea → la imagen (420 ms) | `CrtTransition` |
 | **Corte** (`CUT`) | Un ligando (o el segundo de una comparación) **recién descargado** | Ninguno: el diálogo de carga ya fue la transición | `Navigation.change` |
-| **Cambio de canal** (`CHANNEL`) | **Todo lo demás**: un ligando archivado, Atrás, ajustes, tutorial, acceso, bloqueo y desbloqueo | Una ráfaga de estática (320 ms) | `ChannelChange` |
+| **Pulso** (`CHANNEL`) | **Todo lo demás**: un ligando archivado, Atrás, ajustes, tutorial, acceso, bloqueo y desbloqueo | El tubo se ilumina de verde pálido un instante (160 ms) | `ChannelChange` |
 
 La regla es **una función pura**, probada:
 
@@ -49,36 +49,40 @@ fun change(from: Screen, to: Screen): Change = when {
 ```
 
 - **El origen decide**, y ya venía en la pantalla: `Screen.Molecule` lleva `origin` (NETWORK, ARCHIVE, ARCHIVE_OFFLINE, documento 13), y `Screen.Compare` lleva ahora el de su segunda molécula (`secondOrigin`).
-- **Solo desde el índice** (o desde la molécula, para la comparación). Volver del acceso a una molécula descargada hace una hora es un **cambio de canal**: esta vez no hubo diálogo antes.
+- **Solo desde el índice** (o desde la molécula, para la comparación). Volver del acceso a una molécula descargada hace una hora es un **pulso**: esta vez no hubo diálogo antes.
 
-## 3. El cambio de canal
+## 3. El pulso de luz
 
 ```
-progreso 0 ──── 0,35 ──────────────────────────── 1          (320 ms)
-         sube la estática │ se cambian las pantallas, la estática se aclara
-                          │ y la barra del sincronismo vertical baja por la imagen nueva
+progreso 0 ── 0,3 ──────────────────────────── 1          (160 ms)
+          sube │ intercambio con la luz completa; la luz cae deprisa y luego se apaga suave
 ```
 
-Lo que se ve, en un televisor de tubo al girar el dial:
+1. **El cristal se ilumina** en verde fósforo pálido, en línea recta: ~50 ms.
+2. **En el punto 0,3 la luz es completa** (los dos colores son opacos): no se ve **ninguna** de las dos pantallas, y se intercambian.
+3. **La luz cae** de la imagen nueva: deprisa al principio y con una cola suave (`(1 − t)²`). Así se apaga un fogonazo en el ojo; con una caída en línea recta se vería como un fundido.
+4. Encima, **líneas de barrido** tenues, en verde oscuro, que siguen a la luz: es un tubo encendido, no una hoja en blanco.
 
-1. **La estática sube** (la «nieve»): en línea recta, rápida, 112 ms. Debajo, el cristal se va oscureciendo.
-2. **En el punto 0,35 la estática es completa**: no se ve **ninguna** de las dos pantallas, y se intercambian.
-3. **La estática se aclara** sobre la imagen nueva, lenta al principio y rápida al final (`1 − t²`): la imagen «engancha».
-4. Mientras tanto, una **barra clara** baja una vez por la pantalla y se desvanece: el **sincronismo vertical** buscando la señal.
-5. **Líneas de barrido** en toda la pantalla, más fuertes cuanto más estática hay.
+**El color:** un degradado radial de `#EFFFF1` (casi blanco, en el centro) a `#B9F5C6` (verde fósforo pálido, en los bordes), porque un tubo brilla más en el medio. Es el mismo verde de la consola de la app, ahora encendido de golpe: un **pulso de energía del cogitador**.
 
-No hay aplastamiento ni nada que se abra desde el centro: eso es encender el tubo, y queda para el arranque.
+**Por qué en los dos temas:** igual que el encendido, es el tubo, no la página.
 
-### 3.1 La nieve sin crear nada en cada fotograma
+### 3.1 Un cambio en mitad de otro
 
-- **Una tesela** de 128 × 128 granos aleatorios en gris verdoso, creada **una vez** (un `Bitmap` de Android y su `ImageShader` que se repite), con una semilla fija: siempre la misma tesela.
-- **Cada grano** mide 2 dp (`scale`).
-- **En cada fotograma** la tesela se pinta en **otro sitio** (`translate`), con un desplazamiento calculado del propio progreso. La nieve «hierve» sin generar números aleatorios ni reservar memoria por fotograma.
-- **Encima**, el cristal negro con la misma opacidad que la estática, para que en el intercambio la pantalla quede tapada del todo.
+Si llega otra pantalla mientras la luz aún se ve (dos toques rápidos), el cambio nuevo empieza **en el lado que sube**, con la **misma** luz que hay en pantalla (`ChannelChange.restartAt`). La luz **nunca baja** para enseñar una pantalla que ya no es la buscada.
 
-### 3.2 Un cambio en mitad de otro
+### 3.2 Barato
 
-Si llega otra pantalla mientras la estática aún se ve (dos toques rápidos), el cambio nuevo empieza **en el lado que sube**, con la **misma** estática que hay en pantalla (`ChannelChange.restartAt`). La estática **nunca baja** para enseñar una pantalla que ya no es la buscada.
+Un rectángulo con un degradado y unas líneas, solo durante 160 ms y solo en la fase de dibujo. No crea nada por fotograma.
+
+### 3.3 La primera versión: estática de televisor (descartada)
+
+La primera versión de este documento era un **cambio de canal** de 320 ms:
+- la imagen se ahogaba en **nieve** (una tesela de granos aleatorios creada una vez y desplazada en cada fotograma);
+- las pantallas se cambiaban debajo de la nieve;
+- una barra clara del **sincronismo vertical** bajaba por la imagen nueva.
+
+**Por qué se cambió (visto en el A33):** la nieve evoca un **televisor viejo de la Tierra**, no el cogitador de Warhammer 40k, y además era demasiado larga. El pulso es más corto (la mitad), más brillante y usa el verde de la app. De la primera versión se quedan el **esquema** (el intercambio con la pantalla tapada del todo) y el **reinicio desde lo que se ve**.
 
 ## 4. El encendido, solo al arrancar, y el arranque que lo espera
 
@@ -100,10 +104,10 @@ Resultado: **4,2 s de arranque completos** después de los 0,42 s del encendido,
 | ¿Diálogo de carga? | Sí, **al momento** | **No**… salvo que tarde más de **600 ms** |
 | ¿Sonido del módem? | Sí | No |
 | Duración mínima | **2 s** | Ninguna |
-| Cambio de pantalla | **Corte** | **Cambio de canal** |
+| Cambio de pantalla | **Corte** | **Pulso** |
 
 - **¿Por qué 2 s?** En una red rápida el fichero llega en unos cientos de milisegundos, y el diálogo solo **parpadeaba**. El servo-cráneo que flota, las etapas que se marcan y el módem son parte de la experiencia: ahora tienen su tiempo.
-- **¿Por qué un archivado va en silencio?** La copia está en el móvil y se abre en milisegundos: un diálogo sería un destello sin sentido. Basta el cambio de canal.
+- **¿Por qué un archivado va en silencio?** La copia está en el móvil y se abre en milisegundos: un diálogo solo parpadearía. Basta el pulso.
 - **¿Y si un archivado tarda?** Una copia de más de 30 días se **refresca** en la red (documento 13), y con una red lenta eso tarda. Si la carga silenciosa pasa de **600 ms**, el diálogo aparece igualmente: nadie se queda esperando sin saber qué pasa.
 
 ### 5.2 Dónde se decide
@@ -123,12 +127,12 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 
 - **Dos valores**, leídos solo en el dibujo:
   - `cover`, 1 → 0 durante el encendido;
-  - `channel`, el progreso del cambio de canal, o −1 si no hay ninguno.
+  - `channel`, el progreso del pulso, o −1 si no hay ninguno.
 
   En reposo los dos están en «nada», la cortina no dibuja y no se pide ningún fotograma.
 - **Al llegar una pantalla nueva** (otra `key`):
   - `CUT`: se cambia al momento;
-  - `CHANNEL`: se avanza fotograma a fotograma, y la pantalla mostrada se cambia **el fotograma en que la estática es completa**.
+  - `CHANNEL`: se avanza fotograma a fotograma, y la pantalla mostrada se cambia **el fotograma en que la luz es completa**.
 - **Mientras dura**, una capa transparente absorbe los toques.
 - **Animaciones del sistema desactivadas**: todo es inmediato, y el arranque empieza al momento.
 
@@ -136,31 +140,32 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 
 | Fichero | Nuevas | Qué fija |
 |---------|--------|----------|
-| `ChannelChangeTest` | 5 | Sin estática al principio ni al final y **completa en el intercambio**; sube hasta el intercambio y luego solo baja; la barra solo con la imagen nueva; corto (< 500 ms, intercambio antes de la mitad); un cambio en mitad de otro empieza con la misma estática |
+| `ChannelChangeTest` | 5 | Sin luz al principio ni al final y **completa en el intercambio**; sube hasta el intercambio y luego solo baja, **deprisa primero** (la mitad de la luz se va en el primer tercio de la caída); las líneas de barrido siguen a la luz y son tenues; un parpadeo (≤ 160 ms, intercambio antes de la mitad); un cambio en mitad de otro empieza con la misma luz |
 | `LoadingPolicyTest` | 3 | 2 s para una descarga, nada para un archivado; lo que falta nunca es negativo; la gracia entre 0,3 y 1 s |
 | `LigandLoaderTest` | 5 | Una descarga instantánea sigue cargando hasta el mínimo; una silenciosa no espera; sigue silenciosa con las etapas; un Cancel durante la espera no publica nada; un fallo también espera |
-| `NavigationTest` | 1 | Corte solo para lo recién descargado y solo desde el índice (o la molécula, en la comparación); cambio de canal en todo lo demás, incluido volver del acceso; la comparación lleva su origen |
+| `NavigationTest` | 1 | Corte solo para lo recién descargado y solo desde el índice (o la molécula, en la comparación); pulso en todo lo demás, incluido volver del acceso; la comparación lleva su origen |
 | `SoundTagsTest` | (ampliada) | La etiqueta de una carga silenciosa es otra |
 | `CrtTransitionTest` | 1 (−2) | Solo queda el encendido: tiempo, desde la mitad, reloj hacia atrás, por debajo de 600 ms |
-| `GlintTest` | (cambiada) | La primera pasada del destello espera al encendido y al cambio de canal |
+| `GlintTest` | (cambiada) | La primera pasada del **destello** de la cabecera espera al encendido y al pulso |
 
-**Mutantes (14, muertos):**
-- estática incompleta en el intercambio, intercambio tardío, reinicio desde cero, barra antes de tiempo, cambio largo;
+**Mutantes (19, muertos):**
+- (primera versión) estática incompleta en el intercambio, intercambio tardío, reinicio desde cero, barra antes de tiempo, cambio largo;
+- (pulso) luz incompleta en el intercambio, caída en línea recta, 320 ms, reinicio desde cero, líneas de barrido a tope todo el tiempo;
 - corte para lo archivado, corte desde cualquier pantalla, comparación sin origen;
 - mínimo también para lo silencioso, resto negativo, sin espera, etapas que pierden el silencio, silencioso que espera;
 - la misma etiqueta de sonido.
 
-**Sin prueba automática:** el dibujo de la nieve, la barra y las líneas; que el arranque espere de verdad al tubo; el diálogo que aparece tras la gracia. Ver §8.
+**Sin prueba automática:** el dibujo del pulso y sus líneas; que el arranque espere de verdad al tubo; el diálogo que aparece tras la gracia. Ver §8.
 
 ## 8. Cómo probarlo en el móvil
 
 1. **Arranque en frío** (cerrar desde Recientes): punto → línea → arranque, y **después** las líneas una a una con sus tics. El zumbido suena con el encendido.
-2. **Arranque → acceso**, **acceso → índice**: cambio de canal (estática, barra), corto.
+2. **Arranque → acceso**, **acceso → índice**: un pulso verde pálido, muy corto.
 3. Un ligando **nunca abierto**: el diálogo con el cráneo y el módem **2 s** como mínimo, y la molécula **sin** estática.
-4. Un ligando **ARCHIVED**: sin diálogo, sin módem; cambio de canal directo a la molécula.
-5. **Atrás** desde la molécula, **ajustes**, **tutorial**: cambio de canal.
-6. Dos toques rápidos (abrir los ajustes y volver): la estática no «salta».
-7. **El 3D también queda tapado** por la estática en el intercambio.
+4. Un ligando **ARCHIVED**: sin diálogo, sin módem; un pulso y la molécula.
+5. **Atrás** desde la molécula, **ajustes**, **tutorial**: pulso.
+6. Dos toques rápidos (abrir los ajustes y volver): la luz no «salta».
+7. **El 3D también queda tapado** por la luz en el intercambio.
 8. Modo avión y un ligando nuevo: el diálogo 2 s y luego el error.
 9. **IDLE** en la molécula tras el cambio.
 
@@ -170,7 +175,7 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 2. **Un diálogo de carga que parpadea**: rápido no siempre es mejor; un mínimo lo hace legible.
 3. **Un mínimo que rompe la cancelación**: esperar **fuera** de la tarea publicaría un resultado ya cancelado.
 4. **Dos transiciones seguidas** (diálogo + tubo): demasiado.
-5. **Generar ruido aleatorio en cada fotograma**: memoria y trabajo para nada; mover una tesela fija basta.
+5. **Un efecto que evoca otra cosa**: la estática decía «televisor de la Tierra», no «cogitador». La estética manda tanto como la técnica.
 6. **Reiniciar un efecto desde cero** cuando se interrumpe: la pantalla equivocada asoma un instante.
 7. **Ocultar un diálogo para siempre** en una carga «rápida» que resulta lenta: hace falta la gracia.
 
@@ -180,22 +185,25 @@ CrtSwitch(target = screen, startOff = !booted, reduceMotion = reduce) { shown, t
 |-------------|-----------|
 | Un *shader* AGSL de ruido de verdad | Solo Android 13+; la app es minSdk 24 |
 | Desplazamiento horizontal de la imagen (*tearing*) | El SurfaceView del 3D no se transforma (documento 23, §2.3) |
-| Cambio de canal también tras una descarga | Dos transiciones seguidas |
+| Pulso también tras una descarga | Dos transiciones seguidas |
 | Diálogo también para lo archivado, con su mínimo | 2 s de espera para algo que ya está en el móvil |
 | El mínimo en el diálogo (que se quede abierto aunque el estado ya sea Loaded) | La molécula aparecería **debajo** del diálogo; el estado único (`LoadState`) dejaría de decir la verdad |
-| Sonido de estática | Ninguno de los diez sonidos encaja; uno nuevo con `make_sounds.py` es posible si se quiere |
+| Estática de televisor (nieve y barra de sincronismo) | La primera versión (§3.3): evocaba un televisor viejo de la Tierra, no el cogitador, y era el doble de larga |
+| Un fundido negro | Apaga en vez de iluminar: sin la energía del pulso |
+| Un sonido para el pulso | Ninguno de los diez sonidos encaja; uno nuevo con `make_sounds.py` es posible si se quiere |
 
 ## 11. Decisiones
 
 | # | Decisión | Estado | Motivo |
 |---|----------|--------|--------|
-| D91 | **Tres cambios de pantalla**: encendido solo en el arranque en frío, **corte** tras una descarga, **cambio de canal** (estática de 320 ms) en todo lo demás; la mitad «apagar» del tubo desaparece | Decidida (sin probar en el móvil) | Probado en el móvil por el equipo; sustituye parte de D84 |
+| D91 | **Tres cambios de pantalla**: encendido solo en el arranque en frío, **corte** tras una descarga, **pulso** verde pálido de 160 ms en todo lo demás (la estática de 320 ms de la primera versión se descartó); la mitad «apagar» del tubo desaparece | Decidida (sin probar en el móvil) | Probado en el móvil por el equipo; sustituye parte de D84 |
 | D92 | La pantalla de arranque **espera al tubo** para empezar su reloj | Decidida (sin probar en el móvil) | El encendido se comía sus primeras líneas |
 | D93 | **Carga silenciosa** de un ligando archivado (sin diálogo ni sonido, salvo que pase de 600 ms) y **mínimo de 2 s** del diálogo de una descarga, aplicado en el `LigandLoader` | Decidida | El diálogo parpadeaba; lo archivado no lo necesita |
 
 ## 12. Qué recordar
 
-- **Cada transición tiene un sitio:** encender es empezar, cambiar de canal es moverse, y un diálogo de carga ya es una transición.
+- **Cada transición tiene un sitio:** encender es empezar, el pulso es moverse, y un diálogo de carga ya es una transición.
+- **El efecto tiene que hablar el idioma de la app:** la nieve era técnica correcta con la estética equivocada.
 - **Una animación no debe tapar a otra:** lo de debajo espera.
 - **El mínimo se aplica donde está la verdad** (el cargador), no en la pantalla.
 - **Interrumpir un efecto** es continuarlo desde lo que se ve, no empezarlo de nuevo.
